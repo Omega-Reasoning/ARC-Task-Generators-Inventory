@@ -3,6 +3,10 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# other ignores
+.VSCodeCounter
+.DS_store
+
 # C extensions
 *.so
 
