@@ -4,15 +4,15 @@ from arc_task_generator import ARCTaskGenerator
 
 class ARCTask00d62c1bGenerator(ARCTaskGenerator):
     def __init__(self):
-        observation_chain = [
+        input_reasoning_chain = [
             "Input matrices can have different sizes.",
             "They only contain {color('object_color')} and empty cells.",
             "The {color('object_color')} cells sometimes form closed objects."
         ]
-        reasoning_chain = [
+        transformation_reasoning_chain = [
             "The output matrix is constructed by copying the input matrix and filling the closed {color('object_color')} objects with {color('fill_color')} cells."
         ]
-        super().__init__(observation_chain, reasoning_chain)
+        super().__init__(input_reasoning_chain, transformation_reasoning_chain)
     
     def create_input(self, taskvars: Dict[str, Any], matrixvars: Dict[str, Any]) -> np.ndarray:
         height, width = matrixvars['height'], matrixvars['width']

@@ -4,8 +4,8 @@ from typing import Dict, List, Any
 
 @dataclass
 class ARCTask:
-    observation_chain: List[str]
-    reasoning_chain: List[str]
+    input_reasoning_chain: List[str]
+    transformation_reasoning_chain: List[str]
     task_variables: Dict[str, Any]
     transform_code: str
     train_test_data: Dict[str, List[Dict[str, np.ndarray]]]
@@ -15,12 +15,12 @@ class ARCTask:
         
         # Input Observations
         output.append("Input Observations:")
-        for obs in self.observation_chain:
+        for obs in self.input_reasoning_chain:
             output.append(f"- {obs}")
 
         # Reasoning Steps
         output.append("\nReasoning Steps:")
-        for i, step in enumerate(self.reasoning_chain, 1):
+        for i, step in enumerate(self.transformation_reasoning_chain, 1):
             output.append(f"{i}. {step}")
 
         # Transform Code

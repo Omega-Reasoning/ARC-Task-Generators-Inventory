@@ -7,16 +7,16 @@ class ARCTask007bbfb7Generator(ARCTaskGenerator):
     def __init__(self):
         # we use a general version of the task in which the input martrix is copied #columns times horizontally and 
         # rows times vertically
-        observation_chain = [
+        input_reasoning_chain = [
             "The inputs are {vars['row_blocks']}x{vars['column_blocks']} matrices.",
             "Some cells are empty (value 0) and all other cells have a single other color value (1-9)."
         ]
-        reasoning_chain = [
+        transformation_reasoning_chain = [
             "The output matrix is a {vars['row_blocks']*vars['row_blocks']}x{vars['column_blocks']*vars['column_blocks']} matrix.",
             "It can be subdivided into {vars['row_blocks']}x{vars['column_blocks']} blocks.",
             "If the input matrix contains a non-empty cell in coordinate (i,j) then the corresponding block is a copy of the input matrix."
         ]
-        super().__init__(observation_chain, reasoning_chain)
+        super().__init__(input_reasoning_chain, transformation_reasoning_chain)
 
     def create_matrices(self) -> Tuple[Dict[str, Any], TrainTestData]:
         taskvars = {}
@@ -69,7 +69,6 @@ class ARCTask007bbfb7Generator(ARCTaskGenerator):
         matrix[row_indices, col_indices] = color
         
         return matrix
-
 
     def transform_input(self, matrix: np.ndarray, taskvars: Dict[str, Any]) -> np.ndarray:
         row_blocks = taskvars['row_blocks']
