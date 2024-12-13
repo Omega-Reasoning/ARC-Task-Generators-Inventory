@@ -1,8 +1,8 @@
 import numpy as np
-from typing import Dict, List, Any
-from arc_task_generator import ARCTaskGenerator
+from typing import Dict, List, Any, Tuple
+from arc_task_generator import ARCTaskGenerator, TrainTestData
 
-class ARCTask007bbfb7(ARCTaskGenerator):
+class ARCTask007bbfb7Generator(ARCTaskGenerator):
 
     def __init__(self):
         # we use a general version of the task in which the input martrix is copied #columns times horizontally and 
@@ -16,19 +16,17 @@ class ARCTask007bbfb7(ARCTaskGenerator):
             "It can be subdivided into {vars['row_blocks']}x{vars['column_blocks']} blocks.",
             "If the input matrix contains a non-empty cell in coordinate (i,j) then the corresponding block is a copy of the input matrix."
         ]
-        task_variable_definitions = {
-            'row_blocks': range(2,4),
-            'column_blocks': range(2,4)
-        }
+        super().__init__(observation_chain, reasoning_chain)
 
-        super().__init__(observation_chain, reasoning_chain, task_variable_definitions)
-
-    def create_matrices(self, taskvars: Dict[str, Any]) -> Dict[str, List[Dict[str, np.ndarray]]]:
+    def create_matrices(self) -> Tuple[Dict[str, Any], TrainTestData]:
+        taskvars = {}
+        taskvars['row_blocks'] = np.random.randint(2, 4)
+        taskvars['column_blocks'] = np.random.randint(2, 4)
         num_train = np.random.randint(2, 6)
         train = []
 
-        # Choose two distinct "colors" from range(1,9)
-        colors = np.random.choice(range(1, 9), size=2, replace=False)
+        # Choose three distinct colors
+        colors = np.random.choice(range(1, 9), size=3, replace=False)
 
         # Create training examples
         for _ in range(num_train):
@@ -49,10 +47,7 @@ class ARCTask007bbfb7(ARCTaskGenerator):
             "output": test_output
         }]
 
-        return {
-            "train": train,
-            "test": test
-        }
+        return (taskvars, { "train": train, "test": test } )
 
     def create_input(self, taskvars: Dict[str, Any], matrixvars: Dict[str, Any]) -> np.ndarray:
         rows = taskvars['row_blocks']

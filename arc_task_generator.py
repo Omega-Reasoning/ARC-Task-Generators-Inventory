@@ -1,10 +1,18 @@
 import numpy as np
-from typing import Dict, List, Any, Union
+from typing import Dict, List, Any, Tuple, TypedDict, Union
 from abc import ABC, abstractmethod
 import matplotlib.pyplot as plt
 from matplotlib.colors import ListedColormap
 
 from arc_task import ARCTask
+
+class MatrixPair(TypedDict):
+    input: np.ndarray
+    output: np.ndarray
+
+class TrainTestData(TypedDict):
+    train: List[MatrixPair]
+    test: List[MatrixPair]
 
 class ARCTaskGenerator(ABC):
 
@@ -22,28 +30,29 @@ class ARCTaskGenerator(ABC):
     }
 
     def __init__(self,
-                 observation_chain: List[str],
-                 reasoning_chain: List[str],
-                 taskvars_definitions: Dict[str, Union[range, List[Any]]]):
+                 input_reasoning_chain: List[str],
+                 transformation_reasoning_chain: List[str]):
         """
         Parameters
         ----------
-        observation_chain : List[str]
+        input_reasoning_chain : List[str]
             Template strings describing the input observations.
-        reasoning_chain : List[str]
+        transformation_reasoning_chain : List[str]
             Template strings describing the reasoning steps.
-        taskvars_definitions : Dict[str, Union[range, List[Any]]]
-            Dictionary defining the possible values for each task variable.
-            For example: {'row_blocks': range(2,5), 'pattern_type': ['block_copy','color_shift']}
         """
-        self.observation_chain = observation_chain
-        self.reasoning_chain = reasoning_chain
-        self.taskvars_definitions = taskvars_definitions
+        self.input_reasoning_chain = input_reasoning_chain
+        self.transformation_reasoning_chain = transformation_reasoning_chain
 
     @abstractmethod
-    def create_matrices(self, taskvars: Dict[str, Any]) -> Dict[str, List[Dict[str, np.ndarray]]]:
+    def create_matrices(self) -> Tuple[Dict[str, Any], TrainTestData]:
         """
-        Create train and test matrices.
+        Initialise task variables used in templates and create train/test data matrices.
+        
+        Returns
+        -------
+        Tuple[Dict[str, Any], TrainTestData]
+            First element: Dictionary of task variables used in templates
+            Second element: Dictionary containing train and test matrices
         """
         pass
 
@@ -52,7 +61,7 @@ class ARCTaskGenerator(ABC):
                      taskvars: Dict[str, Any],
                      matrixvars: Dict[str, Any]) -> np.ndarray:
         """
-        Create an input matrix given the task and matrix variables.
+        Create an input matrix based according to the input reasoning chain given the task and matrix variables.
         """
         pass
 
@@ -61,8 +70,7 @@ class ARCTaskGenerator(ABC):
                         matrix: np.ndarray,
                         taskvars: Dict[str, Any]) -> np.ndarray:
         """
-        Transform the input matrix according to the reasoning steps,
-        producing an output matrix.
+        Transform the input matrix according to the transformation reasoning chain, producing an output matrix.
         """
         pass
 
@@ -87,7 +95,7 @@ class ARCTaskGenerator(ABC):
         num_test = len(train_test_data['test'])
         total_examples = num_train + num_test
         
-        fig, axes = plt.subplots(total_examples, 2, figsize=(6, 3*total_examples))
+        fig, axes = plt.subplots(total_examples, 2, figsize=(6, 2*total_examples))
         
         if total_examples == 1:
             axes = axes.reshape(1, 2)
@@ -127,27 +135,18 @@ class ARCTaskGenerator(ABC):
         plt.tight_layout()
         plt.show()
 
-    def _select_task_variables(self) -> Dict[str, Any]:
-        """
-        Randomly select values for the task variables from the given definitions.
-        """
-        selected = {}
-        for var_name, var_range in self.taskvars_definitions.items():
-            if isinstance(var_range, range):
-                selected[var_name] = np.random.choice(list(var_range))
-            elif isinstance(var_range, list):
-                selected[var_name] = np.random.choice(var_range)
-            else:
-                raise ValueError(f"Unsupported type for variable definition {var_name}")
-        return selected
-
-    def _instantiate_templates(self, templates: List[str], variables: Dict[str, Any]) -> List[str]:
+    def _instantiate_templates(self, templates: List[str], vars: Dict[str, Any]) -> List[str]:
         """
         Instantiate template strings using f-string evaluation with given variables.
+        color('key') is supported as a shorthand for COLOR_MAP[vars['key']]}
         """
-        # we perform f-string evaluation since this allows us to perform more complex operations (e.g. multiplications) in templates
-        # we assume the variables are references as vars['variable'] in the template
-        return [eval(f"f'{tmpl}'", {"vars": variables}) for tmpl in templates]
+        def color(key): return self.COLOR_MAP[vars[key]]
+        
+        context = {
+            "vars": vars,
+            "color": color
+        }
+        return [eval(f"f'{tmpl}'", context) for tmpl in templates]
 
     def _partial_evaluation_code(self, func, taskvars: Dict[str, Any]) -> str:
         """
@@ -184,17 +183,14 @@ class ARCTaskGenerator(ABC):
         return "\n".join(lines).strip()
 
     def create_task(self) -> ARCTask:
-        # 1. Instantiate task variables
-        task_variables = self._select_task_variables()
+        # 1. Instantiate task variables and create train and test matrices
+        task_variables, train_test_data = self.create_matrices()
 
-        # 2. Create train and test matrices
-        train_test_data = self.create_matrices(task_variables)
+        # 2. Instantiate observation and reasoning chains
+        observation_chain = self._instantiate_templates(self.input_reasoning_chain, task_variables)
+        reasoning_chain = self._instantiate_templates(self.transformation_reasoning_chain, task_variables)
 
-        # 3. Instantiate observation and reasoning chains
-        observation_chain = self._instantiate_templates(self.observation_chain, task_variables)
-        reasoning_chain = self._instantiate_templates(self.reasoning_chain, task_variables)
-
-        # 4. Partial evaluation of transform_input allowing us to remove the dependency on variables and store the function as string
+        # 3. Partial evaluation of transform_input allowing us to remove the dependency on variables and store the function as string
         transform_code = self._partial_evaluation_code(self.transform_input, task_variables)
 
         # Create and return ARCTask
