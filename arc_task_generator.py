@@ -1,8 +1,7 @@
 import numpy as np
-from typing import Dict, List, Any, Tuple, TypedDict, Union
+from typing import Dict, List, Any, Tuple, TypedDict
 from abc import ABC, abstractmethod
 import matplotlib.pyplot as plt
-from matplotlib.colors import ListedColormap
 
 from arc_task import ARCTask
 
@@ -75,7 +74,7 @@ class ARCTaskGenerator(ABC):
         pass
 
     @staticmethod
-    def visualize_train_test_data(train_test_data: Dict):
+    def visualize_train_test_data(train_test_data: TrainTestData):
         colors = [
             (0, 0, 0),          # black for empty
             (30, 147, 255),     # blue

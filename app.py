@@ -41,42 +41,6 @@ def load_task_generator(file_path):
         st.error(f"Error loading module {file_path}: {str(e)}")
         return None
 
-def display_matrix_fixed_size(matrix, title):
-    """Display a 2D matrix with colors."""
-    # Define the RGB color mapping
-    colors = [
-        (0, 0, 0),          # black for empty
-        (30, 147, 255),     # blue
-        (249, 60, 49),      # red
-        (79, 204, 48),      # green
-        (255, 220, 0),      # yellow
-        (153, 153, 153),    # grey
-        (229, 58, 163),     # pink
-        (255, 137, 27),     # orange
-        (135, 216, 241),    # cyan
-        (146, 18, 49)       # maroon
-    ]
-
-    st.subheader(title)
-    html = '<style>table {border-collapse: collapse} td {width: 30px; height: 30px; text-align: center; border: 1px solid black;}</style>'
-    html += '<table>'
-    for row in matrix:
-        html += '<tr>'
-        for cell in row:
-            # Get the RGB color for the cell value
-            if 0 <= cell < len(colors):
-                r, g, b = colors[cell]
-                color = f'background-color: rgb({r}, {g}, {b})'
-                # Use white text for dark backgrounds
-                text_color = 'white' if (r + g + b) < 382 else 'black'  # 382 is roughly half of 255*3
-                style = f'{color}; color: {text_color}'
-            else:
-                style = ''
-            html += f'<td style="{style}">{cell}</td>'
-        html += '</tr>'
-    html += '</table>'
-    st.markdown(html, unsafe_allow_html=True)
-
 def display_matrix(matrix, title):
     """Display a 2D matrix with colors."""
     # Calculate cell size based on matrix dimensions
