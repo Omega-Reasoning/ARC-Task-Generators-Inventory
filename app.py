@@ -156,10 +156,10 @@ def main():
         
         # Store in session state
         st.session_state.task = task
-        st.session_state.train_test_data = task.train_test_data
+        st.session_state.train_test_data = task.data
         st.session_state.input_reasoning = task.input_reasoning_chain
         st.session_state.transform_reasoning = task.transformation_reasoning_chain
-        st.session_state.transform_code = task.transform_code
+        st.session_state.transform_code = task.code
         st.session_state.task_vars = task.task_variables
 
     # Display task information if available

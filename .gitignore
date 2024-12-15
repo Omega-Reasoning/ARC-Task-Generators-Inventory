@@ -6,6 +6,7 @@ __pycache__/
 # other ignores
 .VSCodeCounter
 .DS_store
+datasets
 
 # C extensions
 *.so

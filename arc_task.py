@@ -1,6 +1,21 @@
 from dataclasses import dataclass
 import numpy as np
 from typing import Dict, List, Any
+import json
+import csv
+import os
+from datetime import datetime
+import shortuuid
+from typing import Dict, List, Any
+
+
+class ARCDataEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+        if isinstance(obj, (np.int64, np.int32)):
+            return int(obj)
+        return super().default(obj)
 
 @dataclass
 class ARCTask:
@@ -31,27 +46,15 @@ class ARCTask:
         # Create file with header if it doesn't exist
         self.write_csv_header(filename)
 
-        # Convert numpy arrays to lists for JSON serialization
-        data_serializable = {
-            set_name: [
-                {
-                    'input': pair['input'].tolist(),
-                    'output': pair['output'].tolist()
-                }
-                for pair in pairs
-            ]
-            for set_name, pairs in self.data.items()
-        }
-
         # Prepare row data
         row = [
             shortuuid.uuid(),
             datetime.now().isoformat(),
             json.dumps(self.input_reasoning_chain),
             json.dumps(self.transformation_reasoning_chain),
-            json.dumps(self.task_variables),
-            json.dumps(self.code),
-            json.dumps(data_serializable)
+            json.dumps(self.task_variables, cls=ARCDataEncoder),
+            self.code,
+            json.dumps(self.data, cls=ARCDataEncoder)
         ]
 
         # Append to CSV

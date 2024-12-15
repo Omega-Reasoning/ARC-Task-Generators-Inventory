@@ -57,3 +57,43 @@ python test.py arc_training/task007bbfb7.py
 ```bash
 python test.py arc_training/task007bbfb7.py -v
 ```
+
+### Dataset generator
+
+Use the dataset generator to create a dataset of ARC tasks from multiple generators:
+
+```bash
+python dataset_generator.py [options]
+```
+
+#### Options:
+- `-g, --generator_folders`: Specify one or more folders containing generators
+  - Default: All non-hidden subfolders (except 'datasets')
+  - Example: `python dataset_generator.py -g arc_training arc_test`
+
+- `-n, --nr_of_tasks`: Number of tasks to generate per generator
+  - Default: 100
+  - Example: `python dataset_generator.py -n 50`
+
+- `-o, --output`: Output directory for generated datasets
+  - Default: "datasets"
+  - Example: `python dataset_generator.py -o my_datasets`
+
+#### Examples:
+
+Generate default number of tasks from all generators:
+```bash
+python dataset_generator.py
+```
+
+Generate 50 tasks from specific folders:
+```bash
+python dataset_generator.py -g arc_training arc_test -n 50
+```
+
+Generate tasks with custom output location:
+```bash
+python dataset_generator.py -o custom_datasets -n 200
+```
+
+The generator creates both individual CSV files for each folder and a combined 'all.csv' file in the output directory.
