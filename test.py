@@ -7,6 +7,6 @@ if __name__ == "__main__":
     generator = ARCTask007bbfb7Generator()
     task = generator.create_task()
     print(task)
-    ARCTaskGenerator.visualize_train_test_data(task.train_test_data)
-    print(task.train_test_data)
+    ARCTaskGenerator.visualize_train_test_data(task.data)
+
 
