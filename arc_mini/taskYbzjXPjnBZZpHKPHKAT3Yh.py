@@ -1,24 +1,10 @@
 import numpy as np
 import random
-from typing import Dict, List, Any, Tuple, TypedDict
-from abc import ABC, abstractmethod
-import matplotlib.pyplot as plt
-import os
-import sys
-parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-sys.path.append(parent_dir)
-from arc_task_generator import ARCTaskGenerator
-
-class MatrixPair(TypedDict):
-    input: np.ndarray
-    output: np.ndarray
-
-class TrainTestData(TypedDict):
-    train: List[MatrixPair]
-    test: List[MatrixPair]
+from typing import Dict, Any, Tuple
+from arc_task_generator import ARCTaskGenerator, TrainTestData
 
 
-class CustomARCTaskGenerator(ARCTaskGenerator):
+class TasktaskYbzjXPjnBZZpHKPHKAT3YhGenerator(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
             "Input matrices are of size {vars['rows']}x{vars['columns']}.",
@@ -26,9 +12,9 @@ class CustomARCTaskGenerator(ARCTaskGenerator):
             "The blue (1) cell is positioned such that there are always at least two empty (0) cells in all four directions (up, down, left, and right)."
         ]
         transformation_reasoning_chain = [
-            "The output matrix is constructed by copying the input matrix.",
+            "To construct the output matrix, copy the input matrix.",
             "Color all empty (0) cells adjacent to the blue (1) cell (up, down, left, right) with green (3).",
-            "Color all empty (0) cells adjacent to the green (3) cells (up, down, left, right) with red (2)."
+            "Then, color all empty (0) cells adjacent to the green (3) cells (up, down, left, right) with red (2)."
         ]
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
 
@@ -103,7 +89,3 @@ class CustomARCTaskGenerator(ARCTaskGenerator):
 
         return taskvars, data
 
-# Test code
-generator = CustomARCTaskGenerator()
-taskvars, train_test_data = generator.create_matrices()
-generator.visualize_train_test_data(train_test_data)

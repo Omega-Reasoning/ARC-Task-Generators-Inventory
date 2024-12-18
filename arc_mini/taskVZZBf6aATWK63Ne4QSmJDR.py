@@ -1,90 +1,86 @@
 import numpy as np
-from typing import Dict, List, Any, Tuple, TypedDict
-from abc import ABC, abstractmethod
-import matplotlib.pyplot as plt
-import os
-import sys
-parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-sys.path.append(parent_dir)
-from arc_task_generator import ARCTaskGenerator
+import random
+from typing import Dict, List, Any, Tuple
+from arc_task_generator import ARCTaskGenerator, TrainTestData
 
-class MatrixPair(TypedDict):
-    input: np.ndarray
-    output: np.ndarray
+class TasktaskVZZBf6aATWK63Ne4QSmJDRGenerator(ARCTaskGenerator):
 
-class TrainTestData(TypedDict):
-    train: List[MatrixPair]
-    test: List[MatrixPair]
-
-
-
-class SingleColorColumnExpansionTask(ARCTaskGenerator):
     def __init__(self):
-        # Initialize reasoning chains
         input_reasoning_chain = [
-            "Input matrices are of size {vars['rows']}x{vars['columns']}",
-            "Each input matrix contains several same {color('object_color')} columns, with the remaining cells being empty (0)."
+            "Input matrices are of size {vars['rows']}x{vars['columns']}.",
+            "Each input matrix contains completely filled column {vars['column1']}, {vars['column2']} and {vars['column3']} ,with same-colored cells in each column and colors being {color('column_color1')}, {color('column_color2')} and {color('column_color3')} respectively.",
+            "The remaining cells are empty (0)."
         ]
+        
         transformation_reasoning_chain = [
             "The output matrix is constructed by copying the input matrix",
             "Expand each colored column horizontally to the right until, another colored column is encountered or the matrix edge is reached"
         ]
+        
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
 
     def create_input(self, taskvars: Dict[str, Any], matrixvars: Dict[str, Any]) -> np.ndarray:
         rows = taskvars['rows']
         columns = taskvars['columns']
-        num_columns = taskvars['num_columns']
-        colors = taskvars['colors']
-        
-        # Initialize an empty matrix
-        matrix = np.zeros((rows, columns), dtype=int)
-        
-        # Place colored columns at random positions
-        column_positions = np.random.choice(range(columns), size=num_columns, replace=False)
-        for i, col in enumerate(column_positions):
-            matrix[:, col] = colors[i % len(colors)]
-        
-        return matrix
+        input_matrix = np.zeros((rows, columns), dtype=int)
+
+        for i, col in enumerate([taskvars['column1'], taskvars['column2'], taskvars['column3']]):
+            if col <= columns:  # Ensure column index is within bounds
+                color = taskvars[f'column_color{i+1}']
+                input_matrix[:, col - 1] = color
+
+        return input_matrix
 
     def transform_input(self, matrix: np.ndarray, taskvars: Dict[str, Any]) -> np.ndarray:
-        rows, cols = matrix.shape
+        rows, columns = matrix.shape
         output_matrix = matrix.copy()
-        
-        # Expand each colored column to the right until blocked
-        for col in range(cols):
-            if np.all(matrix[:, col] != 0):  # If the column is colored
-                color = matrix[0, col]
-                for c in range(col + 1, cols):
-                    if np.any(matrix[:, c] != 0):  # Stop if another colored column is encountered
-                        break
-                    output_matrix[:, c] = color
-        
+
+        for col_idx in range(columns):
+            if matrix[0, col_idx] != 0:  # Identify a colored column
+                color = matrix[0, col_idx]
+                for row in range(rows):
+                    for expand_col in range(col_idx + 1, columns):
+                        if matrix[row, expand_col] != 0:  # Stop expanding if another colored column is encountered
+                            break
+                        output_matrix[row, expand_col] = color
+
         return output_matrix
 
     def create_matrices(self) -> Tuple[Dict[str, Any], TrainTestData]:
         taskvars = {
-            'rows': 5,
-            'columns': 5,
-            'num_columns': np.random.randint(2, 4),  # Between 2 and 3 colored columns
-            'colors': np.random.choice(range(1, 10), size=3, replace=False).tolist(),
-            'object_color': np.random.choice(range(1, 10))  # Added object_color for templates
+            'rows': random.randint(5, 15),
+            'columns': random.randint(5, 15),
+            'column1': random.randint(1, 5),
+            'column2': random.randint(1, 5),
+            'column3': random.randint(1, 5),
+            'column_color1': random.randint(1, 9),
+            'column_color2': random.randint(1, 9),
+            'column_color3': random.randint(1, 9)
         }
-        
+
+        # Ensure columns and colors are distinct
+        while len({taskvars['column1'], taskvars['column2'], taskvars['column3']}) < 3:
+            taskvars['column3'] = random.randint(1, taskvars['columns'])
+
+        while len({taskvars['column_color1'], taskvars['column_color2'], taskvars['column_color3']}) < 3:
+            taskvars['column_color3'] = random.randint(1, 9)
+
         train_data = []
-        for _ in range(3):  # Create 3 training examples
+        for _ in range(random.randint(3, 5)):
             input_matrix = self.create_input(taskvars, {})
             output_matrix = self.transform_input(input_matrix, taskvars)
-            train_data.append({'input': input_matrix, 'output': output_matrix})
-        
+            train_data.append({
+                'input': input_matrix,
+                'output': output_matrix
+            })
+
         test_data = []
-        input_matrix = self.create_input(taskvars, {})
-        output_matrix = self.transform_input(input_matrix, taskvars)
-        test_data.append({'input': input_matrix, 'output': output_matrix})
-        
+        test_input_matrix = self.create_input(taskvars, {})
+        test_output_matrix = self.transform_input(test_input_matrix, taskvars)
+        test_data.append({
+            'input': test_input_matrix,
+            'output': test_output_matrix
+        })
+
         return taskvars, {'train': train_data, 'test': test_data}
 
-# Test the generator
-generator = SingleColorColumnExpansionTask()
-taskvars, train_test_data = generator.create_matrices()
-ARCTaskGenerator.visualize_train_test_data(train_test_data)

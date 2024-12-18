@@ -1,34 +1,18 @@
 import numpy as np
-from abc import ABC
 from random import randint, choice
-from typing import Dict, List, Any, Tuple, TypedDict
-from abc import ABC, abstractmethod
-import matplotlib.pyplot as plt
-import os
-import sys
-parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-sys.path.append(parent_dir)
-from arc_task_generator import ARCTaskGenerator
+from typing import Dict, Any, Tuple
+from arc_task_generator import ARCTaskGenerator, TrainTestData
 
 
-class MatrixPair(TypedDict):
-    input: np.ndarray
-    output: np.ndarray
-
-class TrainTestData(TypedDict):
-    train: List[MatrixPair]
-    test: List[MatrixPair]
-
-
-class CustomARCTaskGenerator(ARCTaskGenerator):
+class TasktaskjonFUmqwVVkzaeDRu5q2gSGenerator(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
             "Input matrices are of size {vars['rows']}x{vars['columns']}.",
             "Each input matrix contains red (2) and blue (1) objects (4-way connected cells of the same color), which are 2x2 blocks and 1x2 rectangles."
         ]
         transformation_reasoning_chain = [
-            "The output matrix is constructed by copying the input matrix.",
-            "Check if a red (2) 2x2 block and a blue (1) 2x2 block are horizontally connected at every edge point, replace them with a single green (3) rectangle covering their combined area.",
+            "To construct the output matrix, copy the input matrix.",
+            "Check, if a red (2) 2x2 block and a blue (1) 2x2 block are horizontally connected at every edge point, if yes, replace them with a single green (3) rectangle covering their combined area.",
             "All other objects remain unchanged."
         ]
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
@@ -118,7 +102,3 @@ class CustomARCTaskGenerator(ARCTaskGenerator):
             np.all(matrix[x:x+2, y+2:y+4] == 1)    # Blue 2x2 block
         )
 
-# Test code
-generator = CustomARCTaskGenerator()
-taskvars, train_test_data = generator.create_matrices()
-ARCTaskGenerator.visualize_train_test_data(train_test_data)

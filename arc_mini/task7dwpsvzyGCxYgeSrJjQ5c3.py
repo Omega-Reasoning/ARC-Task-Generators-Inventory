@@ -1,37 +1,20 @@
-import numpy as np
 import random
-from typing import Dict, Any, Tuple, List
 import numpy as np
-from typing import Dict, List, Any, Tuple, TypedDict
-from abc import ABC, abstractmethod
-import matplotlib.pyplot as plt
-import os
-import sys
-parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-sys.path.append(parent_dir)
-from arc_task_generator import ARCTaskGenerator
+from typing import Dict, Any, Tuple
+from arc_task_generator import ARCTaskGenerator, TrainTestData
 
 
-class MatrixPair(TypedDict):
-    input: np.ndarray
-    output: np.ndarray
-
-class TrainTestData(TypedDict):
-    train: List[MatrixPair]
-    test: List[MatrixPair]
-
-
-class TaskGenerator(ARCTaskGenerator):
+class Tasktask7dwpsvzyGCxYgeSrJjQ5c3Generator(ARCTaskGenerator):
     def __init__(self):
         # Input and transformation reasoning chains
         input_reasoning_chain = [
             "Input matrices are of size {vars['rows']}x{vars['columns']}.",
-            "Each input matrix has; either the first and last columns completely filled, or the first and last rows completely filled with {color('cell_color')}.",
+            "Each input matrix has; either the first and the last columns completely filled, or the first and the last rows completely filled with {color('cell_color')}.",
         ]
         transformation_reasoning_chain = [
-            "Create an empty matrix of the same size as input matrix",
-            "Check if the input matrix has filled columns,if yes, fill the middle cell of the first and last column with {color('fill_color')} of the output matrix.",
-            "Check if the input has filled rows,if yes, fill the middle cell of the first and last row {color('fill_color')} of the output matrix.",
+            "Create an empty matrix of the same size as input matrix.",
+            "Check if the input matrix has filled columns, if yes, fill the middle cell of the first and the last column with {color('fill_color')} color in the output matrix.",
+            "Check if the input matrix has filled rows, if yes, fill the middle cell of the first and the last row with {color('fill_color')} color in the output matrix.",
         ]
         
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
@@ -94,8 +77,4 @@ class TaskGenerator(ARCTaskGenerator):
         
         return output_matrix
 
-# Test the implementation
-generator = TaskGenerator()
-taskvars, train_test_data = generator.create_matrices()
-print("Task Variables:", taskvars)
-ARCTaskGenerator.visualize_train_test_data(train_test_data)
+

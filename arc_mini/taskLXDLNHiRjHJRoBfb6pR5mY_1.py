@@ -1,28 +1,14 @@
 import numpy as np
+from typing import Dict, Any, Tuple
 import random
-from typing import Dict, List, Any, Tuple, TypedDict
-from abc import ABC, abstractmethod
-import matplotlib.pyplot as plt
-import os
-import sys
-parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-sys.path.append(parent_dir)
-from arc_task_generator import ARCTaskGenerator
-
-class MatrixPair(TypedDict):
-    input: np.ndarray
-    output: np.ndarray
-
-class TrainTestData(TypedDict):
-    train: List[MatrixPair]
-    test: List[MatrixPair]
+from arc_task_generator import ARCTaskGenerator, TrainTestData
 
 
-class CustomARCTaskGenerator(ARCTaskGenerator):
+class TasktaskLXDLNHiRjHJRoBfb6pR5mY_1Generator(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
-            "Input matrices are of size {vars['rows']}x{vars['columns']}",
-            "Each input matrix contains several cells of {color('cell_color')} in the left half of the matrix and the middle column is entirely filled with grey (5) cells, with the remaining cells being empty (0)."
+            "Input matrices are of size {vars['rows']}x{vars['columns']}.",
+            "Each input matrix contains several cells of {color('cell_color')} color in the left half of the matrix and the middle column is entirely filled with grey (5) cells, with the remaining cells being empty (0)."
         ]
         transformation_reasoning_chain = [
             "The output matrix is constructed by copying the input matrix and reflecting cells from the left half to the right half, using the grey (5) middle column as the line of reflection."
@@ -84,9 +70,3 @@ class CustomARCTaskGenerator(ARCTaskGenerator):
         test_data = [{'input': test_input, 'output': test_output}]
 
         return taskvars, {'train': train_data, 'test': test_data}
-
-if __name__ == "__main__":
-    task_generator = CustomARCTaskGenerator()
-    taskvars, train_test_data = task_generator.create_matrices()
-    print("Task Variables:", taskvars)
-    ARCTaskGenerator.visualize_train_test_data(train_test_data)

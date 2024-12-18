@@ -1,36 +1,22 @@
 import numpy as np
-from typing import Dict, List, Any, Tuple, TypedDict
-from random import randint, choice
-import matplotlib.pyplot as plt
-from abc import ABC, abstractmethod
-import os
-import sys
-parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-sys.path.append(parent_dir)
-from arc_task_generator import ARCTaskGenerator
+from typing import Dict, Any, Tuple
+from random import randint
+from arc_task_generator import ARCTaskGenerator, TrainTestData
 
-class MatrixPair(TypedDict):
-    input: np.ndarray
-    output: np.ndarray
-
-class TrainTestData(TypedDict):
-    train: List[MatrixPair]
-    test: List[MatrixPair]
-
-
-class CustomARCTaskGenerator(ARCTaskGenerator):
+class TasktaskQyGcGH5Y2igBpVBj6GXZ99Generator(ARCTaskGenerator):
     def __init__(self):
         # Input reasoning chain
         input_reasoning_chain = [
             "Input matrices are of size {vars['rows']}x{vars['columns']}.",
-            "Each input matrix contains rows of the same {color('cell_color')} cells, where the color can vary between rows. The remaining cells are empty (0)."
+            "Each input matrix contains rows with same-colored cells, where the color can vary between rows. The remaining cells are empty (0).",
+            "The number of cells in a row can only be two, three or four."
         ]
         
         # Transformation reasoning chain
         transformation_reasoning_chain = [
             "The output matrix is constructed by copying the input matrix.",
             "For each row, change the color of its cells based on the number of filled cells:"
-            "2 cells → Yellow (4),3 cells → Grey (5) and 4 cells → Pink (6)."
+            "2 cells → Yellow (4), 3 cells → Grey (5) and 4 cells → Pink (6)."
         ]
         
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
@@ -84,8 +70,3 @@ class CustomARCTaskGenerator(ARCTaskGenerator):
         train_test_data = {'train': train_data, 'test': test_data}
         return taskvars, train_test_data
 
-# Test the generator
-generator = CustomARCTaskGenerator()
-taskvars, train_test_data = generator.create_matrices()
-print("Task Variables:", taskvars)
-generator.visualize_train_test_data(train_test_data)

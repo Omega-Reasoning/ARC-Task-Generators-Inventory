@@ -1,28 +1,9 @@
 import numpy as np
-from abc import ABC
-from matplotlib import pyplot as plt
-from matplotlib import colors
-from typing import Dict, List, Any, Tuple, TypedDict
-from abc import ABC, abstractmethod
-import matplotlib.pyplot as plt
-import os
-import sys
-parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-sys.path.append(parent_dir)
-from arc_task_generator import ARCTaskGenerator
-
-
-class MatrixPair(TypedDict):
-    input: np.ndarray
-    output: np.ndarray
-
-class TrainTestData(TypedDict):
-    train: List[MatrixPair]
-    test: List[MatrixPair]
-
+from typing import Dict, Any, Tuple
+from arc_task_generator import ARCTaskGenerator, TrainTestData
 
 # Subclassing the ARCTaskGenerator
-class CustomARCTaskGenerator(ARCTaskGenerator):
+class TasktaskiQioa3vovYeDnx8AbeTAz2Generator(ARCTaskGenerator):
     def __init__(self):
         # Input and transformation reasoning chains
         input_reasoning_chain = [
@@ -86,7 +67,3 @@ class CustomARCTaskGenerator(ARCTaskGenerator):
         
         return taskvars, {'train': train, 'test': test}
 
-# Testing the generator
-generator = CustomARCTaskGenerator()
-taskvars, train_test_data = generator.create_matrices()
-generator.visualize_train_test_data(train_test_data)
