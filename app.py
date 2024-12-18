@@ -111,6 +111,10 @@ def main():
     # Create display names (relative paths) for the files
     display_files = [os.path.relpath(f, base_path) for f in python_files]
 
+    # Initialize the current file index in session state if it doesn't exist
+    if 'current_file_idx' not in st.session_state:
+        st.session_state.current_file_idx = 0
+
     # File selection
     current_file_idx = st.session_state.get('current_file_idx', 0)
     
@@ -119,28 +123,41 @@ def main():
     
     with col1:
         if st.button("Previous"):
-            current_file_idx = (current_file_idx - 1) % len(python_files)
-            st.session_state.current_file_idx = current_file_idx
+            st.session_state.current_file_idx = (st.session_state.current_file_idx - 1) % len(python_files)
+            # current_file_idx = (current_file_idx - 1) % len(python_files)
+            # st.session_state.current_file_idx = current_file_idx
             generator_changed = True
             
     with col2:
-        previous_file = st.session_state.get('previous_file')
         selected_display_file = st.selectbox(
             "Select Task Generator",
             display_files,
-            index=current_file_idx
+            index=st.session_state.current_file_idx,
+            key='generator_selectbox'  # Add a key to maintain state
         )
+        # Update current_file_idx when selectbox changes
+        st.session_state.current_file_idx = display_files.index(selected_display_file)
+        # previous_file = st.session_state.get('previous_file')
+        #selected_display_file = st.selectbox(
+        #    "Select Task Generator",
+        #    display_files,
+        #    index=current_file_idx
+        # )
         # Convert display file back to full path
-        selected_file = python_files[display_files.index(selected_display_file)]
-        if previous_file != selected_file:
-            st.session_state.previous_file = selected_file
-            generator_changed = True
+        # selected_file = python_files[display_files.index(selected_display_file)]
+        #if previous_file != selected_file:
+        #    st.session_state.previous_file = selected_file
+        #    generator_changed = True
         
     with col3:
         if st.button("Next"):
-            current_file_idx = (current_file_idx + 1) % len(python_files)
-            st.session_state.current_file_idx = current_file_idx
+            st.session_state.current_file_idx = (st.session_state.current_file_idx + 1) % len(python_files)
+            # current_file_idx = (current_file_idx + 1) % len(python_files)
+            # st.session_state.current_file_idx = current_file_idx
             generator_changed = True
+
+    # Convert display file back to full path
+    selected_file = python_files[st.session_state.current_file_idx]
 
     # Load and instantiate the generator
     generator_class = load_task_generator(selected_file)
