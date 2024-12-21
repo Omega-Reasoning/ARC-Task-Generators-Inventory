@@ -1,6 +1,7 @@
 import sys
 import streamlit as st
 import os
+from datetime import datetime
 import importlib.util
 import inspect
 import numpy as np
@@ -95,77 +96,115 @@ def main():
     st.title("ARC Task Generator Viewer")
 
     # Get list of Python files in the project
-    base_path = os.path.dirname(os.path.abspath(__file__))  # Get current directory
-    python_files = []
+    base_path = os.path.dirname(os.path.abspath(__file__))
+    
+    # Create a dictionary to store files by folder
+    folder_files = {}
     for root, dirs, files in os.walk(base_path):
-        # Skip the base directory itself
         if root != base_path:
-            for file in files:
-                if file.endswith('.py') and 'task' in file.lower():
-                    python_files.append(os.path.join(root, file))
+            # Get task files with their modification times
+            task_files = []
+            for f in files:
+                if f.endswith('.py') and 'task' in f.lower():
+                    file_path = os.path.join(root, f)
+                    mod_time = os.path.getmtime(file_path)
+                    mod_time_str = datetime.fromtimestamp(mod_time).strftime('%Y-%m-%d %H:%M:%S')
+                    task_files.append({
+                        'name': f,
+                        'mod_time': mod_time,
+                        'display_name': f"{f} (modified: {mod_time_str})"
+                    })
+            
+            if task_files:  # Only add folders that contain task files
+                # Sort files by modification time (newest first)
+                task_files.sort(key=lambda x: x['mod_time'], reverse=True)
+                rel_path = os.path.relpath(root, base_path)
+                folder_files[rel_path] = task_files
 
-    if not python_files:
+    if not folder_files:
         st.error("No task generator files found!")
         return
 
-    # Create display names (relative paths) for the files
-    display_files = [os.path.relpath(f, base_path) for f in python_files]
-
-    # Initialize the current file index in session state if it doesn't exist
+    # Initialize session state for folder and file selection
+    if 'current_folder' not in st.session_state:
+        st.session_state.current_folder = list(folder_files.keys())[0]
     if 'current_file_idx' not in st.session_state:
         st.session_state.current_file_idx = 0
 
-    # File selection
-    current_file_idx = st.session_state.get('current_file_idx', 0)
-    
-    col1, col2, col3 = st.columns([1, 4, 1])
     generator_changed = False
-    
-    with col1:
-        if st.button("Previous"):
-            st.session_state.current_file_idx = (st.session_state.current_file_idx - 1) % len(python_files)
-            # current_file_idx = (current_file_idx - 1) % len(python_files)
-            # st.session_state.current_file_idx = current_file_idx
-            generator_changed = True
-            
-    with col2:
-        selected_display_file = st.selectbox(
-            "Select Task Generator",
-            display_files,
-            index=st.session_state.current_file_idx,
-            key='generator_selectbox'  # Add a key to maintain state
-        )
-        # Update current_file_idx when selectbox changes
-        st.session_state.current_file_idx = display_files.index(selected_display_file)
-        # previous_file = st.session_state.get('previous_file')
-        #selected_display_file = st.selectbox(
-        #    "Select Task Generator",
-        #    display_files,
-        #    index=current_file_idx
-        # )
-        # Convert display file back to full path
-        # selected_file = python_files[display_files.index(selected_display_file)]
-        #if previous_file != selected_file:
-        #    st.session_state.previous_file = selected_file
-        #    generator_changed = True
-        
-    with col3:
-        if st.button("Next"):
-            st.session_state.current_file_idx = (st.session_state.current_file_idx + 1) % len(python_files)
-            # current_file_idx = (current_file_idx + 1) % len(python_files)
-            # st.session_state.current_file_idx = current_file_idx
-            generator_changed = True
 
-    # Convert display file back to full path
-    selected_file = python_files[st.session_state.current_file_idx]
+    selected_folder = st.selectbox(
+        "select folder and task generator (generators sorted descending by last modification date on disk)",
+        options=list(folder_files.keys()),
+        index=list(folder_files.keys()).index(st.session_state.current_folder),
+        key='folder_selectbox'
+    )
+
+    # Update current folder and reset file index if folder changes
+    if selected_folder != st.session_state.current_folder:
+        st.session_state.current_folder = selected_folder
+        st.session_state.current_file_idx = 0
+        generator_changed = True
+
+    current_files = folder_files[selected_folder]
+
+    if 'button_clicked' in st.session_state:
+        if st.session_state.button_clicked == 'prev':
+            st.session_state.current_file_idx = (st.session_state.current_file_idx - 1) % len(current_files)
+            generator_changed = True
+        elif st.session_state.button_clicked == 'random':
+            st.session_state.current_file_idx = np.random.randint(0, len(current_files))
+            generator_changed = True
+        elif st.session_state.button_clicked == 'next':
+            st.session_state.current_file_idx = (st.session_state.current_file_idx + 1) % len(current_files)
+            generator_changed = True
+        del st.session_state.button_clicked
+
+    selected_file = st.selectbox(
+        "Select Task Generator",
+        options=[f['display_name'] for f in current_files],
+        index=st.session_state.current_file_idx,
+        key='file_selectbox',
+        label_visibility="collapsed"
+    )
+
+    generate_col, buffer_col, prev_col, random_col, next_col = st.columns([2, 6, 1, 1, 1])
+
+    with generate_col:
+        generate_button = st.button("Generate New Task")
+
+    with prev_col:
+        if st.button("Previous"):
+            st.session_state.button_clicked = 'prev'
+            st.rerun()
+
+    with random_col:
+        if st.button("Random"):
+            st.session_state.button_clicked = 'random'
+            st.rerun()
+
+    with next_col:
+        if st.button("Next"):
+            st.session_state.button_clicked = 'next'
+            st.rerun()
+
+    # Update current file index when selectbox changes
+    selected_display_name = selected_file
+    current_file_idx = next((i for i, f in enumerate(current_files) if f['display_name'] == selected_display_name), 0)
+
+    if st.session_state.current_file_idx != current_file_idx:
+        st.session_state.current_file_idx = current_file_idx
+        generator_changed = True
+
+    # Convert to full path
+    # selected_file_path = os.path.join(base_path, selected_folder, current_files[st.session_state.current_file_idx])
+    selected_file_path = os.path.join(base_path, selected_folder, current_files[st.session_state.current_file_idx]['name'])
 
     # Load and instantiate the generator
-    generator_class = load_task_generator(selected_file)
+    generator_class = load_task_generator(selected_file_path)
     if generator_class is None:
         return
     generator = generator_class()
-
-    generate_button = st.button("Generate New Task")
 
     # Generate new task when generator changes or button is clicked
     if generator_changed or generate_button:
