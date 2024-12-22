@@ -131,7 +131,9 @@ def main():
     if 'current_file_idx' not in st.session_state:
         st.session_state.current_file_idx = 0
 
-    generator_changed = False
+    if 'generator_changed' not in st.session_state:
+        st.session_state.generator_changed = False
+    # generator_changed = False
 
     selected_folder = st.selectbox(
         "select folder and task generator (generators sorted descending by last modification date on disk)",
@@ -144,20 +146,25 @@ def main():
     if selected_folder != st.session_state.current_folder:
         st.session_state.current_folder = selected_folder
         st.session_state.current_file_idx = 0
-        generator_changed = True
+        st.session_state.generator_changed = True
+        # generator_changed = True
+        st.rerun()
 
     current_files = folder_files[selected_folder]
 
     if 'button_clicked' in st.session_state:
         if st.session_state.button_clicked == 'prev':
             st.session_state.current_file_idx = (st.session_state.current_file_idx - 1) % len(current_files)
-            generator_changed = True
+            st.session_state.generator_changed = True
+            # generator_changed = True
         elif st.session_state.button_clicked == 'random':
             st.session_state.current_file_idx = np.random.randint(0, len(current_files))
-            generator_changed = True
+            st.session_state.generator_changed = True
+            # generator_changed = True
         elif st.session_state.button_clicked == 'next':
             st.session_state.current_file_idx = (st.session_state.current_file_idx + 1) % len(current_files)
-            generator_changed = True
+            st.session_state.generator_changed = True
+            # generator_changed = True
         del st.session_state.button_clicked
 
     selected_file = st.selectbox(
@@ -194,10 +201,11 @@ def main():
 
     if st.session_state.current_file_idx != current_file_idx:
         st.session_state.current_file_idx = current_file_idx
-        generator_changed = True
+        st.session_state.generator_changed = True
+        # generator_changed = True
+        st.rerun()
 
     # Convert to full path
-    # selected_file_path = os.path.join(base_path, selected_folder, current_files[st.session_state.current_file_idx])
     selected_file_path = os.path.join(base_path, selected_folder, current_files[st.session_state.current_file_idx]['name'])
 
     # Load and instantiate the generator
@@ -207,7 +215,7 @@ def main():
     generator = generator_class()
 
     # Generate new task when generator changes or button is clicked
-    if generator_changed or generate_button:
+    if st.session_state.generator_changed or generate_button:
         task = generator.create_task()
         
         # Store in session state
@@ -217,6 +225,8 @@ def main():
         st.session_state.transform_reasoning = task.transformation_reasoning_chain
         st.session_state.transform_code = task.code
         st.session_state.task_vars = task.task_variables
+
+        st.session_state.generator_changed = False
 
     # Display task information if available
     if 'task' in st.session_state:
@@ -254,11 +264,8 @@ def main():
                 with col2:
                     display_matrix(example["output"], "Output")
 
-
         # Display source code
         st.header("Source Code")
-        #with open(selected_file, 'r') as f:
-        #    st.code(f.read(), language='python')
         st.code(st.session_state.transform_code, language='python')
 
 if __name__ == "__main__":
