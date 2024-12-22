@@ -73,6 +73,32 @@ class ARCTaskGenerator(ABC):
         """
         pass
 
+    def create_matrices_default(self, nr_train_examples, nr_test_examples, taskvars):
+        """
+        Creates train and test matrices using default parameters.
+        
+        Args:
+            nr_train_examples (int): Number of training examples to generate
+            nr_test_examples (int): Number of test examples to generate
+            taskvars (dict): Task-specific variables used for matrix generation
+        
+        Returns:
+            dict: Dictionary containing 'train' and 'test' lists of input/output matrix pairs
+        """
+        def generate_examples(n):
+            return [
+                {
+                    'input': (input_matrix := self.create_input(taskvars, {})),
+                    'output': self.transform_input(input_matrix, taskvars)
+                }
+                for _ in range(n)
+            ]
+        
+        return {
+            'train': generate_examples(nr_train_examples),
+            'test': generate_examples(nr_test_examples)
+        }
+
     @staticmethod
     def visualize_train_test_data(train_test_data: TrainTestData):
         colors = [

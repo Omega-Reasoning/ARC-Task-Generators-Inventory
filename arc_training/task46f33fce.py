@@ -3,7 +3,7 @@ import random
 
 from arc_task_generator import ARCTaskGenerator
 
-class ARCAGITaskGenerator(ARCTaskGenerator):
+class ARCTask46f33fceGenerator(ARCTaskGenerator):
 
     def __init__(self):
         input_reasoning_chain = [
@@ -61,8 +61,3 @@ class ARCAGITaskGenerator(ARCTaskGenerator):
         test = [{'input': test_input_matrix, 'output': test_output_matrix}]
 
         return taskvars, {'train': train, 'test': test}
-
-# Test the task generator
-generator = ARCAGITaskGenerator()
-taskvars, train_test_data = generator.create_matrices()
-ARCTaskGenerator.visualize_train_test_data(train_test_data)
