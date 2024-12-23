@@ -3,8 +3,6 @@ import numpy as np
 import random
 from typing import Dict, Any, Tuple, List
 
-from transformation_library import detect_translational_symmetry, orbit
-
 class ARCTask017c7c7bGenerator(ARCTaskGenerator):
     def __init__(self):
         observation_chain = [
@@ -92,40 +90,41 @@ class ARCTask017c7c7bGenerator(ARCTaskGenerator):
         return grid
 
     def transform_input(self,
-                        matrix: np.ndarray,
-                        taskvars: Dict[str, Any]) -> np.ndarray:
-        """
-        Transform the input matrix to the output matrix by:
-          1) Detecting translational symmetry (vertical repetition).
-          2) Creating a new grid with {vars['output_rows']} rows and the same columns.
-          3) Replicating the input pattern according to the discovered symmetry.
-          4) Changing color from {vars['input_color']} to {vars['output_color']}.
-        """
+                    matrix: np.ndarray,
+                    taskvars: Dict[str, Any]) -> np.ndarray:
         input_color = taskvars["input_color"]
         output_color = taskvars["output_color"]
         output_rows = taskvars["output_rows"]
-
-        # The new output has 'output_rows' rows, same # of columns as input
         rows_in, cols_in = matrix.shape
-        output_grid = np.full((output_rows, cols_in), 0, dtype=int)
-
-        # Detect translational symmetry
-        symmetries = detect_translational_symmetry(matrix,
-                                                   ignore_colors=[],
-                                                   background=0)
         
-        # if no symmetry was found, then our task generation is incorrect 
-        assert len(symmetries) > 0, "No translational symmetry found in the input matrix."
-
-        # Apply the discovered translational symmetry to replicate the pattern
-        for (x, y) in np.argwhere(matrix != 0):
-            # The orbit() function finds all symmetrical positions in the new shape
-            # but we have to ensure they're in-bounds (which orbit does by ignoring out-of-bounds).
-            for x2, y2 in orbit(output_grid, x, y, symmetries):
-                # If it's within the new shape, fill it with the original color
-                if 0 <= x2 < output_rows and 0 <= y2 < cols_in:
-                    output_grid[x2, y2] = matrix[x, y]
-
-        # Color change: input_color -> output_color
+        # Find the repetition period by comparing rows
+        period = None
+        for m in range(1, rows_in):
+            is_period = True
+            for i in range(rows_in - m):
+                if i + m >= rows_in:
+                    break
+                if not np.array_equal(matrix[i], matrix[i + m]):
+                    is_period = False
+                    break
+            if is_period:
+                period = m
+                break
+                
+        if period is None:
+            period = rows_in
+        
+        # Create output grid
+        output_grid = np.zeros((output_rows, cols_in), dtype=int)
+        
+        # Fill the output grid by repeating the pattern
+        pattern = matrix[:period]  # Take the first period of rows as the pattern
+        for i in range(0, output_rows, period):
+            # Calculate how many rows we can copy (might be partial at the end)
+            rows_to_copy = min(period, output_rows - i)
+            output_grid[i:i + rows_to_copy] = pattern[:rows_to_copy]
+        
+        # Change color
         output_grid[output_grid == input_color] = output_color
+        
         return output_grid
