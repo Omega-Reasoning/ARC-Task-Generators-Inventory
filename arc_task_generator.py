@@ -75,7 +75,7 @@ class ARCTaskGenerator(ABC):
 
     def create_matrices_default(self, nr_train_examples, nr_test_examples, taskvars):
         """
-        Creates train and test matrices using default parameters.
+        Creates train and test matrices for simple cases.
         
         Args:
             nr_train_examples (int): Number of training examples to generate
