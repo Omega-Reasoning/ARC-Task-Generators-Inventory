@@ -10,76 +10,6 @@ systems to create from scratch without errors are included here.
 import numpy as np
 from scipy.ndimage import label
 
-# generic implementation of object detection (need to experiment whether specific or generic is better)
-def detect_objects(matrix, connectivity=4, filters=None):
-    """
-    Detect objects in the matrix with a generic connectivity criterion and filter criteria.
-    
-    Parameters:
-        matrix (list of list of int): Input matrix with cells containing values 0-9.
-        connectivity (int or array-like): Connectivity type (4, 8, or custom kernel).
-        filters (list of callables or callable or None): Filtering criteria.
-            - If callable, it takes an object dictionary and returns True/False.
-            - If list of callables, all criteria must return True for an object to be included.
-            - If None, no filters are applied.
-        
-    Returns:
-        list of dict: Each object is a dictionary with properties:
-            - "id": Unique identifier for the object.
-            - "coords": List of (row, col) coordinates for the object's cells.
-            - "size": Number of cells in the object.
-            - "bounding_box": ((row_min, col_min), (row_max, col_max)).
-            - "colour": The primary value of the object.
-    """
-    matrix_np = np.array(matrix)
-    
-    # Define connectivity structure
-    if isinstance(connectivity, int):
-        if connectivity == 4:
-            structure = np.array([[0, 1, 0], 
-                                  [1, 1, 1], 
-                                  [0, 1, 0]])  # Cross pattern for 4-way
-        elif connectivity == 8:
-            structure = np.ones((3, 3))  # Full 3x3 neighborhood for 8-way
-        else:
-            raise ValueError("Connectivity must be 4, 8, or a custom array.")
-    else:
-        structure = np.array(connectivity)
-    
-    # Label connected components
-    labeled_matrix, num_features = label(matrix_np > 0, structure=structure)
-    
-    # Collect information about each object
-    objects = []
-    for obj_id in range(1, num_features + 1):
-        coords = list(zip(*np.where(labeled_matrix == obj_id)))
-        obj_colour = matrix_np[coords[0][0], coords[0][1]]  # Colour of any cell in the object
-        bbox = ((min(x for x, _ in coords), min(y for _, y in coords)),
-                (max(x for x, _ in coords), max(y for _, y in coords)))
-        
-        obj = {
-            "id": obj_id,
-            "coords": coords,
-            "size": len(coords),
-            "bounding_box": bbox,
-            "colour": obj_colour
-        }
-        
-        # Apply filters
-        if filters:
-            if isinstance(filters, list):
-                if not all(filter_fn(obj) for filter_fn in filters):
-                    continue
-            elif callable(filters):
-                if not filters(obj):
-                    continue
-            else:
-                raise ValueError("Filters must be a callable or list of callables.")
-        
-        objects.append(obj)
-    
-    return objects
-
 def get_objects(matrix: np.ndarray,
                 diagonal_connectivity: bool = False,
                 color: int = None):
@@ -157,6 +87,16 @@ def get_objects(matrix: np.ndarray,
 
     return objects
 
+def overlap(coordsA, coordsB) -> bool:
+    return not coordsA.isdisjoint(coordsB)
+
+def adjacent(coordsA, coordsB) -> bool:
+    # True if any pair from coordsA and coordsB has Manhattan-distance=1
+    for (rA, cA) in coordsA:
+        for (rB, cB) in coordsB:
+            if abs(rA - rB) + abs(cA - cB) == 1:
+                return True
+    return False
 
 def flood_fill(matrix: np.ndarray, start_pos: tuple, new_value: int):
     """

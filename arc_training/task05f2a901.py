@@ -3,6 +3,8 @@ import random
 from typing import Dict, Any, Tuple, List
 
 from arc_task_generator import ARCTaskGenerator, MatrixPair, TrainTestData
+from input_library import Contiguity, create_object, enforce_object_height, enforce_object_width
+from transformation_library import overlap, adjacent
 
 class ARCTask05f2a901Generator(ARCTaskGenerator):
     """
@@ -27,7 +29,7 @@ class ARCTask05f2a901Generator(ARCTaskGenerator):
             "The output matrix has the same shape as the input matrix.",
             "The {color('static_object')} object can be directly copied into the output matrix as it remains static.",
             "The {color('moving_object')} object moves either up, down, left or right towards the static object.",
-            "It moving object moves in the direction which causes it to touch the static object.",
+            "It is moving object moves in the direction which causes it to touch the static object.",
             "It moves exactly until it touches the static object."
         ]
         super().__init__(observation_chain, reasoning_chain)
@@ -120,7 +122,25 @@ class ARCTask05f2a901Generator(ARCTaskGenerator):
             # Decide bounding box size for moving shape
             mh = random.randint(2, 4)
             mw = random.randint(2, 4)
-            sprite = self._make_arbitrary_sprite(mh, mw, direction, color_moving)
+            # sprite = create_sprite(
+            #    height=mh,
+            #    width=mw,
+            #    color_palette=color_moving,
+            #    enforce_height=(direction in ["up", "down"]),
+            #    enforce_width=(direction in ["left", "right"]),
+            #    contiguity=Contiguity.EIGHT
+            #)
+            #sprite = retry(
+            #    lambda: create_sprite(height=mh, width=mw, color_palette=color_moving, contiguity=Contiguity.EIGHT),
+            #    (lambda x: np.all(np.any(x != 0, axis=0))) if direction in ["up", "down"] else
+            #    (lambda x: np.all(np.any(x != 0, axis=1)))
+            #)
+            sprite = (enforce_object_height if direction in ["up", "down"] else enforce_object_width)(
+                lambda: create_object(height=mh, width=mw, color_palette=color_moving, contiguity=Contiguity.EIGHT)
+            )
+
+
+            # sprite = create_sprite_old(mh, mw, direction, color_moving)
 
             # Now place sprite according to direction constraints
             if direction == "left":
@@ -219,17 +239,6 @@ class ARCTask05f2a901Generator(ARCTaskGenerator):
         static_coords = set(zip(*np.where(out == color_static)))
         moving_coords = set(zip(*np.where(out == color_moving)))
 
-        def overlap(coordsA, coordsB) -> bool:
-            return not coordsA.isdisjoint(coordsB)
-
-        def adjacent(coordsA, coordsB) -> bool:
-            # True if any pair from coordsA and coordsB has Manhattan-distance=1
-            for (rA, cA) in coordsA:
-                for (rB, cB) in coordsB:
-                    if abs(rA - rB) + abs(cA - cB) == 1:
-                        return True
-            return False
-
         # direction offsets
         dr, dc = 0, 0
         if direction == "up":
@@ -264,47 +273,6 @@ class ARCTask05f2a901Generator(ARCTaskGenerator):
             out[r, c] = color_moving
 
         return out
-
-    def _make_arbitrary_sprite(self, mh: int, mw: int, direction: str, color: int) -> np.ndarray:
-        """
-        Builds a shape in a bounding box of size (mh x mw) while respecting:
-        - If direction is left or right, each row has at least one colored cell.
-        - If direction is up or down, each column has at least one colored cell.
-        Then ensures the shape is contiguous in an 8-way sense by keeping only the largest connected component.
-        """
-
-        import random
-        import numpy as np
-        from scipy.ndimage import label
-
-        sprite = np.zeros((mh, mw), dtype=int)
-
-        # Assign cells to color within each row/column
-        if direction in ["left", "right"]:
-            # Each row has at least one colored cell
-            for r in range(mh):
-                num_cols = random.randint(1, mw)
-                chosen_cols = random.sample(range(mw), num_cols)
-                for c in chosen_cols:
-                    sprite[r, c] = color
-        else:
-            # direction in ["up", "down"]
-            # Each column has at least one colored cell
-            for c in range(mw):
-                num_rows = random.randint(1, mh)
-                chosen_rows = random.sample(range(mh), num_rows)
-                for r in chosen_rows:
-                    sprite[r, c] = color
-
-        # Enforce 8-way contiguity: keep only the largest connected component
-        structure = np.ones((3, 3), dtype=int)  # 8-way connectivity
-        labeled, n_obj = label(sprite == color, structure=structure)
-        if n_obj > 1:
-            sizes = [(labeled == i).sum() for i in range(1, n_obj + 1)]
-            largest_idx = 1 + np.argmax(sizes)
-            sprite[(labeled != largest_idx) & (sprite == color)] = 0
-
-        return sprite
 
     def _overlay(self, region: np.ndarray, sprite: np.ndarray) -> np.ndarray:
         """
