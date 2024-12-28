@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from typing import Dict, List, Any, Tuple
 
 from arc_task_generator import ARCTaskGenerator, MatrixPair, TrainTestData
-from transformation_library import get_objects
+from transformation_library import find_connected_objects
 
 class ARCTask025d127bGenerator(ARCTaskGenerator):
     def __init__(self):
@@ -152,15 +152,16 @@ class ARCTask025d127bGenerator(ARCTaskGenerator):
         return matrix
 
     def transform_input(self,
-                        matrix: np.ndarray,
+                        grid: np.ndarray,
                         taskvars: dict) -> np.ndarray:
-        rows, cols = matrix.shape
+        rows, cols = grid.shape
         output = np.zeros((rows, cols), dtype=int)
 
         # 1) Get all 8-way connected objects
-        objects = get_objects(matrix, True, color=None)
+        objects = find_connected_objects(grid, True)
 
-        for obj in objects:
+        for object in objects:
+            obj = object.coords
             # 2) Identify the bottommost row
             max_r = max(r for (r, c) in obj)
             # Get all cells that lie in that bottommost row
@@ -181,12 +182,12 @@ class ARCTask025d127bGenerator(ARCTaskGenerator):
 
             # 4) Copy the lower L-shape into 'output' at the same positions
             for (r, c) in lower_l_shape:
-                output[r, c] = matrix[r, c]
+                output[r, c] = grid[r, c]
 
             # 5) All other cells in the object are moved one cell to the right
             other_cells = obj - lower_l_shape
             for (r, c) in other_cells:
-                output[r, c + 1] = matrix[r, c]
+                output[r, c + 1] = grid[r, c]
 
         return output
 

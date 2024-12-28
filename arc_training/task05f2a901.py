@@ -1,10 +1,10 @@
 import numpy as np
 import random
-from typing import Dict, Any, Tuple, List
+from typing import Dict, Any, Set, Tuple, List
 
 from arc_task_generator import ARCTaskGenerator, MatrixPair, TrainTestData
 from input_library import Contiguity, create_object, enforce_object_height, enforce_object_width
-from transformation_library import overlap, adjacent
+from transformation_library import GridObject, find_connected_objects
 
 class ARCTask05f2a901Generator(ARCTaskGenerator):
     """
@@ -220,58 +220,75 @@ class ARCTask05f2a901Generator(ARCTaskGenerator):
         # fallback: if no valid placement found, return the partially filled grid
         return grid
 
-    def transform_input(self,
-                        matrix: np.ndarray,
-                        taskvars: Dict[str, Any]) -> np.ndarray:
+    def transform_input(self, matrix: np.ndarray, taskvars: Dict[str, Any]) -> np.ndarray:
         """
-        Slide the shape of color_moving in the chosen direction until:
-         - If next shift is out of bounds or overlaps static_object, do NOT perform it => STOP.
-         - If next shift causes adjacency (touching) with static_object, DO perform it => STOP.
-        That yields a final position where the blocks actually contact.
+        Slide the moving shape towards the static shape until they touch.
+        The direction is determined by relative positions of the objects.
         """
-        direction = taskvars["direction"]
         color_static = taskvars["static_object"]
         color_moving = taskvars["moving_object"]
+        
+        # Create GridObjects from the matrix
+        objects = find_connected_objects(matrix, diagonal_connectivity=True)
+        static_obj = objects.with_color(color_static)[0]
+        moving_obj = objects.with_color(color_moving)[0]
+        
+        def direction_to_offset(direction: str) -> Tuple[int, int]:
+            """Convert direction string to (dr, dc) offset."""
+            return {
+                "up": (-1, 0),
+                "down": (1, 0),
+                "left": (0, -1),
+                "right": (0, 1)
+            }[direction]
 
+        def compute_movement_direction(static: GridObject, moving: GridObject) -> str:
+            """Determine movement direction based on objects' bounding boxes."""
+            s_box = static.bounding_box
+            m_box = moving.bounding_box
+            
+            dr = (s_box[0].start + s_box[0].stop) / 2 - (m_box[0].start + m_box[0].stop) / 2
+            dc = (s_box[1].start + s_box[1].stop) / 2 - (m_box[1].start + m_box[1].stop) / 2
+            
+            return "down" if abs(dr) > abs(dc) and dr > 0 else \
+                "up" if abs(dr) > abs(dc) else \
+                "right" if dc > 0 else "left"
+
+        # Determine direction based on relative positions
+        direction = compute_movement_direction(static_obj, moving_obj)
+        dr, dc = direction_to_offset(direction)
+        
+        # Create output grid and initialize coordinates
         out = matrix.copy()
-
-        # gather coords
-        static_coords = set(zip(*np.where(out == color_static)))
-        moving_coords = set(zip(*np.where(out == color_moving)))
-
-        # direction offsets
-        dr, dc = 0, 0
-        if direction == "up":
-            dr = -1
-        elif direction == "down":
-            dr = 1
-        elif direction == "left":
-            dc = -1
-        elif direction == "right":
-            dc = 1
-
-        # shift until invalid or adjacency
+        moving_coords = moving_obj.coords
+        
+        # Shift until invalid or adjacency
         while True:
             next_coords = {(r+dr, c+dc) for (r, c) in moving_coords}
-            # bounds
-            if any(nr<0 or nr>=out.shape[0] or nc<0 or nc>=out.shape[1] for nr, nc in next_coords):
+            
+            # Check bounds
+            if not all(0 <= r < out.shape[0] and 0 <= c < out.shape[1] 
+                    for r, c in next_coords):
                 break
-            # overlap => stop
-            if overlap(next_coords, static_coords):
+            
+            # Create temporary GridObject for next position
+            next_obj = GridObject.from_grid(matrix, next_coords)
+            
+            # Check overlap or adjacency
+            if next_obj.coords & static_obj.coords:  # overlap
                 break
-            # adjacency => do shift then stop
-            if adjacent(next_coords, static_coords):
+            if next_obj.is_adjacent_to(static_obj):  # adjacency
                 moving_coords = next_coords
                 break
-
-            # otherwise, we can shift
+                
+            # Perform shift
             moving_coords = next_coords
-
-        # rebuild output
+        
+        # Update output grid
         out[out == color_moving] = 0
-        for (r, c) in moving_coords:
+        for r, c in moving_coords:
             out[r, c] = color_moving
-
+        
         return out
 
     def _overlay(self, region: np.ndarray, sprite: np.ndarray) -> np.ndarray:

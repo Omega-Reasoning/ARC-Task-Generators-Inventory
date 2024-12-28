@@ -135,3 +135,38 @@ def enforce_object_height(object_generator: Callable[[], np.ndarray]) -> np.ndar
         object_generator,
         lambda x: np.all(np.any(x != 0, axis=0))
     )
+
+def random_cell_coloring(matrix: np.ndarray,
+                        color_palette: Union[int, List[int]],
+                        density: float = 0.5,
+                        background: int = 0,
+                        overwrite: bool = False) -> np.ndarray:
+    """
+    Randomly colors cells in a matrix using colors from the specified palette.
+    
+    Args:
+        matrix: 2D numpy array to be colored
+        color_palette: Single color or list of colors to use
+        density: Fraction of colorable cells to fill (between 0 and 1)
+        background: Color value for empty cells
+        overwrite: Whether to allow coloring non-background cells
+        
+    Returns:
+        Matrix with randomly colored cells (modifies input)
+    """
+    if isinstance(color_palette, int):
+        color_palette = [color_palette]
+    
+    # Get indices of cells we can color
+    colorable = np.where(matrix == background) if not overwrite else np.where(np.ones_like(matrix))
+    n_cells = len(colorable[0])
+    n_to_color = int(density * n_cells)
+    
+    # Randomly select cells to color
+    if n_to_color > 0:
+        indices = np.random.choice(n_cells, n_to_color, replace=False)
+        rows = colorable[0][indices]
+        cols = colorable[1][indices]
+        matrix[rows, cols] = np.random.choice(color_palette, n_to_color)
+    
+    return matrix
