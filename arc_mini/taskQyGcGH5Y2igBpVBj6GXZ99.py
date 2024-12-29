@@ -21,7 +21,7 @@ class TasktaskQyGcGH5Y2igBpVBj6GXZ99Generator(ARCTaskGenerator):
         
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
 
-    def create_input(self, taskvars: Dict[str, Any], matrixvars: Dict[str, Any]) -> np.ndarray:
+    def create_input(self, taskvars: Dict[str, Any], gridvars: Dict[str, Any]) -> np.ndarray:
         rows, columns = taskvars['rows'], taskvars['columns']
         cell_color = taskvars['cell_color']
         matrix = np.zeros((rows, columns), dtype=int)
@@ -34,12 +34,12 @@ class TasktaskQyGcGH5Y2igBpVBj6GXZ99Generator(ARCTaskGenerator):
         
         return matrix
 
-    def transform_input(self, matrix: np.ndarray, taskvars: Dict[str, Any]) -> np.ndarray:
-        rows, columns = matrix.shape
-        output_matrix = matrix.copy()
+    def transform_input(self, grid: np.ndarray, taskvars: Dict[str, Any]) -> np.ndarray:
+        rows, columns = grid.shape
+        output_matrix = grid.copy()
 
         for r in range(rows):
-            filled_cells = np.count_nonzero(matrix[r])
+            filled_cells = np.count_nonzero(grid[r])
             if filled_cells == 2:
                 output_matrix[r, output_matrix[r] != 0] = 4  # Yellow
             elif filled_cells == 3:
@@ -49,7 +49,7 @@ class TasktaskQyGcGH5Y2igBpVBj6GXZ99Generator(ARCTaskGenerator):
         
         return output_matrix
 
-    def create_matrices(self) -> Tuple[Dict[str, Any], TrainTestData]:
+    def create_grids(self) -> Tuple[Dict[str, Any], TrainTestData]:
         taskvars = {
             'rows': randint(5, 10),  # Random rows (5-10)
             'columns': randint(5, 10),  # Random columns (5-10)

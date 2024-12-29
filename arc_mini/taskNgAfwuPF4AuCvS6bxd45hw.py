@@ -17,10 +17,10 @@ class TasktaskNgAfwuPF4AuCvS6bxd45hwGenerator(ARCTaskGenerator):
 
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
 
-    def create_input(self, taskvars: Dict[str, Any], matrixvars: Dict[str, Any]) -> np.ndarray:
+    def create_input(self, taskvars: Dict[str, Any], gridvars: Dict[str, Any]) -> np.ndarray:
         rows = taskvars['rows']
         columns = taskvars['columns']
-        color = matrixvars['color']
+        color = gridvars['color']
 
         # Create an empty matrix
         matrix = np.zeros((rows, columns), dtype=int)
@@ -34,19 +34,19 @@ class TasktaskNgAfwuPF4AuCvS6bxd45hwGenerator(ARCTaskGenerator):
 
         return matrix
 
-    def transform_input(self, matrix: np.ndarray, taskvars: Dict[str, Any]) -> np.ndarray:
+    def transform_input(self, grid: np.ndarray, taskvars: Dict[str, Any]) -> np.ndarray:
         color = taskvars['color']
-        rows, columns = matrix.shape
+        rows, columns = grid.shape
 
         # Locate the block
-        block_pos = np.argwhere(matrix == color)
+        block_pos = np.argwhere(grid == color)
         if block_pos.size == 0:
             raise ValueError("Block not found in input matrix")
 
         row_start, col_start = block_pos[0]
 
         # Create the output matrix
-        output_matrix = np.zeros_like(matrix)
+        output_matrix = np.zeros_like(grid)
         new_color = 1 if color == 2 else 2
 
         # Determine the new column position
@@ -57,7 +57,7 @@ class TasktaskNgAfwuPF4AuCvS6bxd45hwGenerator(ARCTaskGenerator):
 
         return output_matrix
 
-    def create_matrices(self) -> Tuple[Dict[str, Any], TrainTestData]:
+    def create_grids(self) -> Tuple[Dict[str, Any], TrainTestData]:
         # Randomly define task variables
         rows = random.randint(5, 30)
         columns = random.randint(5, 30)

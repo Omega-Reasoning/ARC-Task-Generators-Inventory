@@ -14,8 +14,8 @@ class TasktaskM74QpxuqGDkZi2JanNPRZyGenerator(ARCTaskGenerator):
         ]
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
 
-    def create_input(self, taskvars: Dict[str, Any], matrixvars: Dict[str, Any]) -> np.ndarray:
-        rows, cols = matrixvars['size']
+    def create_input(self, taskvars: Dict[str, Any], gridvars: Dict[str, Any]) -> np.ndarray:
+        rows, cols = gridvars['size']
         matrix = np.zeros((rows, cols), dtype=int)
         for row in range(rows):
             color = np.random.randint(1, 10)  # Random color (1-9)
@@ -23,15 +23,15 @@ class TasktaskM74QpxuqGDkZi2JanNPRZyGenerator(ARCTaskGenerator):
             matrix[row, col_position] = color
         return matrix
 
-    def transform_input(self, matrix: np.ndarray, taskvars: Dict[str, Any]) -> np.ndarray:
-        rows, cols = matrix.shape
+    def transform_input(self, grid: np.ndarray, taskvars: Dict[str, Any]) -> np.ndarray:
+        rows, cols = grid.shape
         output_matrix = np.zeros((rows, cols), dtype=int)
         for row in range(rows):
-            color_position = np.where(matrix[row] != 0)[0][0]  # Find the position of the colored cell
-            output_matrix[row, 0] = matrix[row, color_position]  # Move it to the first column
+            color_position = np.where(grid[row] != 0)[0][0]  # Find the position of the colored cell
+            output_matrix[row, 0] = grid[row, color_position]  # Move it to the first column
         return output_matrix
 
-    def create_matrices(self) -> Tuple[Dict[str, Any], TrainTestData]:
+    def create_grids(self) -> Tuple[Dict[str, Any], TrainTestData]:
         num_matrices = np.random.randint(3, 7)  # Create 3-6 matrices
         matrix_size = (
             np.random.randint(5, 31),  # Random rows (5-30)

@@ -19,7 +19,7 @@ class TasktaskVZZBf6aATWK63Ne4QSmJDRGenerator(ARCTaskGenerator):
         
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
 
-    def create_input(self, taskvars: Dict[str, Any], matrixvars: Dict[str, Any]) -> np.ndarray:
+    def create_input(self, taskvars: Dict[str, Any], gridvars: Dict[str, Any]) -> np.ndarray:
         rows = taskvars['rows']
         columns = taskvars['columns']
         input_matrix = np.zeros((rows, columns), dtype=int)
@@ -31,22 +31,22 @@ class TasktaskVZZBf6aATWK63Ne4QSmJDRGenerator(ARCTaskGenerator):
 
         return input_matrix
 
-    def transform_input(self, matrix: np.ndarray, taskvars: Dict[str, Any]) -> np.ndarray:
-        rows, columns = matrix.shape
-        output_matrix = matrix.copy()
+    def transform_input(self, grid: np.ndarray, taskvars: Dict[str, Any]) -> np.ndarray:
+        rows, columns = grid.shape
+        output_matrix = grid.copy()
 
         for col_idx in range(columns):
-            if matrix[0, col_idx] != 0:  # Identify a colored column
-                color = matrix[0, col_idx]
+            if grid[0, col_idx] != 0:  # Identify a colored column
+                color = grid[0, col_idx]
                 for row in range(rows):
                     for expand_col in range(col_idx + 1, columns):
-                        if matrix[row, expand_col] != 0:  # Stop expanding if another colored column is encountered
+                        if grid[row, expand_col] != 0:  # Stop expanding if another colored column is encountered
                             break
                         output_matrix[row, expand_col] = color
 
         return output_matrix
 
-    def create_matrices(self) -> Tuple[Dict[str, Any], TrainTestData]:
+    def create_grids(self) -> Tuple[Dict[str, Any], TrainTestData]:
         taskvars = {
             'rows': random.randint(5, 15),
             'columns': random.randint(5, 15),

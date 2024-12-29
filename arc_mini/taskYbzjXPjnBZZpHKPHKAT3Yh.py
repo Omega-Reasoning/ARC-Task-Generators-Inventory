@@ -18,7 +18,7 @@ class TasktaskYbzjXPjnBZZpHKPHKAT3YhGenerator(ARCTaskGenerator):
         ]
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
 
-    def create_input(self, taskvars: Dict[str, Any], matrixvars: Dict[str, Any]) -> np.ndarray:
+    def create_input(self, taskvars: Dict[str, Any], gridvars: Dict[str, Any]) -> np.ndarray:
         rows = taskvars['rows']
         columns = taskvars['columns']
         matrix = np.zeros((rows, columns), dtype=int)
@@ -31,9 +31,9 @@ class TasktaskYbzjXPjnBZZpHKPHKAT3YhGenerator(ARCTaskGenerator):
 
         return matrix
 
-    def transform_input(self, matrix: np.ndarray, taskvars: Dict[str, Any]) -> np.ndarray:
-        rows, columns = matrix.shape
-        output_matrix = matrix.copy()
+    def transform_input(self, grid: np.ndarray, taskvars: Dict[str, Any]) -> np.ndarray:
+        rows, columns = grid.shape
+        output_matrix = grid.copy()
 
         def is_valid(r, c):
             return 0 <= r < rows and 0 <= c < columns
@@ -59,7 +59,7 @@ class TasktaskYbzjXPjnBZZpHKPHKAT3YhGenerator(ARCTaskGenerator):
 
         return output_matrix
 
-    def create_matrices(self) -> Tuple[Dict[str, Any], TrainTestData]:
+    def create_grids(self) -> Tuple[Dict[str, Any], TrainTestData]:
         num_train = random.randint(3, 6)  # 3-6 training matrices
         num_test = 1  # One test matrix
 

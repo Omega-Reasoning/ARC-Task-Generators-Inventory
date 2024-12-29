@@ -15,7 +15,7 @@ color_codes = {
     9: 88    # maroon
 }
 
-def visualize_matrix(matrix: np.ndarray) -> str:
+def visualize_grid(grid: np.ndarray) -> str:
     """
     Creates a colored string visualization of a matrix.
     
@@ -25,10 +25,10 @@ def visualize_matrix(matrix: np.ndarray) -> str:
         String representation with ANSI color codes
     """    
     rows = []
-    for i in range(matrix.shape[0]):
+    for i in range(grid.shape[0]):
         row = []
-        for j in range(matrix.shape[1]):
-            val = matrix[i,j]
+        for j in range(grid.shape[1]):
+            val = grid[i,j]
             color_code = color_codes.get(val, 0)
             row.append(f"\033[38;5;{color_code}m{val}\033[0m")
         rows.append(" ".join(row))

@@ -18,7 +18,7 @@ class ARCTask007bbfb7Generator(ARCTaskGenerator):
         ]
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
 
-    def create_matrices(self) -> Tuple[Dict[str, Any], TrainTestData]:
+    def create_grids(self) -> Tuple[Dict[str, Any], TrainTestData]:
         taskvars = {}
         taskvars['row_blocks'] = np.random.randint(2, 4)
         taskvars['column_blocks'] = np.random.randint(2, 4)
@@ -49,10 +49,10 @@ class ARCTask007bbfb7Generator(ARCTaskGenerator):
 
         return (taskvars, { "train": train, "test": test } )
 
-    def create_input(self, taskvars: Dict[str, Any], matrixvars: Dict[str, Any]) -> np.ndarray:
+    def create_input(self, taskvars: Dict[str, Any], gridvars: Dict[str, Any]) -> np.ndarray:
         rows = taskvars['row_blocks']
         columns = taskvars['column_blocks']
-        color = matrixvars['color']
+        color = gridvars['color']
         
         # Create empty matrix
         matrix = np.zeros((rows, columns), dtype=int)
@@ -70,7 +70,7 @@ class ARCTask007bbfb7Generator(ARCTaskGenerator):
         
         return matrix
 
-    def transform_input(self, matrix: np.ndarray, taskvars: Dict[str, Any]) -> np.ndarray:
+    def transform_input(self, grid: np.ndarray, taskvars: Dict[str, Any]) -> np.ndarray:
         row_blocks = taskvars['row_blocks']
         column_blocks = taskvars['column_blocks']
 
@@ -80,13 +80,13 @@ class ARCTask007bbfb7Generator(ARCTaskGenerator):
         # Iterate through each position in the input matrix
         for i in range(row_blocks):
             for j in range(column_blocks):
-                if matrix[i, j] != 0:
+                if grid[i, j] != 0:
                     # Calculate the starting position of the corresponding block
                     block_start_row = row_blocks * i
                     block_start_col = column_blocks * j
 
                     # Copy the input matrix into the corresponding block
                     output[block_start_row:block_start_row+row_blocks,
-                           block_start_col:block_start_col+column_blocks] = matrix
+                           block_start_col:block_start_col+column_blocks] = grid
 
         return output

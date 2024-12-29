@@ -19,7 +19,7 @@ class ARCTask46442a0eGenerator(ARCTaskGenerator):
         ]
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
 
-    def create_input(self, taskvars: Dict[str, Any], matrixvars: Dict[str, Any]) -> np.ndarray:
+    def create_input(self, taskvars: Dict[str, Any], gridvars: Dict[str, Any]) -> np.ndarray:
         size = random.choice([2, 3, 4])  # Choose size between 2x2, 3x3, or 4x4
         matrix = np.zeros((size, size), dtype=int)
 
@@ -39,41 +39,41 @@ class ARCTask46442a0eGenerator(ARCTaskGenerator):
 
         return matrix
 
-    def transform_input(self, matrix: np.ndarray, taskvars: Dict[str, Any]) -> np.ndarray:
-        size = matrix.shape[0]
+    def transform_input(self, grid: np.ndarray, taskvars: Dict[str, Any]) -> np.ndarray:
+        size = grid.shape[0]
         new_size = size * 2
         output = np.zeros((new_size, new_size), dtype=int)
 
         # Top-left quadrant: identical to the input matrix
-        output[:size, :size] = matrix
+        output[:size, :size] = grid
 
         # Top-right quadrant: 90 degree rotation
-        output[:size, size:] = np.rot90(matrix, k=-1)
+        output[:size, size:] = np.rot90(grid, k=-1)
 
         # Bottom-right quadrant: 180 degree rotation
-        output[size:, size:] = np.rot90(matrix, k=2)
+        output[size:, size:] = np.rot90(grid, k=2)
 
         # Bottom-left quadrant: 270 degree rotation
-        output[size:, :size] = np.rot90(matrix, k=1)
+        output[size:, :size] = np.rot90(grid, k=1)
 
         return output
 
-    def create_matrices(self) -> Tuple[Dict[str, Any], TrainTestData]:
+    def create_grids(self) -> Tuple[Dict[str, Any], TrainTestData]:
         train_data = []
         num_train = random.randint(3, 5)  # Create 3-5 training examples
 
         for _ in range(num_train):
             taskvars = {}
-            matrixvars = {}
+            gridvars = {}
 
-            input_matrix = self.create_input(taskvars, matrixvars)
+            input_matrix = self.create_input(taskvars, gridvars)
             output_matrix = self.transform_input(input_matrix, taskvars)
             train_data.append({"input": input_matrix, "output": output_matrix})
 
         # Create a single test example
         taskvars = {}
-        matrixvars = {}
-        test_input = self.create_input(taskvars, matrixvars)
+        gridvars = {}
+        test_input = self.create_input(taskvars, gridvars)
         test_output = self.transform_input(test_input, taskvars)
 
         test_data = [{"input": test_input, "output": test_output}]

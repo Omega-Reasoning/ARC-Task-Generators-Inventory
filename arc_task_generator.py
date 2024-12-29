@@ -5,13 +5,13 @@ import matplotlib.pyplot as plt
 
 from arc_task import ARCTask
 
-class MatrixPair(TypedDict):
+class GridPair(TypedDict):
     input: np.ndarray
     output: np.ndarray
 
 class TrainTestData(TypedDict):
-    train: List[MatrixPair]
-    test: List[MatrixPair]
+    train: List[GridPair]
+    test: List[GridPair]
 
 class ARCTaskGenerator(ABC):
 
@@ -43,53 +43,45 @@ class ARCTaskGenerator(ABC):
         self.transformation_reasoning_chain = transformation_reasoning_chain
 
     @abstractmethod
-    def create_matrices(self) -> Tuple[Dict[str, Any], TrainTestData]:
+    def create_grids(self) -> Tuple[Dict[str, Any], TrainTestData]:
         """
-        Initialise task variables used in templates and create train/test data matrices.
+        Initialise task variables used in templates and create train/test data grids.
         
-        Returns
+        Returns:
         -------
         Tuple[Dict[str, Any], TrainTestData]
             First element: Dictionary of task variables used in templates
-            Second element: Dictionary containing train and test matrices
+            Second element: Dictionary containing train and test grids
         """
         pass
 
     @abstractmethod
     def create_input(self,
                      taskvars: Dict[str, Any],
-                     matrixvars: Dict[str, Any]) -> np.ndarray:
+                     gridvars: Dict[str, Any]) -> np.ndarray:
         """
-        Create an input matrix based according to the input reasoning chain given the task and matrix variables.
+        Create an input grid according to the input reasoning chain given the task and grid variables.
         """
         pass
 
     @abstractmethod
     def transform_input(self,
-                        matrix: np.ndarray,
+                        grid: np.ndarray,
                         taskvars: Dict[str, Any]) -> np.ndarray:
         """
-        Transform the input matrix according to the transformation reasoning chain, producing an output matrix.
+        Transform the input grid according to the transformation reasoning chain, producing an output grid.
         """
         pass
 
-    def create_matrices_default(self, nr_train_examples, nr_test_examples, taskvars):
+    def create_grids_default(self, nr_train_examples: int, nr_test_examples: int, taskvars: Dict[str, Any]):
         """
-        Creates train and test matrices for simple cases.
-        
-        Args:
-            nr_train_examples (int): Number of training examples to generate
-            nr_test_examples (int): Number of test examples to generate
-            taskvars (dict): Task-specific variables used for matrix generation
-        
-        Returns:
-            dict: Dictionary containing 'train' and 'test' lists of input/output matrix pairs
+        Creates train and test grids not requiring gridvars (input grid specific variables).
         """
         def generate_examples(n):
             return [
                 {
-                    'input': (input_matrix := self.create_input(taskvars, {})),
-                    'output': self.transform_input(input_matrix, taskvars)
+                    'input': (input_grid := self.create_input(taskvars, {})),
+                    'output': self.transform_input(input_grid, taskvars)
                 }
                 for _ in range(n)
             ]
@@ -98,67 +90,6 @@ class ARCTaskGenerator(ABC):
             'train': generate_examples(nr_train_examples),
             'test': generate_examples(nr_test_examples)
         }
-
-    @staticmethod
-    def visualize_train_test_data(train_test_data: TrainTestData):
-        colors = [
-            (0, 0, 0),          # black for empty
-            (30, 147, 255),     # blue
-            (249, 60, 49),      # red
-            (79, 204, 48),      # green
-            (255, 220, 0),      # yellow
-            (153, 153, 153),    # grey
-            (229, 58, 163),     # pink
-            (255, 137, 27),     # orange
-            (135, 216, 241),    # cyan
-            (146, 18, 49)       # maroon
-        ]
-        colors = [(r/255, g/255, b/255) for r, g, b in colors]
-        cmap = plt.cm.colors.ListedColormap(colors)
-        
-        num_train = len(train_test_data['train'])
-        num_test = len(train_test_data['test'])
-        total_examples = num_train + num_test
-        
-        fig, axes = plt.subplots(total_examples, 2, figsize=(6, 2*total_examples))
-        
-        if total_examples == 1:
-            axes = axes.reshape(1, 2)
-        
-        def plot_matrix(matrix, ax, title):
-            height, width = matrix.shape
-            # Plot the matrix
-            im = ax.imshow(matrix, cmap=cmap, vmin=0, vmax=9)
-            
-            # Set ticks in the middle of each cell
-            ax.set_xticks(np.arange(width))
-            ax.set_yticks(np.arange(height))
-            
-            # Draw grid lines between cells
-            ax.set_xticks(np.arange(-0.5, width, 1), minor=True)
-            ax.set_yticks(np.arange(-0.5, height, 1), minor=True)
-            
-            # Configure grid
-            ax.grid(which="minor", color="white", linestyle='-', linewidth=1)
-            ax.tick_params(which="minor", size=0)
-            ax.grid(which="major", visible=False)
-            
-            # Set title
-            ax.set_title(title)
-        
-        # Plot training examples
-        for idx, train_example in enumerate(train_test_data['train']):
-            plot_matrix(train_example['input'], axes[idx, 0], f'Train {idx+1} Input')
-            plot_matrix(train_example['output'], axes[idx, 1], f'Train {idx+1} Output')
-        
-        # Plot test examples
-        for idx, test_example in enumerate(train_test_data['test']):
-            row_idx = idx + num_train
-            plot_matrix(test_example['input'], axes[row_idx, 0], f'Test {idx+1} Input')
-            plot_matrix(test_example['output'], axes[row_idx, 1], f'Test {idx+1} Output')
-        
-        plt.tight_layout()
-        plt.show()
 
     def _instantiate_templates(self, templates: List[str], vars: Dict[str, Any]) -> List[str]:
         """
@@ -197,8 +128,8 @@ class ARCTaskGenerator(ABC):
                 if match:
                     func_name = match.group(1)
                     return_type = match.group(2) or ""
-                    # Create new function definition with only matrix parameter
-                    lines[i] = f"    def {func_name}(self, matrix: np.ndarray){return_type}:"
+                    # Create new function definition with only grid as parameter
+                    lines[i] = f"    def {func_name}(self, grid: np.ndarray){return_type}:"
             else:
                 # Reduce indentation by 4 spaces (one level) for non-def lines
                 if line.startswith(' ' * 8):  # Check if there's enough indentation to reduce
@@ -208,8 +139,8 @@ class ARCTaskGenerator(ABC):
         return "\n".join(lines).strip()
 
     def create_task(self) -> ARCTask:
-        # 1. Instantiate task variables and create train and test matrices
-        task_variables, train_test_data = self.create_matrices()
+        # 1. Instantiate task variables and create train and test grids
+        task_variables, train_test_data = self.create_grids()
 
         # 2. Instantiate observation and reasoning chains
         observation_chain = self._instantiate_templates(self.input_reasoning_chain, task_variables)
@@ -220,3 +151,64 @@ class ARCTaskGenerator(ABC):
 
         # Create and return ARCTask
         return ARCTask(observation_chain, reasoning_chain, task_variables, transform_code, train_test_data)
+
+    @staticmethod
+    def visualize_train_test_data(train_test_data: TrainTestData):
+        colors = [
+            (0, 0, 0),          # black for empty
+            (30, 147, 255),     # blue
+            (249, 60, 49),      # red
+            (79, 204, 48),      # green
+            (255, 220, 0),      # yellow
+            (153, 153, 153),    # grey
+            (229, 58, 163),     # pink
+            (255, 137, 27),     # orange
+            (135, 216, 241),    # cyan
+            (146, 18, 49)       # maroon
+        ]
+        colors = [(r/255, g/255, b/255) for r, g, b in colors]
+        cmap = plt.cm.colors.ListedColormap(colors)
+        
+        num_train = len(train_test_data['train'])
+        num_test = len(train_test_data['test'])
+        total_examples = num_train + num_test
+        
+        fig, axes = plt.subplots(total_examples, 2, figsize=(6, 2*total_examples))
+        
+        if total_examples == 1:
+            axes = axes.reshape(1, 2)
+        
+        def plot_grid(grid, ax, title):
+            height, width = grid.shape
+            # Plot the grid
+            im = ax.imshow(grid, cmap=cmap, vmin=0, vmax=9)
+            
+            # Set ticks in the middle of each cell
+            ax.set_xticks(np.arange(width))
+            ax.set_yticks(np.arange(height))
+            
+            # Draw grid lines between cells
+            ax.set_xticks(np.arange(-0.5, width, 1), minor=True)
+            ax.set_yticks(np.arange(-0.5, height, 1), minor=True)
+            
+            # Configure grid
+            ax.grid(which="minor", color="white", linestyle='-', linewidth=1)
+            ax.tick_params(which="minor", size=0)
+            ax.grid(which="major", visible=False)
+            
+            # Set title
+            ax.set_title(title)
+        
+        # Plot training examples
+        for idx, train_example in enumerate(train_test_data['train']):
+            plot_grid(train_example['input'], axes[idx, 0], f'Train {idx+1} Input')
+            plot_grid(train_example['output'], axes[idx, 1], f'Train {idx+1} Output')
+        
+        # Plot test examples
+        for idx, test_example in enumerate(train_test_data['test']):
+            row_idx = idx + num_train
+            plot_grid(test_example['input'], axes[row_idx, 0], f'Test {idx+1} Input')
+            plot_grid(test_example['output'], axes[row_idx, 1], f'Test {idx+1} Output')
+        
+        plt.tight_layout()
+        plt.show()

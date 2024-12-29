@@ -14,7 +14,7 @@ import numpy as np
 from scipy.ndimage import label
 from scipy.spatial.distance import cdist
 
-from utilities import visualize_matrix, visualize_object
+from utilities import visualize_grid, visualize_object
 
 T = TypeVar('T')
 

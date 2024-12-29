@@ -5,7 +5,7 @@ import os
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from transformation_library import GridObject, find_connected_objects
-from utilities import visualize_matrix
+from utilities import visualize_grid
 
 class TestTransformations(unittest.TestCase):
     def assertMatrixEqual(self, actual, expected, msg=None):
@@ -13,9 +13,9 @@ class TestTransformations(unittest.TestCase):
         if not np.array_equal(actual, expected):
             message = f"\n{msg if msg else 'Matrices are not equal'}\n"
             message += "\nActual matrix:\n"
-            message += visualize_matrix(actual)
+            message += visualize_grid(actual)
             message += "\nExpected matrix:\n"
-            message += visualize_matrix(expected)
+            message += visualize_grid(expected)
             self.fail(message)
 
     def test_rotate_and_translate_quadrant(self):
@@ -26,14 +26,14 @@ class TestTransformations(unittest.TestCase):
         initial_grid = grid.copy()
         
         print("Initial grid:")
-        print(visualize_matrix(initial_grid))
+        print(visualize_grid(initial_grid))
 
         # rotate quadrant and move it to the top-right
         top_left = GridObject.from_grid(grid, {(0,0), (0,1), (1,0), (1,1)})
         top_left.rotate(1).translate(0,2).paste(grid)
                
         print("Grid after rotation:")
-        print(visualize_matrix(grid))
+        print(visualize_grid(grid))
 
         # Assert
         # Check that original quadrant is unchanged

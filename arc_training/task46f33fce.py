@@ -17,9 +17,9 @@ class ARCTask46f33fceGenerator(ARCTaskGenerator):
         ]
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
 
-    def create_input(self, taskvars, matrixvars):
+    def create_input(self, taskvars, gridvars):
         dimension = taskvars['dimension']
-        matrix = np.zeros((dimension, dimension), dtype=int)
+        grid = np.zeros((dimension, dimension), dtype=int)
         min_non_empty_cells = random.randint(3, int(dimension*dimension/4-1))
         
         # Fill some cells randomly, avoiding odd rows and columns
@@ -27,10 +27,10 @@ class ARCTask46f33fceGenerator(ARCTaskGenerator):
         while non_empty_cells < min_non_empty_cells:
             row = random.choice(range(1, dimension, 2))  # Choose even row
             col = random.choice(range(1, dimension, 2))  # Choose even column
-            if matrix[row, col] == 0:  # Ensure the cell is empty
-                matrix[row, col] = random.randint(1, 9)  # Assign a random color
+            if grid[row, col] == 0:  # Ensure the cell is empty
+                grid[row, col] = random.randint(1, 9)  # Assign a random color
                 non_empty_cells += 1
-        return matrix
+        return grid
 
     def transform_input(self, matrix, taskvars):
         scale_factor = taskvars['scale_factor']
@@ -42,7 +42,7 @@ class ARCTask46f33fceGenerator(ARCTaskGenerator):
         scaled_matrix = np.kron(reduced_matrix, np.ones((scale_factor, scale_factor), dtype=int))
         return scaled_matrix
 
-    def create_matrices(self):
+    def create_grids(self):
         taskvars = {
             'dimension': random.choice([6, 8, 10, 12, 14]),
             'scale_factor': random.randint(2, 4)  # Ensure the output stays within 30x30

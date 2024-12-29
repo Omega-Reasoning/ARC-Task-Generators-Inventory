@@ -5,7 +5,7 @@ import os
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from transformation_library import get_objects
-from utilities import visualize_matrix, visualize_objects
+from utilities import visualize_grid, visualize_objects
 
 import unittest
 import numpy as np
@@ -15,7 +15,7 @@ class TestGetObjects(unittest.TestCase):
         """Helper method to compare objects with detailed error messages"""
         if len(actual_objects) != len(expected_objects) or not all(obj in expected_objects for obj in actual_objects):
             message = "\nMatrix:\n"
-            message += visualize_matrix(matrix)
+            message += visualize_grid(matrix)
             message += "\n\nFound objects:\n"
             message += visualize_objects(matrix, actual_objects)
             message += "\nExpected objects:\n"

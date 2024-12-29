@@ -3,7 +3,7 @@ import random
 import matplotlib.pyplot as plt
 from typing import Dict, List, Any, Tuple
 
-from arc_task_generator import ARCTaskGenerator, MatrixPair, TrainTestData
+from arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
 from transformation_library import find_connected_objects
 
 class ARCTask025d127bGenerator(ARCTaskGenerator):
@@ -30,17 +30,17 @@ class ARCTask025d127bGenerator(ARCTaskGenerator):
         # 3. Call the parent constructor
         super().__init__(observation_chain, reasoning_chain)
 
-    def create_matrices(self) -> Tuple[Dict[str, Any], TrainTestData]:
+    def create_grids(self) -> Tuple[Dict[str, Any], TrainTestData]:
         """
         Creates 3-6 training pairs and 1 test pair.
         Returns a dictionary of variables (if needed) and a TrainTestData dict.
         """
         taskvars = {}
-        return taskvars, self.create_matrices_default(random.randint(3, 6), 1, taskvars)
+        return taskvars, self.create_grids_default(random.randint(3, 6), 1, taskvars)
 
     def create_input(self,
                     taskvars: Dict[str, Any],
-                    matrixvars: Dict[str, Any]) -> np.ndarray:
+                    gridvars: Dict[str, Any]) -> np.ndarray:
 
         # Helper to draw a diagonal line of `steps` increments (row+1, col+1),
         # starting at (r, c). This returns the final (row, col) reached.

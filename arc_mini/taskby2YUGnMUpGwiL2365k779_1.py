@@ -18,7 +18,7 @@ class Tasktaskby2YUGnMUpGwiL2365k779_1Generator(ARCTaskGenerator):
 
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
 
-    def create_input(self, taskvars: Dict[str, Any], matrixvars: Dict[str, Any]) -> np.ndarray:
+    def create_input(self, taskvars: Dict[str, Any], gridvars: Dict[str, Any]) -> np.ndarray:
         rows, columns = taskvars['rows'], taskvars['columns']
         row1, row2 = taskvars['row1'], taskvars['row2']
         cell_color1, cell_color2 = taskvars['cell_color1'], taskvars['cell_color2']
@@ -39,23 +39,23 @@ class Tasktaskby2YUGnMUpGwiL2365k779_1Generator(ARCTaskGenerator):
 
         return matrix
 
-    def transform_input(self, matrix: np.ndarray, taskvars: Dict[str, Any]) -> np.ndarray:
-        rows, columns = matrix.shape
-        output_matrix = matrix.copy()
+    def transform_input(self, grid: np.ndarray, taskvars: Dict[str, Any]) -> np.ndarray:
+        rows, columns = grid.shape
+        output_matrix = grid.copy()
 
         for row in range(rows):
             for col in range(columns):
-                if matrix[row, col] != 0:  # Non-empty cell
-                    color = matrix[row, col]
+                if grid[row, col] != 0:  # Non-empty cell
+                    color = grid[row, col]
                     # Expand horizontally to the right
                     for right_col in range(col + 1, columns):
-                        if matrix[row, right_col] != 0:  # Stop at another colored cell
+                        if grid[row, right_col] != 0:  # Stop at another colored cell
                             break
                         output_matrix[row, right_col] = color
         
         return output_matrix
 
-    def create_matrices(self) -> Tuple[Dict[str, Any], TrainTestData]:
+    def create_grids(self) -> Tuple[Dict[str, Any], TrainTestData]:
         # Randomize task variables
         rows = random.randint(5, 30)
         columns = random.randint(5, 30)

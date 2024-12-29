@@ -2,7 +2,7 @@ import numpy as np
 import random
 from typing import Dict, Any, Set, Tuple, List
 
-from arc_task_generator import ARCTaskGenerator, MatrixPair, TrainTestData
+from arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
 from input_library import Contiguity, create_object, enforce_object_height, enforce_object_width
 from transformation_library import GridObject, find_connected_objects
 
@@ -34,7 +34,7 @@ class ARCTask05f2a901Generator(ARCTaskGenerator):
         ]
         super().__init__(observation_chain, reasoning_chain)
 
-    def create_matrices(self) -> Tuple[Dict[str, Any], TrainTestData]:
+    def create_grids(self) -> Tuple[Dict[str, Any], TrainTestData]:
         """
         1) Pick colors for static vs. moving object.
         2) Generate at least 3 distinct directions in the training set, plus one extra.
@@ -67,25 +67,25 @@ class ARCTask05f2a901Generator(ARCTaskGenerator):
         }
 
         # Build train data
-        train_data: List[MatrixPair] = []
+        train_data: List[GridPair] = []
         for d in train_dirs:
-            matrixvars = {"direction": d}
-            inp = self.create_input(taskvars, matrixvars)
+            gridvars = {"direction": d}
+            inp = self.create_input(taskvars, gridvars)
             out = self.transform_input(inp, {**taskvars, "direction": d})
-            train_data.append(MatrixPair(input=inp, output=out))
+            train_data.append(GridPair(input=inp, output=out))
 
         # Build test data
-        test_data: List[MatrixPair] = []
-        matrixvars_test = {"direction": test_dir}
-        inp_test = self.create_input(taskvars, matrixvars_test)
+        test_data: List[GridPair] = []
+        gridvars_test = {"direction": test_dir}
+        inp_test = self.create_input(taskvars, gridvars_test)
         out_test = self.transform_input(inp_test, {**taskvars, "direction": test_dir})
-        test_data.append(MatrixPair(input=inp_test, output=out_test))
+        test_data.append(GridPair(input=inp_test, output=out_test))
 
         return taskvars, TrainTestData(train=train_data, test=test_data)
 
     def create_input(self,
                      taskvars: Dict[str, Any],
-                     matrixvars: Dict[str, Any]) -> np.ndarray:
+                     gridvars: Dict[str, Any]) -> np.ndarray:
         """
         Create a grid [10..20]x[10..20]. Place:
           - A static rectangle (rs x cs) in color_static.
@@ -99,7 +99,7 @@ class ARCTask05f2a901Generator(ARCTaskGenerator):
         color_moving = taskvars["moving_object"]
         rs = taskvars["rows_static_object"]
         cs = taskvars["columns_static_object"]
-        direction = matrixvars["direction"]
+        direction = gridvars["direction"]
 
         n = random.randint(10, 20)
         m = random.randint(10, 20)
@@ -220,13 +220,13 @@ class ARCTask05f2a901Generator(ARCTaskGenerator):
         # fallback: if no valid placement found, return the partially filled grid
         return grid
 
-    def transform_input(self, matrix: np.ndarray, taskvars: Dict[str, Any]) -> np.ndarray:
+    def transform_input(self, grid: np.ndarray, taskvars: Dict[str, Any]) -> np.ndarray:
         """Slide the moving shape towards the static shape until they touch."""
         color_static = taskvars["static_object"]
         color_moving = taskvars["moving_object"]
         
         # Create GridObjects from the matrix
-        objects = find_connected_objects(matrix, diagonal_connectivity=True)
+        objects = find_connected_objects(grid, diagonal_connectivity=True)
         static_obj = objects.with_color(color_static)[0]
         moving_obj = objects.with_color(color_moving)[0]
         
@@ -241,7 +241,7 @@ class ARCTask05f2a901Generator(ARCTaskGenerator):
             dr, dc = 0, -1    # move left
         
         # Create output grid and slide until touching
-        out = matrix.copy()
+        out = grid.copy()
         while not moving_obj.touches(static_obj):
             moving_obj.cut(out).translate(dr, dc).paste(out)
         

@@ -1,5 +1,5 @@
 from typing import Any, Dict, Tuple
-from arc_task_generator import ARCTaskGenerator, MatrixPair, TrainTestData
+from arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
 import numpy as np
 import random
 
@@ -19,7 +19,7 @@ class ARCTask0520fde7Generator(ARCTaskGenerator):
         ]
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
 
-    def create_matrices(self) -> Tuple[Dict[str, Any], TrainTestData]:
+    def create_grids(self) -> Tuple[Dict[str, Any], TrainTestData]:
         """
         This method sets up task-wide variables such as the subgrid size, the colors, etc.
         Then it generates train and test pairs by calling create_input() and transform_input().
@@ -48,11 +48,11 @@ class ARCTask0520fde7Generator(ARCTaskGenerator):
         # 2) Create train/test data. 
         nr_train = random.randint(3, 6)
         nr_test = 1
-        train_test_data = self.create_matrices_default(nr_train, nr_test, taskvars)
+        train_test_data = self.create_grids_default(nr_train, nr_test, taskvars)
         
         return taskvars, train_test_data
 
-    def create_input(self, taskvars: dict, matrixvars: dict) -> np.ndarray:
+    def create_input(self, taskvars: dict, gridvars: dict) -> np.ndarray:
         """
         Creates an input matrix with two subgrids of size subgrid_rows x subgrid_cols, 
         separated by a vertical bar of color_vertical_separator.
@@ -69,13 +69,13 @@ class ARCTask0520fde7Generator(ARCTaskGenerator):
         separator = np.full((rows, 1), taskvars["color_vertical_separator"], dtype=int)
         return np.concatenate((subgrids[0], separator, subgrids[1]), axis=1)
 
-    def transform_input(self, matrix: np.ndarray, taskvars: dict) -> np.ndarray:
+    def transform_input(self, grid: np.ndarray, taskvars: dict) -> np.ndarray:
         # Find the separator column using boolean indexing
-        separator_col = np.where(np.all(matrix == taskvars["color_vertical_separator"], axis=0))[0][0]
+        separator_col = np.where(np.all(grid == taskvars["color_vertical_separator"], axis=0))[0][0]
         
         # Split into left and right subgrids
-        left_subgrid = matrix[:, :separator_col]
-        right_subgrid = matrix[:, separator_col + 1:]
+        left_subgrid = grid[:, :separator_col]
+        right_subgrid = grid[:, separator_col + 1:]
         
         # Create output using boolean operations
         return np.where(

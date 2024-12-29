@@ -17,7 +17,7 @@ class TaskDf9gJ6sP4uJqqTkhh7EfY5Generator(ARCTaskGenerator):
 
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
 
-    def create_input(self, taskvars: Dict[str, Any], matrixvars: Dict[str, Any]) -> np.ndarray:
+    def create_input(self, taskvars: Dict[str, Any], gridvars: Dict[str, Any]) -> np.ndarray:
         size = random.randint(5, 30)
         matrix = np.zeros((size, size), dtype=int)
 
@@ -28,34 +28,34 @@ class TaskDf9gJ6sP4uJqqTkhh7EfY5Generator(ARCTaskGenerator):
         matrix[row1, col1] = color1
         matrix[row2, col2] = color2
 
-        matrixvars.update({"col1": col1, "col2": col2, "color1": color1, "color2": color2})
+        gridvars.update({"col1": col1, "col2": col2, "color1": color1, "color2": color2})
 
         return matrix
 
-    def transform_input(self, matrix: np.ndarray, taskvars: Dict[str, Any]) -> np.ndarray:
-        output_matrix = matrix.copy()
-        non_zero_columns = np.where(matrix.any(axis=0))[0]
+    def transform_input(self, grid: np.ndarray, taskvars: Dict[str, Any]) -> np.ndarray:
+        output_matrix = grid.copy()
+        non_zero_columns = np.where(grid.any(axis=0))[0]
 
         for col in non_zero_columns:
-            color = matrix[np.nonzero(matrix[:, col])[0][0], col]
+            color = grid[np.nonzero(grid[:, col])[0][0], col]
             output_matrix[:, col] = color
 
         return output_matrix
 
-    def create_matrices(self) -> Tuple[Dict[str, Any], TrainTestData]:
+    def create_grids(self) -> Tuple[Dict[str, Any], TrainTestData]:
         taskvars = {}
         train_pairs = []
 
         for _ in range(random.randint(3, 6)):
-            matrixvars = {}
-            input_matrix = self.create_input(taskvars, matrixvars)
+            gridvars = {}
+            input_matrix = self.create_input(taskvars, gridvars)
             output_matrix = self.transform_input(input_matrix, taskvars)
             train_pairs.append({"input": input_matrix, "output": output_matrix})
 
         test_pairs = []
         for _ in range(1):
-            matrixvars = {}
-            input_matrix = self.create_input(taskvars, matrixvars)
+            gridvars = {}
+            input_matrix = self.create_input(taskvars, gridvars)
             output_matrix = self.transform_input(input_matrix, taskvars)
             test_pairs.append({"input": input_matrix, "output": output_matrix})
 

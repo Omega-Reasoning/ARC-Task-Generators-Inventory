@@ -14,8 +14,8 @@ class ARCTask00d62c1bGenerator(ARCTaskGenerator):
         ]
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
     
-    def create_input(self, taskvars: Dict[str, Any], matrixvars: Dict[str, Any]) -> np.ndarray:
-        height, width = matrixvars['height'], matrixvars['width']
+    def create_input(self, taskvars: Dict[str, Any], gridvars: Dict[str, Any]) -> np.ndarray:
+        height, width = gridvars['height'], gridvars['width']
         matrix = np.zeros((height, width), dtype=int)
         
         # Ensure minimum matrix size for both shapes
@@ -92,14 +92,14 @@ class ARCTask00d62c1bGenerator(ARCTaskGenerator):
         
         return matrix
 
-    def transform_input(self, matrix: np.ndarray, taskvars: Dict[str, Any]) -> np.ndarray:
-        output = matrix.copy()
-        height, width = matrix.shape
+    def transform_input(self, grid: np.ndarray, taskvars: Dict[str, Any]) -> np.ndarray:
+        output = grid.copy()
+        height, width = grid.shape
         
         # First fill all non-green cells with fill color
         for y in range(height):
             for x in range(width):
-                if matrix[y, x] == 0:
+                if grid[y, x] == 0:
                     output[y, x] = taskvars['fill_color']  
         
         # Then flood fill from edges with empty cells
@@ -132,7 +132,7 @@ class ARCTask00d62c1bGenerator(ARCTaskGenerator):
         
         return output
 
-    def create_matrices(self) -> Tuple[Dict[str, Any], Dict[str, List[Dict[str, np.ndarray]]]]:
+    def create_grids(self) -> Tuple[Dict[str, Any], Dict[str, List[Dict[str, np.ndarray]]]]:
         # select a random object color and a fill color which is different from it
         object_color = np.random.randint(1, 9)
         available_colors = list(range(1, 9))
@@ -150,8 +150,8 @@ class ARCTask00d62c1bGenerator(ARCTaskGenerator):
             height = np.random.randint(min_size, max_size)
             width = np.random.randint(min_size, max_size)
             
-            matrixvars = {'height': height, 'width': width}
-            input_matrix = self.create_input(taskvars, matrixvars)
+            gridvars = {'height': height, 'width': width}
+            input_matrix = self.create_input(taskvars, gridvars)
             output_matrix = self.transform_input(input_matrix, taskvars)
             
             train_examples.append({
@@ -162,8 +162,8 @@ class ARCTask00d62c1bGenerator(ARCTaskGenerator):
         # create test example (potentially larger)
         test_height = np.random.randint(10, 20)
         test_width = np.random.randint(10, 20)
-        matrixvars = {'height': test_height, 'width': test_width}
-        test_input = self.create_input(taskvars, matrixvars)
+        gridvars = {'height': test_height, 'width': test_width}
+        test_input = self.create_input(taskvars, gridvars)
         test_output = self.transform_input(test_input, taskvars)
         
         test_examples = [{

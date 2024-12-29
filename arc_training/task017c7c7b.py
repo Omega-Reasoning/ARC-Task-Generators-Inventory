@@ -1,4 +1,4 @@
-from arc_task_generator import ARCTaskGenerator, MatrixPair, TrainTestData
+from arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
 import numpy as np
 import random
 from typing import Dict, Any, Tuple, List
@@ -17,7 +17,7 @@ class ARCTask017c7c7bGenerator(ARCTaskGenerator):
         ]
         super().__init__(observation_chain, transformation_chain)
 
-    def create_matrices(self) -> Tuple[Dict[str, Any], TrainTestData]:
+    def create_grids(self) -> Tuple[Dict[str, Any], TrainTestData]:
         """
         Initialise the task variables and create the train and test matrices.
         We randomise the input rows, columns, output rows, as well as the input and output colors.
@@ -42,14 +42,14 @@ class ARCTask017c7c7bGenerator(ARCTaskGenerator):
             "output_color": output_color,
         }
 
-        train_test_data = self.create_matrices_default(nr_train_examples=random.randint(3, 6),
+        train_test_data = self.create_grids_default(nr_train_examples=random.randint(3, 6),
                                                        nr_test_examples=1,
                                                        taskvars=taskvars)
         return taskvars, train_test_data
 
     def create_input(self,
                      taskvars: Dict[str, Any],
-                     matrixvars: Dict[str, Any]) -> np.ndarray:
+                     gridvars: Dict[str, Any]) -> np.ndarray:
         """
         Create an input matrix with shape (input_rows, columns), repeated along
         the vertical dimension, and filled with {vars['input_color']} as the
@@ -90,12 +90,12 @@ class ARCTask017c7c7bGenerator(ARCTaskGenerator):
         return grid
 
     def transform_input(self,
-                    matrix: np.ndarray,
+                    grid: np.ndarray,
                     taskvars: Dict[str, Any]) -> np.ndarray:
         input_color = taskvars["input_color"]
         output_color = taskvars["output_color"]
         output_rows = taskvars["output_rows"]
-        rows_in, cols_in = matrix.shape
+        rows_in, cols_in = grid.shape
         
         # Find the repetition period by comparing rows
         period = None
@@ -104,7 +104,7 @@ class ARCTask017c7c7bGenerator(ARCTaskGenerator):
             for i in range(rows_in - m):
                 if i + m >= rows_in:
                     break
-                if not np.array_equal(matrix[i], matrix[i + m]):
+                if not np.array_equal(grid[i], grid[i + m]):
                     is_period = False
                     break
             if is_period:
@@ -118,7 +118,7 @@ class ARCTask017c7c7bGenerator(ARCTaskGenerator):
         output_grid = np.zeros((output_rows, cols_in), dtype=int)
         
         # Fill the output grid by repeating the pattern
-        pattern = matrix[:period]  # Take the first period of rows as the pattern
+        pattern = grid[:period]  # Take the first period of rows as the pattern
         for i in range(0, output_rows, period):
             # Calculate how many rows we can copy (might be partial at the end)
             rows_to_copy = min(period, output_rows - i)

@@ -13,7 +13,7 @@ class Tasktaskfk9ESXP5Lo4Ek6Sd2Xft6T_1Generator(ARCTaskGenerator):
         ]
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
 
-    def create_input(self, taskvars: Dict[str, Any], matrixvars: Dict[str, Any]) -> np.ndarray:
+    def create_input(self, taskvars: Dict[str, Any], gridvars: Dict[str, Any]) -> np.ndarray:
         rows, cols = np.random.randint(5, 15), np.random.randint(5, 15)
         matrix = np.zeros((rows, cols), dtype=int)
         start_row, start_col = np.random.randint(0, rows), np.random.randint(0, cols)
@@ -30,12 +30,12 @@ class Tasktaskfk9ESXP5Lo4Ek6Sd2Xft6T_1Generator(ARCTaskGenerator):
         
         return matrix
 
-    def transform_input(self, matrix: np.ndarray, taskvars: Dict[str, Any]) -> np.ndarray:
-        output_matrix = matrix.copy()
+    def transform_input(self, grid: np.ndarray, taskvars: Dict[str, Any]) -> np.ndarray:
+        output_matrix = grid.copy()
         output_matrix[output_matrix == 0] = taskvars['fill_color']
         return output_matrix
 
-    def create_matrices(self) -> Tuple[Dict[str, Any], TrainTestData]:
+    def create_grids(self) -> Tuple[Dict[str, Any], TrainTestData]:
         taskvars = {}
         object_color = np.random.choice(range(1, 10))
         available_fill_colors = [c for c in range(1, 10) if c != object_color]

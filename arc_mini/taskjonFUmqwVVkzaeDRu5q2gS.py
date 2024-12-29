@@ -17,7 +17,7 @@ class TasktaskjonFUmqwVVkzaeDRu5q2gSGenerator(ARCTaskGenerator):
         ]
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
 
-    def create_input(self, taskvars: Dict[str, Any], matrixvars: Dict[str, Any]) -> np.ndarray:
+    def create_input(self, taskvars: Dict[str, Any], gridvars: Dict[str, Any]) -> np.ndarray:
         rows, cols = taskvars['rows'], taskvars['columns']
         matrix = np.zeros((rows, cols), dtype=int)
 
@@ -53,17 +53,17 @@ class TasktaskjonFUmqwVVkzaeDRu5q2gSGenerator(ARCTaskGenerator):
         self._place_horizontally_connected_pair(matrix)
         return matrix
 
-    def transform_input(self, matrix: np.ndarray, taskvars: Dict[str, Any]) -> np.ndarray:
-        output_matrix = matrix.copy()
-        rows, cols = matrix.shape
+    def transform_input(self, grid: np.ndarray, taskvars: Dict[str, Any]) -> np.ndarray:
+        output_matrix = grid.copy()
+        rows, cols = grid.shape
 
         for x in range(rows - 1):
             for y in range(cols - 3):
-                if self._is_connected_pair(matrix, x, y):
+                if self._is_connected_pair(grid, x, y):
                     output_matrix[x:x+2, y:y+4] = 3  # Place green rectangle
         return output_matrix
 
-    def create_matrices(self) -> Tuple[Dict[str, Any], TrainTestData]:
+    def create_grids(self) -> Tuple[Dict[str, Any], TrainTestData]:
         taskvars = {
             'rows': randint(5, 30),
             'columns': randint(5, 30)
@@ -87,18 +87,18 @@ class TasktaskjonFUmqwVVkzaeDRu5q2gSGenerator(ARCTaskGenerator):
                 return False
         return True
 
-    def _place_horizontally_connected_pair(self, matrix: np.ndarray):
-        rows, cols = matrix.shape
+    def _place_horizontally_connected_pair(self, grid: np.ndarray):
+        rows, cols = grid.shape
         while True:
             x, y = randint(0, rows - 2), randint(0, cols - 4)
-            if np.all(matrix[x:x+2, y:y+2] == 0) and np.all(matrix[x:x+2, y+2:y+4] == 0):
-                matrix[x:x+2, y:y+2] = 2  # Red
-                matrix[x:x+2, y+2:y+4] = 1  # Blue
+            if np.all(grid[x:x+2, y:y+2] == 0) and np.all(grid[x:x+2, y+2:y+4] == 0):
+                grid[x:x+2, y:y+2] = 2  # Red
+                grid[x:x+2, y+2:y+4] = 1  # Blue
                 break
 
-    def _is_connected_pair(self, matrix: np.ndarray, x: int, y: int) -> bool:
+    def _is_connected_pair(self, grid: np.ndarray, x: int, y: int) -> bool:
         return (
-            np.all(matrix[x:x+2, y:y+2] == 2) and  # Red 2x2 block
-            np.all(matrix[x:x+2, y+2:y+4] == 1)    # Blue 2x2 block
+            np.all(grid[x:x+2, y:y+2] == 2) and  # Red 2x2 block
+            np.all(grid[x:x+2, y+2:y+4] == 1)    # Blue 2x2 block
         )
 

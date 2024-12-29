@@ -15,7 +15,7 @@ class TasktaskLXDLNHiRjHJRoBfb6pR5mY_1Generator(ARCTaskGenerator):
         ]
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
 
-    def create_input(self, taskvars: Dict[str, Any], matrixvars: Dict[str, Any]) -> np.ndarray:
+    def create_input(self, taskvars: Dict[str, Any], gridvars: Dict[str, Any]) -> np.ndarray:
         rows = taskvars['rows']
         columns = taskvars['columns']
         cell_color = taskvars['cell_color']
@@ -36,21 +36,21 @@ class TasktaskLXDLNHiRjHJRoBfb6pR5mY_1Generator(ARCTaskGenerator):
         
         return matrix
 
-    def transform_input(self, matrix: np.ndarray, taskvars: Dict[str, Any]) -> np.ndarray:
-        rows, columns = matrix.shape
+    def transform_input(self, grid: np.ndarray, taskvars: Dict[str, Any]) -> np.ndarray:
+        rows, columns = grid.shape
         middle_col = columns // 2
 
         # Copy input matrix
-        output_matrix = matrix.copy()
+        output_matrix = grid.copy()
 
         # Reflect left half to the right half across the middle column
         for col in range(middle_col):
             reflected_col = columns - col - 1
-            output_matrix[:, reflected_col] = matrix[:, col]
+            output_matrix[:, reflected_col] = grid[:, col]
         
         return output_matrix
 
-    def create_matrices(self) -> Tuple[Dict[str, Any], TrainTestData]:
+    def create_grids(self) -> Tuple[Dict[str, Any], TrainTestData]:
         # Define task variables
         rows = random.randint(5, 30)
         columns = random.choice([c for c in range(5, 31) if c % 2 == 1])  # Only odd columns

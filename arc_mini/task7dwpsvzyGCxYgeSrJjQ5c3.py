@@ -19,7 +19,7 @@ class Tasktask7dwpsvzyGCxYgeSrJjQ5c3Generator(ARCTaskGenerator):
         
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
 
-    def create_matrices(self) -> Tuple[Dict[str, Any], TrainTestData]:
+    def create_grids(self) -> Tuple[Dict[str, Any], TrainTestData]:
         taskvars = {
             "rows": random.randint(5, 30),
             "columns": random.randint(5, 30),
@@ -41,7 +41,7 @@ class Tasktask7dwpsvzyGCxYgeSrJjQ5c3Generator(ARCTaskGenerator):
         
         return taskvars, {"train": train_matrices, "test": test_matrices}
     
-    def create_input(self, taskvars: Dict[str, Any], matrixvars: Dict[str, Any]) -> np.ndarray:
+    def create_input(self, taskvars: Dict[str, Any], gridvars: Dict[str, Any]) -> np.ndarray:
         rows = taskvars['rows']
         columns = taskvars['columns']
         cell_color = taskvars['cell_color']
@@ -58,19 +58,19 @@ class Tasktask7dwpsvzyGCxYgeSrJjQ5c3Generator(ARCTaskGenerator):
         
         return matrix
 
-    def transform_input(self, matrix: np.ndarray, taskvars: Dict[str, Any]) -> np.ndarray:
-        rows, columns = matrix.shape
+    def transform_input(self, grid: np.ndarray, taskvars: Dict[str, Any]) -> np.ndarray:
+        rows, columns = grid.shape
         fill_color = taskvars['fill_color']
         output_matrix = np.zeros((rows, columns), dtype=int)
         
         # Check filled columns
-        if np.all(matrix[:, 0] != 0) and np.all(matrix[:, -1] != 0):
+        if np.all(grid[:, 0] != 0) and np.all(grid[:, -1] != 0):
             mid_row = rows // 2
             output_matrix[mid_row, 0] = fill_color
             output_matrix[mid_row, -1] = fill_color
         
         # Check filled rows
-        if np.all(matrix[0, :] != 0) and np.all(matrix[-1, :] != 0):
+        if np.all(grid[0, :] != 0) and np.all(grid[-1, :] != 0):
             mid_col = columns // 2
             output_matrix[0, mid_col] = fill_color
             output_matrix[-1, mid_col] = fill_color
