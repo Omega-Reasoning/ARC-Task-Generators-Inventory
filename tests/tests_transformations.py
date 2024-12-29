@@ -25,10 +25,16 @@ class TestTransformations(unittest.TestCase):
                          [2, 3]]
         initial_grid = grid.copy()
         
+        print("Initial grid:")
+        print(visualize_matrix(initial_grid))
+
         # rotate quadrant and move it to the top-right
         top_left = GridObject.from_grid(grid, {(0,0), (0,1), (1,0), (1,1)})
         top_left.rotate(1).translate(0,2).paste(grid)
                
+        print("Grid after rotation:")
+        print(visualize_matrix(grid))
+
         # Assert
         # Check that original quadrant is unchanged
         self.assertMatrixEqual(

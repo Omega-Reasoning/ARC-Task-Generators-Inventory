@@ -221,10 +221,7 @@ class ARCTask05f2a901Generator(ARCTaskGenerator):
         return grid
 
     def transform_input(self, matrix: np.ndarray, taskvars: Dict[str, Any]) -> np.ndarray:
-        """
-        Slide the moving shape towards the static shape until they touch.
-        The direction is determined by relative positions of the objects.
-        """
+        """Slide the moving shape towards the static shape until they touch."""
         color_static = taskvars["static_object"]
         color_moving = taskvars["moving_object"]
         
@@ -233,61 +230,20 @@ class ARCTask05f2a901Generator(ARCTaskGenerator):
         static_obj = objects.with_color(color_static)[0]
         moving_obj = objects.with_color(color_moving)[0]
         
-        def direction_to_offset(direction: str) -> Tuple[int, int]:
-            """Convert direction string to (dr, dc) offset."""
-            return {
-                "up": (-1, 0),
-                "down": (1, 0),
-                "left": (0, -1),
-                "right": (0, 1)
-            }[direction]
-
-        def compute_movement_direction(static: GridObject, moving: GridObject) -> str:
-            """Determine movement direction based on objects' bounding boxes."""
-            s_box = static.bounding_box
-            m_box = moving.bounding_box
-            
-            dr = (s_box[0].start + s_box[0].stop) / 2 - (m_box[0].start + m_box[0].stop) / 2
-            dc = (s_box[1].start + s_box[1].stop) / 2 - (m_box[1].start + m_box[1].stop) / 2
-            
-            return "down" if abs(dr) > abs(dc) and dr > 0 else \
-                "up" if abs(dr) > abs(dc) else \
-                "right" if dc > 0 else "left"
-
-        # Determine direction based on relative positions
-        direction = compute_movement_direction(static_obj, moving_obj)
-        dr, dc = direction_to_offset(direction)
+        # Determine movement offset based on spatial relationships
+        if moving_obj.is_strictly_above(static_obj):
+            dr, dc = 1, 0     # move down
+        elif moving_obj.is_strictly_below(static_obj):
+            dr, dc = -1, 0    # move up
+        elif moving_obj.is_strictly_left_of(static_obj):
+            dr, dc = 0, 1     # move right
+        elif moving_obj.is_strictly_right_of(static_obj):
+            dr, dc = 0, -1    # move left
         
-        # Create output grid and initialize coordinates
+        # Create output grid and slide until touching
         out = matrix.copy()
-        moving_coords = moving_obj.coords
-        
-        # Shift until invalid or adjacency
-        while True:
-            next_coords = {(r+dr, c+dc) for (r, c) in moving_coords}
-            
-            # Check bounds
-            if not all(0 <= r < out.shape[0] and 0 <= c < out.shape[1] 
-                    for r, c in next_coords):
-                break
-            
-            # Create temporary GridObject for next position
-            next_obj = GridObject.from_grid(matrix, next_coords)
-            
-            # Check overlap or adjacency
-            if next_obj.coords & static_obj.coords:  # overlap
-                break
-            if next_obj.is_adjacent_to(static_obj):  # adjacency
-                moving_coords = next_coords
-                break
-                
-            # Perform shift
-            moving_coords = next_coords
-        
-        # Update output grid
-        out[out == color_moving] = 0
-        for r, c in moving_coords:
-            out[r, c] = color_moving
+        while not moving_obj.touches(static_obj):
+            moving_obj.cut(out).translate(dr, dc).paste(out)
         
         return out
 

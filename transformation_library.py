@@ -8,12 +8,30 @@ ARCTaskGenerator class.
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Iterator, Optional, List, Set, Tuple
+from functools import wraps
+from typing import Callable, Iterator, Optional, List, Set, Tuple, TypeVar
 import numpy as np
 from scipy.ndimage import label
 from scipy.spatial.distance import cdist
 
 from utilities import visualize_matrix, visualize_object
+
+T = TypeVar('T')
+
+def make_collection_method(method: Callable) -> Callable:
+    """
+    Decorator that converts a boolean method taking a single GridObject
+    into a method that works with GridObjects and returns filtered GridObjects
+    """
+    @wraps(method)
+    def wrapper(self, others: 'GridObjects') -> 'GridObjects':
+        if isinstance(others, GridObject):
+            # If called with single object, maintain original behavior
+            return method(self, others)
+        # Filter objects where the method returns True
+        matching = [obj for obj in others.objects if method(self, obj)]
+        return GridObjects(matching)
+    return wrapper
 
 class BorderBehavior(Enum):
     CLIP = "clip"       # Remove parts that go out of bounds
@@ -144,7 +162,7 @@ class GridObject:
         """Check if object contains specific color."""
         return color in self.colors
 
-    def is_adjacent_to(self, other: 'GridObject', diagonal_connectivity: bool = False) -> bool:
+    def touches(self, other: 'GridObject', diag: bool = False) -> bool:
         """
         Check if this object is adjacent to another object.
         
@@ -156,20 +174,53 @@ class GridObject:
         coords1 = self.coords
         coords2 = other.coords
         
-        # Define neighbor offsets based on connectivity type
         neighbors = [(0,1), (0,-1), (1,0), (-1,0)]  # cardinal directions
-        if diagonal_connectivity:
+        if diag:
             neighbors.extend([(1,1), (1,-1), (-1,1), (-1,-1)])  # diagonal directions
         
         return any((r+dr, c+dc) in coords2 
                 for r, c in coords1
                 for dr, dc in neighbors)
 
+    @make_collection_method
     def overlaps_with(self, other: 'GridObject') -> bool:
-        """Check if this object overlaps with another object."""
-        coords1 = {(r, c) for r, c, _ in self.cells}
-        coords2 = {(r, c) for r, c, _ in other.cells}
-        return not coords1.isdisjoint(coords2)
+        return not self.coords.isdisjoint(other.coords)
+
+    @make_collection_method
+    def fully_contains(self, other: 'GridObject') -> bool:
+        return other.coords.issubset(self.coords)
+
+    @make_collection_method
+    def is_strictly_above(self, other: 'GridObject') -> bool:
+        my_box = self.bounding_box
+        other_box = other.bounding_box
+        return my_box[0].stop <= other_box[0].start
+
+    @make_collection_method
+    def is_strictly_below(self, other: 'GridObject') -> bool:
+        my_box = self.bounding_box
+        other_box = other.bounding_box
+        return my_box[0].start >= other_box[0].stop
+
+    @make_collection_method
+    def is_strictly_left_of(self, other: 'GridObject') -> bool:
+        my_box = self.bounding_box
+        other_box = other.bounding_box
+        return my_box[1].stop <= other_box[1].start
+
+    @make_collection_method
+    def is_strictly_right_of(self, other: 'GridObject') -> bool:
+        my_box = self.bounding_box
+        other_box = other.bounding_box
+        return my_box[1].start >= other_box[1].stop
+
+    def manhattan_distance(self, other: 'GridObject') -> int:
+        """Compute minimum Manhattan (L1) distance between this and another object."""
+        return int(cdist(list(self.coords), list(other.coords), metric='cityblock').min())
+
+    def chebyshev_distance(self, other: 'GridObject') -> int:
+        """Compute minimum Chebyshev (L∞) distance between this and another object (allows diagonal moves)."""
+        return int(cdist(list(self.coords), list(other.coords), metric='chebyshev').min())
 
     def translate(self, 
                 dx: int, 
@@ -271,7 +322,7 @@ class GridObjects:
         """Delegates method calls to contained objects with chaining support."""
         def method(*args, **kwargs):
             return GridObjects([getattr(obj, method_name)(*args, **kwargs) 
-                              for obj in self.objects])
+                            for obj in self.objects])
         return method
 
 def find_connected_objects(grid: np.ndarray,
@@ -312,11 +363,3 @@ def find_connected_objects(grid: np.ndarray,
             objects.append(GridObject(cells))
     
     return GridObjects(objects)
-
-def manhattan_distance(a: GridObject, b: GridObject) -> int:
-    """Compute minimum Manhattan (L1) distance between two objects."""
-    return int(cdist(list(a.coords), list(b.coords), metric='cityblock').min())
-
-def chebyshev_distance(a: GridObject, b: GridObject) -> int:
-    """Compute minimum Chebyshev (L∞) distance between two objects (allows diagonal moves)."""
-    return int(cdist(list(a.coords), list(b.coords), metric='chebyshev').min())
