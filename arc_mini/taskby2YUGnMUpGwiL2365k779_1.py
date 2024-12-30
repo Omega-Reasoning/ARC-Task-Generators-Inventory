@@ -1,6 +1,5 @@
 import numpy as np
 import random
-import numpy as np
 from typing import Dict, Any, Tuple
 from arc_task_generator import ARCTaskGenerator, TrainTestData
 
