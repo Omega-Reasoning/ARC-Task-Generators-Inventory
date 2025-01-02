@@ -2,6 +2,7 @@ import numpy as np
 import random
 from arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
 from input_library import retry
+from transformation_library import GridObject, parse_objects_by_color
 
 class TasktaskSbR456EvwnZaSWWa9iuf3WGenerator(ARCTaskGenerator):
     def __init__(self):
@@ -10,7 +11,8 @@ class TasktaskSbR456EvwnZaSWWa9iuf3WGenerator(ARCTaskGenerator):
             "Each input matrix contains {color('cell_color1')} and {color('cell_color2')} cells, with the rest of the cells being empty (0)."
         ]
         reasoning_chain = [
-            "The output matrix is constructed by copying the input matrix and extending each {color('cell_color1')} cell vertically downwards, filling empty (0) cells with {color('cell_color1')} color, until a {color('cell_color2')} cell or the bottom edge of the matrix is reached."
+            "The output matrix is constructed by copying the input matrix and extending each {color('cell_color1')} cell vertically downwards.",
+            "The extension is done by filling empty (0) cells with {color('cell_color1')}, until a {color('cell_color2')} cell or the bottom edge of the matrix is reached."
         ]
         super().__init__(observation_chain, reasoning_chain)
 
@@ -69,6 +71,11 @@ class TasktaskSbR456EvwnZaSWWa9iuf3WGenerator(ARCTaskGenerator):
         return valid_grid
 
     def transform_input(self, grid: np.ndarray, taskvars: dict) -> np.ndarray:
+        out_grid = np.copy(grid)
+        parse_objects_by_color(out_grid).with_color(taskvars["cell_color1"])[0].extend(grid=out_grid, direction=(1, 0)).paste(out_grid)
+        return out_grid
+
+    def transform_input_no_library(self, grid: np.ndarray, taskvars: dict) -> np.ndarray:
         color1 = taskvars["cell_color1"]
         color2 = taskvars["cell_color2"]
         out_grid = np.copy(grid)

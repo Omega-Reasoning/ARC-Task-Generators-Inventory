@@ -29,12 +29,8 @@ class TasktaskeDeon7vcEHnZfiUDXmTHDUGenerator(ARCTaskGenerator):
     def transform_input(self, grid: np.ndarray, taskvars: dict) -> np.ndarray:
         color_val = taskvars["object_color"]
         rows, cols = grid.shape
-        row_candidates = [r for r in range(rows) if np.all(grid[r, :] == color_val)]
-        col_candidates = [c for c in range(cols) if np.all(grid[:, c] == color_val)]
-        if not row_candidates or not col_candidates:
-            return grid.copy()
-        row_filled = row_candidates[0]
-        col_filled = col_candidates[0]
+        row_filled = [r for r in range(rows) if np.all(grid[r, :] == color_val)][0]
+        col_filled = [c for c in range(cols) if np.all(grid[:, c] == color_val)][0]
         out_grid = np.zeros_like(grid)
         out_grid[row_filled, col_filled] = color_val
         return out_grid
@@ -45,8 +41,3 @@ class TasktaskeDeon7vcEHnZfiUDXmTHDUGenerator(ARCTaskGenerator):
         nr_test_examples = 1
         train_test_data = self.create_grids_default(nr_train_examples, nr_test_examples, taskvars)
         return taskvars, train_test_data
-
-if __name__ == "__main__":
-    gen = ExampleTaskGenerator()
-    task_variables, train_test_data = gen.create_grids()
-    ARCTaskGenerator.visualize_train_test_data(train_test_data)

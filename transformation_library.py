@@ -9,7 +9,7 @@ ARCTaskGenerator class.
 from dataclasses import dataclass
 from enum import Enum
 from functools import wraps
-from typing import Callable, Iterator, Optional, List, Set, Tuple, TypeVar
+from typing import Callable, Iterator, Optional, List, Set, Tuple, TypeVar, Union
 import numpy as np
 from scipy.ndimage import label
 from scipy.spatial.distance import cdist
@@ -282,6 +282,79 @@ class GridObject:
                                         self.bounding_box[1].start)).cells
         return self
 
+    def extend(self,
+            grid: np.ndarray,
+            direction: Tuple[int, int],
+            start_cells: Optional[Union[Tuple[int, int], List[Tuple[int, int]]]] = None,
+            stop_predicate: Optional[Callable[[np.ndarray, int, int], bool]] = None,
+            border_behavior: BorderBehavior = BorderBehavior.STOP,
+            background: int = 0) -> 'GridObject':
+        """
+        Extends from specified cells or object cells in given direction until stop predicate is met.
+        
+        Args:
+            grid: The grid to check for extensions
+            direction: (dy, dx) tuple specifying direction of extension
+            start_cells: Optional specific cell(s) to start extension from. Can be:
+                - Single tuple (row, col)
+                - List of tuples [(row1, col1), (row2, col2), ...]
+                If None, uses all cells in the current GridObject
+            stop_predicate: Optional function(grid, row, col) -> bool that returns True 
+                when extension should stop. If None, stops at any non-background color.
+            border_behavior: How to handle grid boundaries (WRAP/STOP/BOUNCE)
+            background: Background color to extend through (used only if stop_predicate is None)
+        
+        Returns:
+            New GridObject containing the extension cells
+        """
+        rows, cols = grid.shape
+        dy, dx = direction
+        new_cells = set()
+        
+        # Get initial positions
+        if isinstance(start_cells, tuple):
+            initial_positions = [(start_cells[0], start_cells[1], grid[start_cells])]
+        elif start_cells is not None:
+            initial_positions = [(r, c, grid[r, c]) for r, c in start_cells]
+        else:
+            initial_positions = self.cells
+        
+        if stop_predicate is None:
+            stop_predicate = lambda g, r, c: g[r, c] != background
+        
+        def get_next_position(r: int, c: int, dm: int) -> Tuple[int, int]:
+            """Calculate next position based on direction and multiplier"""
+            return r + dy * dm, c + dx * dm
+        
+        def handle_border(r: int, c: int, base_r: int, base_c: int, dm: int) -> Tuple[int, int, int]:
+            """Handle border collision and return new position and direction multiplier"""
+            if not (0 <= r < rows and 0 <= c < cols):
+                if border_behavior == BorderBehavior.STOP:
+                    return r, c, 0  # multiplier 0 signals stop
+                elif border_behavior == BorderBehavior.WRAP:
+                    return r % rows, c % cols, dm
+                else:  # BOUNCE
+                    dm *= -1
+                    r, c = get_next_position(base_r, base_c, dm)
+                    if not (0 <= r < rows and 0 <= c < cols):
+                        return r, c, 0
+                    return r, c, dm
+            return r, c, dm
+        
+        for base_r, base_c, color in initial_positions:
+            curr_r, curr_c = get_next_position(base_r, base_c, 1)
+            dir_mult = 1
+            
+            while dir_mult != 0:  # dir_mult becomes 0 to signal stopping
+                curr_r, curr_c, dir_mult = handle_border(curr_r, curr_c, base_r, base_c, dir_mult)
+                if dir_mult == 0 or stop_predicate(grid, curr_r, curr_c):
+                    break
+                    
+                new_cells.add((curr_r, curr_c, color))
+                curr_r, curr_c = get_next_position(curr_r, curr_c, dir_mult)
+        
+        return GridObject(new_cells)
+
 class GridObjects:
     """Collection of GridObjects with filtering capabilities."""
     def __init__(self, objects: Optional[List[GridObject]] = None):
@@ -361,5 +434,26 @@ def find_connected_objects(grid: np.ndarray,
         else:
             # Create single object with all cells regardless of color
             objects.append(GridObject(cells))
+    
+    return GridObjects(objects)
+
+def parse_objects_by_color(grid: np.ndarray, background: int = 0) -> 'GridObjects':
+    """Parse grid into separate GridObjects, one for each unique color (except background).
+    
+    Args:
+        grid: 2D numpy array where non-background values represent objects
+        background: Value representing empty space (default 0)
+    
+    Returns:
+        GridObjects containing one object per unique color in the grid
+    """
+    # Find all unique colors except background
+    colors = set(np.unique(grid)) - {background}
+    
+    objects = []
+    for color in colors:
+        coords = np.where(grid == color)
+        cells = {(r, c, color) for r, c in zip(coords[0], coords[1])}
+        objects.append(GridObject(cells))
     
     return GridObjects(objects)
