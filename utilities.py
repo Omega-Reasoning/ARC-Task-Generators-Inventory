@@ -82,8 +82,9 @@ def visualize_objects(grid: np.ndarray, objects: List[Set[Tuple[int, int]]]) -> 
         ])
     return "\n".join(visualizations)
 
-def visualize_object(obj, grid_shape: Optional[Tuple[int, int]] = None) -> str:
-    """Creates a visualization of a single object.
+# note: we avoid the GridObject type hint here since this would cause a circular import
+def visualize_grid_object(obj, grid_shape: Optional[Tuple[int, int]] = None) -> str:
+    """Creates a visualization of a GridObject.
     
     Args:
         obj: GridObject to visualize
@@ -98,13 +99,10 @@ def visualize_object(obj, grid_shape: Optional[Tuple[int, int]] = None) -> str:
     
     if grid_shape is None:
         # Use minimal bounding box
-        rows = [r for r, _, _ in obj.cells]
-        cols = [c for _, c, _ in obj.cells]
-        min_row, max_row = min(rows), max(rows)
-        min_col, max_col = min(cols), max(cols)
-        height = max_row - min_row + 1
-        width = max_col - min_col + 1
-        offset_row, offset_col = min_row, min_col
+        height = obj.height
+        width = obj.width
+        offset_row = obj.bounding_box[0].start
+        offset_col = obj.bounding_box[1].start
     else:
         # Use provided grid shape
         height, width = grid_shape

@@ -222,6 +222,11 @@ class GridObject:
         """Compute minimum Chebyshev (L∞) distance between this and another object (allows diagonal moves)."""
         return int(cdist(list(self.coords), list(other.coords), metric='chebyshev').min())
 
+    def color_all(self, color: int) -> 'GridObject':
+        """Colors all cells with given color value. Returns self."""
+        self.cells = {(r, c, color) for r, c, _ in self.cells}
+        return self
+
     def translate(self, 
                 dx: int, 
                 dy: int,
@@ -422,17 +427,14 @@ def find_connected_objects(grid: np.ndarray,
     objects = []
     for label_id in range(1, num_features + 1):
         coords = np.where(labeled_array == label_id)
-        # Create set of (row, col, color) tuples
         cells = set((r, c, grid[r, c]) for r, c in zip(coords[0], coords[1]))
         
         if monochromatic:
-            # Group cells by color and create separate objects
             by_color = {}
             for r, c, color in cells:
                 by_color.setdefault(color, set()).add((r, c, color))
             objects.extend(GridObject(color_cells) for color_cells in by_color.values())
         else:
-            # Create single object with all cells regardless of color
             objects.append(GridObject(cells))
     
     return GridObjects(objects)
@@ -457,3 +459,106 @@ def parse_objects_by_color(grid: np.ndarray, background: int = 0) -> 'GridObject
         objects.append(GridObject(cells))
     
     return GridObjects(objects)
+
+def get_objects_from_raster(grid: np.ndarray,
+                        subgrid_rows: int,
+                        subgrid_cols: int,
+                        has_delimiters: bool = True,
+                        initial_rows: int = 0,
+                        initial_cols: int = 0
+                        ) -> List[List[GridObject]]:
+    """
+    Extract GridObjects from a raster grid where objects are separated by regular spacing
+    and optional delimiters.
+    
+    Args:
+        grid: Input grid to process
+        subgrid_rows: Height of each complete subgrid
+        subgrid_cols: Width of each complete subgrid
+        has_delimiters: Whether delimiter rows/columns exist between objects
+        initial_rows: Height of first row subgrid (0 if first row is delimiter)
+        initial_cols: Width of first column subgrid (0 if first column is delimiter)
+    
+    Returns:
+        2D array of GridObjects containing the extracted subgrids
+    """
+    def get_starts_and_sizes(total_size: int, subgrid_size: int, initial_size: int) -> tuple:
+        starts, sizes = [], []
+        current = 0 if initial_size > 0 else delimiter
+        
+        if initial_size > 0:
+            starts.append(current)
+            sizes.append(initial_size)
+            current += initial_size + delimiter
+            
+        while current + subgrid_size <= total_size:
+            starts.append(current)
+            sizes.append(subgrid_size)
+            current += subgrid_size + delimiter
+            
+        if current < total_size:
+            starts.append(current)
+            sizes.append(1)
+            
+        return starts, sizes
+
+    delimiter = int(has_delimiters)
+    row_starts, row_sizes = get_starts_and_sizes(grid.shape[0], subgrid_rows, initial_rows)
+    col_starts, col_sizes = get_starts_and_sizes(grid.shape[1], subgrid_cols, initial_cols)
+    
+    return [[GridObject({(rs + r, cs + c, grid[rs + r, cs + c])
+                        for r in range(rsz)
+                        for c in range(csz)})
+             for cs, csz in zip(col_starts, col_sizes)]
+            for rs, rsz in zip(row_starts, row_sizes)]
+
+def get_objects_from_raster_old(grid: np.ndarray,
+                           subgrid_rows: int,
+                           subgrid_cols: int,
+                           has_delimiters: bool = True,
+                           row_offset: int = 0,
+                           col_offset: int = 0) -> List[List[GridObject]]:
+    """
+    Extract GridObjects from a raster grid where objects are separated by regular spacing
+    and optional delimiters.
+    
+    Args:
+        grid: Input grid to process
+        subgrid_rows: Height of each subgrid
+        subgrid_cols: Width of each subgrid
+        has_delimiters: Whether delimiter rows/columns exist between objects
+        row_offset: Row index where first object ends (default 0)
+        col_offset: Column index where first object ends (default 0)
+    
+    Returns:
+        2D array of GridObjects containing the extracted subgrids
+    """
+    nrows, ncols = grid.shape
+    delimiter = int(has_delimiters)
+    
+    def get_starts_and_sizes(total_size: int, subgrid_size: int, offset: int) -> tuple:
+        starts = []
+        sizes = []
+        current = 0
+        
+        # Skip initial offset if present
+        if offset > 0:
+            current = offset
+            
+        while current + subgrid_size <= total_size:
+            starts.append(current)
+            sizes.append(subgrid_size)
+            current += subgrid_size + delimiter
+            
+        return starts, sizes
+
+    row_starts, row_sizes = get_starts_and_sizes(nrows, subgrid_rows, row_offset)
+    col_starts, col_sizes = get_starts_and_sizes(ncols, subgrid_cols, col_offset)
+    
+    return [[GridObject.from_array(
+        array=grid[rs:rs + rsz, cs:cs + csz],
+        offset=(rs, cs)
+    ) for cs, csz in zip(col_starts, col_sizes)]
+      for rs, rsz in zip(row_starts, row_sizes)]
+
+
