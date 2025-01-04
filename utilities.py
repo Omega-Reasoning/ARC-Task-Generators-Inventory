@@ -1,5 +1,6 @@
-from typing import List, Optional, Set, Tuple
 import numpy as np
+from typing import List, Tuple, Optional, Set
+
 
 # 8-bit color codes for terminal output
 color_codes = {

@@ -113,8 +113,9 @@ class ARCTaskGenerator(ABC):
 
         # We assume that taskvariables keys appear as taskvars['key'] in code and replace them with their chosen values.
         for k, v in taskvars.items():
-            # Replace vtaskvars['k'] with str(v)
+            # Replace taskvars['k'] and taskvars["k"] with str(v)
             source = source.replace(f"taskvars['{k}']", str(v))
+            source = source.replace(f'taskvars["{k}"]', str(v))
 
         lines = source.split('\n')
         

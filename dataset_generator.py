@@ -7,7 +7,7 @@ from typing import List, Type
 from tqdm import tqdm
 from arc_task_generator import ARCTaskGenerator
 
-from utils import get_generator_class
+from execution import get_generator_class
 
 def get_generator_files(folder: str) -> List[str]:
     """Get all Python files in a folder that contain generator classes."""
