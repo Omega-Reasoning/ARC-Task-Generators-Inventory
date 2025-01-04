@@ -7,6 +7,7 @@ __pycache__/
 .VSCodeCounter
 .DS_store
 datasets
+.vscode
 
 # C extensions
 *.so
