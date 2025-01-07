@@ -4,7 +4,7 @@ from typing import Dict, Any, Tuple
 from arc_task_generator import ARCTaskGenerator, TrainTestData
 
 
-class TasktaskYbzjXPjnBZZpHKPHKAT3YhGenerator(ARCTaskGenerator):
+class TaskYbzjXPjnBZZpHKPHKAT3YhGenerator(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
             "Input matrices are of size {vars['rows']}x{vars['columns']}.",

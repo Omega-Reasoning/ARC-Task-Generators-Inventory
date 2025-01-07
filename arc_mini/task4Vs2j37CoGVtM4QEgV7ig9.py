@@ -4,7 +4,7 @@ from transformation_library import find_connected_objects
 import numpy as np
 import random
 
-class Tasktask4Vs2j37CoGVtM4QEgV7ig9Generator(ARCTaskGenerator):
+class Task4Vs2j37CoGVtM4QEgV7ig9Generator(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
             "Input grids can have different sizes.",

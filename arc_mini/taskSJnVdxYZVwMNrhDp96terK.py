@@ -2,7 +2,7 @@ from arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
 import numpy as np
 import random
 
-class TasktaskSJnVdxYZVwMNrhDp96terKGenerator(ARCTaskGenerator):
+class TaskSJnVdxYZVwMNrhDp96terKGenerator(ARCTaskGenerator):
     def __init__(self):
         observation_chain = [
             "Input grids can have different sizes.",

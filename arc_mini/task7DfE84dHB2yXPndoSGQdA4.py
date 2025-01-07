@@ -6,7 +6,7 @@ import random
 from input_library import create_object, retry, Contiguity
 from transformation_library import find_connected_objects
 
-class Tasktask7DfE84dHB2yXPndoSGQdA4Generator(ARCTaskGenerator):
+class Task7DfE84dHB2yXPndoSGQdA4Generator(ARCTaskGenerator):
     def __init__(self):
         # 1) The "Input Reasoning Chain" from your instructions
         input_reasoning_chain = [

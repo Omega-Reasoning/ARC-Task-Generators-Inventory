@@ -3,7 +3,7 @@ from typing import Dict, Any, Tuple
 from random import randint
 from arc_task_generator import ARCTaskGenerator, TrainTestData
 
-class TasktaskQyGcGH5Y2igBpVBj6GXZ99Generator(ARCTaskGenerator):
+class TaskQyGcGH5Y2igBpVBj6GXZ99Generator(ARCTaskGenerator):
     def __init__(self):
         # Input reasoning chain
         input_reasoning_chain = [

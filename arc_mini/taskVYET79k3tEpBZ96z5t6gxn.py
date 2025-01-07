@@ -7,7 +7,7 @@ import numpy as np
 from typing import Dict, List, Any, Tuple
 import random
 
-class TasktaskVYET79k3tEpBZ96z5t6gxnGenerator(ARCTaskGenerator):
+class TaskVYET79k3tEpBZ96z5t6gxnGenerator(ARCTaskGenerator):
     def __init__(self):
         # Initialize the input reasoning chain
         input_reasoning_chain = [

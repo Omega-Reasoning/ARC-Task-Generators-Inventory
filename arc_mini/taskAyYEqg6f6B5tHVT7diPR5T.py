@@ -6,7 +6,7 @@ import random
 from arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
 from transformation_library import find_connected_objects, BorderBehavior
 
-class TasktaskAyYEqg6f6B5tHVT7diPR5TGenerator(ARCTaskGenerator):
+class TaskAyYEqg6f6B5tHVT7diPR5TGenerator(ARCTaskGenerator):
     def __init__(self):
         observation_chain = [
             "Input grids can have different sizes.",

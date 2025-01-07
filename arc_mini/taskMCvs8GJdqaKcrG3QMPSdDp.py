@@ -5,7 +5,7 @@ import numpy as np
 import random
 from input_library import retry
 
-class TasktaskMCvs8GJdqaKcrG3QMPSdDpGenerator(ARCTaskGenerator):
+class TaskMCvs8GJdqaKcrG3QMPSdDpGenerator(ARCTaskGenerator):
     def __init__(self):
         # 1) Input reasoning chain
         observation_chain = [

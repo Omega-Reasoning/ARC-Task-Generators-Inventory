@@ -7,7 +7,7 @@ import numpy as np
 from typing import Dict, Any, Tuple
 import random
 
-class TasktaskAiZod7C33PQp4imyWrJuhcGenerator(ARCTaskGenerator):
+class TaskAiZod7C33PQp4imyWrJuhcGenerator(ARCTaskGenerator):
     
     
     def __init__(self):

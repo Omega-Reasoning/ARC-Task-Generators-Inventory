@@ -4,7 +4,7 @@ from transformation_library import GridObject
 import numpy as np
 import random
 
-class TasktaskfJMaEvLe8WKAAjgDkS6kbSGenerator(ARCTaskGenerator):
+class TaskfJMaEvLe8WKAAjgDkS6kbSGenerator(ARCTaskGenerator):
     def __init__(self):
         observation_chain = [
             "Input grids are of size nxn.",

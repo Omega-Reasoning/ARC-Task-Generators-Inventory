@@ -5,7 +5,7 @@ import numpy as np
 import random
 from typing import Dict, Any, Tuple
 
-class TasktaskcLpAqHMFgGScEdjba3Qv84newGenerator(ARCTaskGenerator):
+class TaskcLpAqHMFgGScEdjba3Qv84newGenerator(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
             "Input grids can have different sizes.",

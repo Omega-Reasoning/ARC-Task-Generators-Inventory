@@ -3,11 +3,11 @@ from arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
 import numpy as np
 import random
 
-class TasktaskgiRuPb6jZtoUE6BGRXvQCdGenerator(ARCTaskGenerator):
+class TaskgiRuPb6jZtoUE6BGRXvQCdGenerator(ARCTaskGenerator):
     def __init__(self):
         observation_chain = [
             "Input grids can have different sizes.",
-            "They only contain a single {color('object_color')} rectangular object, 4-way connected cells, surrounded by empty (0) cells."
+            "They only contain a single {color('object_color')} rectangular object, 4-way connected cells, with the remaining cells being empty (0)."
         ]
         reasoning_chain = [
             "The output grid is constructed by copying the input grid and emptying (0) some of the {color('object_color')} cells to create a checkerboard pattern.",
@@ -101,8 +101,3 @@ class TasktaskgiRuPb6jZtoUE6BGRXvQCdGenerator(ARCTaskGenerator):
             'rect_w': rect_w
         }
 
-if __name__ == "__main__":
-    generator = CheckerboardTaskGenerator()
-    taskvars, train_test_data = generator.create_grids()
-    print("Task Variables:", taskvars)
-    ARCTaskGenerator.visualize_train_test_data(train_test_data)

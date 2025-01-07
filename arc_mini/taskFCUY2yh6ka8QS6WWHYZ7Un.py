@@ -4,7 +4,7 @@ import random
 
 from input_library import Contiguity, create_object
 
-class TasktaskFCUY2yh6ka8QS6WWHYZ7UnGenerator(ARCTaskGenerator):
+class TaskFCUY2yh6ka8QS6WWHYZ7UnGenerator(ARCTaskGenerator):
     def __init__(self):
         observation_chain = [
             "Input grids can have different sizes.",

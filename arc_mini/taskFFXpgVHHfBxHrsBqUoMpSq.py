@@ -4,7 +4,7 @@ from input_library import create_object, Contiguity
 import numpy as np
 import random
 
-class TasktaskFFXpgVHHfBxHrsBqUoMpSqGenerator(ARCTaskGenerator):
+class TaskFFXpgVHHfBxHrsBqUoMpSqGenerator(ARCTaskGenerator):
     def __init__(self):
         observation_chain = [
             "Input grids can have different sizes.",
@@ -66,7 +66,3 @@ class TasktaskFFXpgVHHfBxHrsBqUoMpSqGenerator(ARCTaskGenerator):
 
         return taskvars, train_test_data
 
-if __name__ == "__main__":
-    generator = ColorSwapTaskGenerator()
-    taskvars, train_test_data = generator.create_grids()
-    ARCTaskGenerator.visualize_train_test_data(train_test_data)  # Visualize the grids for debugging and verification purposes

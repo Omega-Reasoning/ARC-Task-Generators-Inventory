@@ -5,7 +5,7 @@ import random
 from input_library import retry
 from transformation_library import find_connected_objects  # Not strictly needed here, but example usage
 
-class TasktaskSrsEXfHAWJk7hpAjef7iyTGenerator(ARCTaskGenerator):
+class TaskSrsEXfHAWJk7hpAjef7iyTGenerator(ARCTaskGenerator):
     def __init__(self):
         # 1) Input reasoning chain
         observation_chain = [

@@ -4,7 +4,7 @@ from arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
 from transformation_library import find_connected_objects  # We may or may not need other imports
 from input_library import np, random
 
-class TasktaskYznSsp9hnPBY5wG3townqvGenerator(ARCTaskGenerator):
+class TaskYznSsp9hnPBY5wG3townqvGenerator(ARCTaskGenerator):
     def __init__(self):
         # 1) Input (observation) reasoning chain
         observation_chain = [

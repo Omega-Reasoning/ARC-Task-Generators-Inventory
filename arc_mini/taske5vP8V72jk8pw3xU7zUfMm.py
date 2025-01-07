@@ -4,7 +4,7 @@ from transformation_library import GridObject
 import numpy as np
 import random
 
-class Tasktaske5vP8V72jk8pw3xU7zUfMmGenerator(ARCTaskGenerator):
+class Taske5vP8V72jk8pw3xU7zUfMmGenerator(ARCTaskGenerator):
     def __init__(self):
         # Initialize reasoning chains
         input_reasoning_chain = [
@@ -54,8 +54,3 @@ class Tasktaske5vP8V72jk8pw3xU7zUfMmGenerator(ARCTaskGenerator):
         
         return taskvars, {'train': train, 'test': test}
 
-# Test the generator
-if __name__ == "__main__":
-    generator = ColumnColoringTask()
-    taskvars, data = generator.create_grids()
-    ARCTaskGenerator.visualize_train_test_data(data)

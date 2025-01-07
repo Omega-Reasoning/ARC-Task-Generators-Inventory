@@ -2,7 +2,7 @@ import numpy as np
 from typing import Dict, Any, Tuple
 from arc_task_generator import ARCTaskGenerator, TrainTestData
 
-class Tasktaskfk9ESXP5Lo4Ek6Sd2Xft6T_1Generator(ARCTaskGenerator):
+class Taskfk9ESXP5Lo4Ek6Sd2Xft6T_1Generator(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
             "Input matrices can have different sizes.",

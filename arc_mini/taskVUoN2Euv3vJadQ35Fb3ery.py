@@ -4,7 +4,7 @@ from input_library import create_object, retry, Contiguity
 import numpy as np
 import random
 
-class TasktaskVUoN2Euv3vJadQ35Fb3eryGenerator(ARCTaskGenerator):
+class TaskVUoN2Euv3vJadQ35Fb3eryGenerator(ARCTaskGenerator):
     def __init__(self):
         # 1) Input reasoning chain
         observation_chain = [

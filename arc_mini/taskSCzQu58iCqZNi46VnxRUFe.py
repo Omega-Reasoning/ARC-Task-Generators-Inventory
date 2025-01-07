@@ -7,7 +7,7 @@ from arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
 from input_library import create_object, retry, random_cell_coloring
 from transformation_library import find_connected_objects
 
-class TasktaskSCzQu58iCqZNi46VnxRUFeGenerator(ARCTaskGenerator):
+class TaskSCzQu58iCqZNi46VnxRUFeGenerator(ARCTaskGenerator):
     def __init__(self):
         # Initialize the input reasoning chain
         input_reasoning_chain = [
@@ -73,9 +73,7 @@ class TasktaskSCzQu58iCqZNi46VnxRUFeGenerator(ARCTaskGenerator):
         
         return grid
     
-    def transform_input(self,
-                        grid: np.ndarray,
-                        taskvars: Dict[str, Any]) -> np.ndarray:
+    def transform_input(self, grid: np.ndarray, taskvars=None) -> np.ndarray:
         """
         Transform the input grid according to the transformation reasoning chain, producing an output grid.
         """
@@ -186,5 +184,6 @@ class TasktaskSCzQu58iCqZNi46VnxRUFeGenerator(ARCTaskGenerator):
         }
         
         return taskvars, train_test_data
+
 
 

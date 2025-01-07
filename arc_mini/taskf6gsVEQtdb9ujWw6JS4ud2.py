@@ -3,8 +3,9 @@ from arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
 from input_library import random_cell_coloring   # optionally use for more interesting randomization
 import numpy as np
 import random
+from typing import Dict, Any, Tuple
 
-class Tasktaskf6gsVEQtdb9ujWw6JS4ud2Generator(ARCTaskGenerator):
+class Taskf6gsVEQtdb9ujWw6JS4ud2Generator(ARCTaskGenerator):
     def __init__(self):
         """
         Our generator. We store the input and transformation reasoning chains (templates) 
@@ -44,9 +45,7 @@ class Tasktaskf6gsVEQtdb9ujWw6JS4ud2Generator(ARCTaskGenerator):
         
         return grid
 
-    def transform_input(self,
-                        grid: np.ndarray,
-                        taskvars) -> np.ndarray:
+    def transform_input(self, grid: np.ndarray, taskvars: Dict[str, Any]) -> np.ndarray:
         """
         Transform the input grid according to the reasoning chain:
          1) The output size is (2n-1) x (2m-1).

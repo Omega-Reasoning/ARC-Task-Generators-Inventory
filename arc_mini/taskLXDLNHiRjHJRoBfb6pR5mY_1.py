@@ -4,7 +4,7 @@ import random
 from arc_task_generator import ARCTaskGenerator, TrainTestData
 
 
-class TasktaskLXDLNHiRjHJRoBfb6pR5mY_1Generator(ARCTaskGenerator):
+class TaskLXDLNHiRjHJRoBfb6pR5mY_1Generator(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
             "Input matrices are of size {vars['rows']}x{vars['columns']}.",

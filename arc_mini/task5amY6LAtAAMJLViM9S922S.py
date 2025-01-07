@@ -4,7 +4,7 @@ from arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
 import numpy as np
 import random
 
-class Tasktask5amY6LAtAAMJLViM9S922SGenerator(ARCTaskGenerator):
+class Task5amY6LAtAAMJLViM9S922SGenerator(ARCTaskGenerator):
     def __init__(self):
         # 1) Input reasoning chain (copy from provided prompt):
         observation_chain = [

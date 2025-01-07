@@ -4,7 +4,7 @@ from transformation_library import GridObject
 import numpy as np
 import random
 
-class Tasktaskj6sRkV2XCqM85vAbXp93jFGenerator(ARCTaskGenerator):
+class Taskj6sRkV2XCqM85vAbXp93jFGenerator(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
             "Input grids are of size nxn.",
@@ -64,7 +64,3 @@ class Tasktaskj6sRkV2XCqM85vAbXp93jFGenerator(ARCTaskGenerator):
         train_test_data = TrainTestData(train=train_pairs, test=[test_pair])
         return taskvars, train_test_data
 
-if __name__ == "__main__":
-    generator = DiagonalExtensionTaskGenerator()
-    task_variables, train_test_data = generator.create_grids()
-    ARCTaskGenerator.visualize_train_test_data(train_test_data)  # Visualize the result

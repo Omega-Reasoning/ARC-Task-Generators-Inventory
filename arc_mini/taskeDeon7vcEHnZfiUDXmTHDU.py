@@ -4,7 +4,7 @@ from arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
 from input_library import create_object, retry, random_cell_coloring
 from transformation_library import find_connected_objects
 
-class TasktaskeDeon7vcEHnZfiUDXmTHDUGenerator(ARCTaskGenerator):
+class TaskeDeon7vcEHnZfiUDXmTHDUGenerator(ARCTaskGenerator):
     def __init__(self):
         input_chain = [
             "Input grids can have different sizes.",

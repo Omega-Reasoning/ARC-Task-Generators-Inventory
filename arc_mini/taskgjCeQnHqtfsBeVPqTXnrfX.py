@@ -4,7 +4,7 @@ from transformation_library import GridObject
 import numpy as np
 import random
 
-class TasktaskgjCeQnHqtfsBeVPqTXnrfXGenerator(ARCTaskGenerator):
+class TaskgjCeQnHqtfsBeVPqTXnrfXGenerator(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
             "Input grids can have different sizes.",

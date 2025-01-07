@@ -4,7 +4,7 @@
 from arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
 import numpy as np
 import random
-
+from typing import Dict, Any, Tuple, List
 # We may optionally use functions from input_library, but only in create_input():
 from input_library import retry  # as an example, not strictly needed here
 
@@ -12,7 +12,7 @@ from input_library import retry  # as an example, not strictly needed here
 from transformation_library import find_connected_objects, GridObject, GridObjects
 
 
-class TasktaskULXmq8k24GG7tNvmdgfKFvGenerator(ARCTaskGenerator):
+class TaskULXmq8k24GG7tNvmdgfKFvGenerator(ARCTaskGenerator):
     def __init__(self):
         """
         ARC Task Generator subclass that creates puzzles according to:
@@ -47,7 +47,7 @@ class TasktaskULXmq8k24GG7tNvmdgfKFvGenerator(ARCTaskGenerator):
         # 3) Superclass init call
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
 
-    def create_input(self, taskvars, gridvars) -> np.ndarray:
+    def create_input(self, taskvars: Dict[str, Any], gridvars: Dict[str, Any]) -> np.ndarray:
         """
         Create an input grid according to the input reasoning chain:
           1. Randomly choose grid dimensions (height, width) between 8..20.
@@ -95,54 +95,35 @@ class TasktaskULXmq8k24GG7tNvmdgfKFvGenerator(ARCTaskGenerator):
         
         return grid
 
-    def transform_input(self, grid: np.ndarray, taskvars) -> np.ndarray:
-        """
-        Transform the input grid according to the transformation reasoning chain:
-          1) Copy the input grid.
-          2) Find all connected cells in the first row that share the same color != 0.
-          3) If a connected group in row 0 has size > 1, fill the entire columns of that group
-             with that color in the output grid. If size = 1, leave it as is.
-        """
+    def fill_columns_if_needed(self, out_grid, start, end, color):
+        length = end - start
+        if length > 1:
+            for col_index in range(start, end):
+                out_grid[:, col_index] = color
+
+    def transform_input(self, grid: np.ndarray, taskvars: Dict[str, Any]) -> np.ndarray:
         out_grid = grid.copy()
-        # Focus on the first row
         first_row = out_grid[0]
-        
-        # Identify contiguous segments of color != 0 in the first row
-        # We'll do a simple scan across the row:
         start_idx = None
         current_color = 0
-        
-        # Helper function to fill columns for a connected run
-        def fill_columns_if_needed(start, end, color):
-            length = end - start
-            # Only fill entire columns if length > 1
-            if length > 1:
-                for col_index in range(start, end):
-                    out_grid[:, col_index] = color
         
         for i in range(len(first_row)):
             if first_row[i] != 0:
                 if first_row[i] == current_color:
-                    # continuing a run
                     continue
                 else:
-                    # we've encountered a new color
                     if current_color != 0 and start_idx is not None:
-                        # close off the old run
-                        fill_columns_if_needed(start_idx, i, current_color)
-                    # start new run
+                        self.fill_columns_if_needed(out_grid, start_idx, i, current_color)
                     start_idx = i
                     current_color = first_row[i]
             else:
-                # row[i] == 0 => close off any existing run
                 if current_color != 0 and start_idx is not None:
-                    fill_columns_if_needed(start_idx, i, current_color)
+                    self.fill_columns_if_needed(out_grid, start_idx, i, current_color)
                 start_idx = None
                 current_color = 0
         
-        # If ended on a color run, close it off
         if current_color != 0 and start_idx is not None:
-            fill_columns_if_needed(start_idx, len(first_row), current_color)
+            self.fill_columns_if_needed(out_grid, start_idx, len(first_row), current_color)
         
         return out_grid
 
@@ -170,13 +151,3 @@ class TasktaskULXmq8k24GG7tNvmdgfKFvGenerator(ARCTaskGenerator):
         return taskvars, train_test_data
 
 
-# ----------------------------
-# Below is sample test code to visualize results (if desired).
-# Normally you'd run something like this in a separate script or notebook:
-#
-# if __name__ == "__main__":
-#     generator = MyARCGenerator()
-#     # Create a new ARC task
-#     arc_task = generator.create_task()
-#     # Visualize the result
-#     ARCTaskGenerator.visualize_train_test_data(arc_task.train_test_data)

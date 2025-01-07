@@ -7,7 +7,7 @@ import numpy as np
 import random
 from typing import Dict, Any, Tuple, List
 
-class TasktaskMJduwptw9f9usLotC9GnNhGenerator(ARCTaskGenerator):
+class TaskMJduwptw9f9usLotC9GnNhGenerator(ARCTaskGenerator):
     def __init__(self):
         """
         Initializes the StripingTaskGenerator with the input and transformation reasoning chains.

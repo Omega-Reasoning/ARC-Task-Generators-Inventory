@@ -9,7 +9,7 @@ from typing import Dict, Any, Tuple, List
 # Import transformation functions if needed
 # from transformation_library import find_connected_objects, GridObject, GridObjects
 
-class TasktaskQ7PVog2EvMiogz6MUD9g8Generator(ARCTaskGenerator):
+class TaskQ7PVog2EvMiogz6MUD9g8Generator(ARCTaskGenerator):
     def __init__(self):
         # Initialize the input reasoning chain
         input_reasoning_chain = [

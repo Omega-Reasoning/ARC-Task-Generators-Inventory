@@ -3,7 +3,7 @@ from typing import Dict, Any, Tuple
 from arc_task_generator import ARCTaskGenerator, TrainTestData
 
 # Subclassing the ARCTaskGenerator
-class TasktaskiQioa3vovYeDnx8AbeTAz2Generator(ARCTaskGenerator):
+class TaskiQioa3vovYeDnx8AbeTAz2Generator(ARCTaskGenerator):
     def __init__(self):
         # Input and transformation reasoning chains
         input_reasoning_chain = [
