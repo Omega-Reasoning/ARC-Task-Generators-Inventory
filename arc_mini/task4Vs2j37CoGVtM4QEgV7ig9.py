@@ -83,8 +83,3 @@ class Tasktask4Vs2j37CoGVtM4QEgV7ig9Generator(ARCTaskGenerator):
         # Generate train and test grids
         grids = self.create_grids_default(nr_train_examples=random.randint(3, 6), nr_test_examples=1, taskvars=taskvars)
         return taskvars, grids
-
-if __name__ == "__main__":
-    generator = TwoObjectColorChangeTaskGenerator()
-    _, train_test_data = generator.create_grids()
-    ARCTaskGenerator.visualize_train_test_data(train_test_data)

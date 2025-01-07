@@ -6,6 +6,7 @@ import numpy as np
 from pathlib import Path
 from typing import Dict, Any
 import json
+import traceback
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from execution import get_generator_class, execute_transform_code
@@ -82,6 +83,7 @@ class ARCGeneratorTestRunner:
             except Exception as e:
                 print("Error during transform code creation:")
                 import traceback
+                print(f"Instantiated transform code: {transform_code}")
                 print(traceback.format_exc())
                 return False
 
@@ -91,7 +93,8 @@ class ARCGeneratorTestRunner:
             except Exception as e:
                 print("Error during transform execution:")
                 print(f"Transform code type: {type(transform_code)}")
-                import traceback
+                print(f"Taskvars: {task_variables}")
+                print(f"Instantiated transform code: {transform_code_str}")
                 print(traceback.format_exc())
                 return False
 
