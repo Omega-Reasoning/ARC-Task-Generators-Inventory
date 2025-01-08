@@ -144,14 +144,14 @@ class ARCTaskGenerator(ABC):
         task_variables, train_test_data = self.create_grids()
 
         # 2. Instantiate observation and reasoning chains
-        observation_chain = self._instantiate_templates(self.input_reasoning_chain, task_variables)
-        reasoning_chain = self._instantiate_templates(self.transformation_reasoning_chain, task_variables)
+        input_reasoning_chain = self._instantiate_templates(self.input_reasoning_chain, task_variables)
+        transformation_reasoning_chain = self._instantiate_templates(self.transformation_reasoning_chain, task_variables)
 
         # 3. Partial evaluation of transform_input allowing us to remove the dependency on variables and store the function as string
         transform_code = self._partial_evaluation_code(self.transform_input, task_variables)
 
         # Create and return ARCTask
-        return ARCTask(observation_chain, reasoning_chain, task_variables, transform_code, train_test_data)
+        return ARCTask(input_reasoning_chain, transformation_reasoning_chain, task_variables, transform_code, train_test_data)
 
     @staticmethod
     def visualize_train_test_data(train_test_data: TrainTestData):
