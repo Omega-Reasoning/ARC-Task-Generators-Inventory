@@ -1,6 +1,7 @@
 import argparse
 import csv
 import os
+import re
 import sys
 import numpy as np
 from pathlib import Path
@@ -75,6 +76,16 @@ class ARCGeneratorTestRunner:
                     generator.transform_input, 
                     task_variables
                 )
+
+                # Check for remaining taskvars and print error message
+                pattern = r"taskvars\[(['\"])(.*?)\1\]"
+                matches = re.findall(pattern, transform_code_str)
+
+                if matches:
+                    referenced_vars = [match[1] for match in matches]  
+                    print("\tWARNING: Instantiated transform code references the following taskvars:", 
+                        ", ".join(referenced_vars))
+
                 print("\tSuccessfully created transform_code")
                 # print(transform_code_str)
                 
