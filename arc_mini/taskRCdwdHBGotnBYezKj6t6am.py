@@ -1,6 +1,6 @@
 from arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
 from transformation_library import find_connected_objects
-from input_library import retry
+from input_library import Contiguity, create_object, enforce_object_height, enforce_object_width, retry
 import numpy as np
 import random
 
@@ -8,49 +8,59 @@ class TaskRCdwdHBGotnBYezKj6t6amGenerator(ARCTaskGenerator):
     def __init__(self):
         observation_chain = [
            "All input grids are of size {vars['n']}x{vars['n']}.",
-           "Each input grid contains a square frame of size {vars['n']-2}x{vars['n']-2}, which is one cell wide and contains empty (0) cells both inside and outside the frame.",
-           "It is placed centrally in the grid, such that the first and the last, rows and columns are empty (0).",
-           "The square frame is either {color('object_color1')} or {color('object_color2')} in color."
+           "Each input grid contains a 4-way connected object of size {vars['n']-2}x{vars['n']-2}.",
+           "The first and the last, rows and columns are empty (0).",
+           "The object is either {color('object_color1')} or {color('object_color2')}."
         ]
         reasoning_chain = [ 
            "To construct the output grid, copy the input grid and apply the following transformation.",
-           "The left half of the frame retains its original color.",
-           "The right half of the frame is transformed to a new color, based on the color of the input grid: {color('object_color1')} becomes {color('object_color3')} and {color('object_color2')} becomes {color('object_color4')}."
+           "The left half of the object retains its original color.",
+           "The right half of the object is transformed to a new color, based on the color of the input grid: {color('object_color1')} becomes {color('object_color3')} and {color('object_color2')} becomes {color('object_color4')}."
         ]
         super().__init__(observation_chain, reasoning_chain)
-
+    
     def create_input(self, taskvars: dict, gridvars: dict) -> np.ndarray:
         n = taskvars["n"]
         chosen_color = gridvars["chosen_color"]
         grid = np.zeros((n, n), dtype=int)
-
-        for c in range(1, n - 1):
-            grid[1, c] = chosen_color
-            grid[n - 2, c] = chosen_color
-        for r in range(1, n - 1):
-            grid[r, 1] = chosen_color
-            grid[r, n - 2] = chosen_color
-
+        
+        # Calculate dimensions for the left-side object
+        height = n - 2  # Leave space at top and bottom
+        width = (n // 2) - 1  # Use left half minus border
+        
+        # Create a random connected object for the left side
+        def generate_left_object():
+            return create_object(
+                height=height,
+                width=width,
+                color_palette=chosen_color,
+                contiguity=Contiguity.FOUR,
+                background=0
+            )
+        
+        # Ensure object spans full height and width
+        left_object = enforce_object_height(
+            lambda: enforce_object_width(generate_left_object)
+        )
+        
+        # Place the left object in the grid with 1-cell border
+        grid[1:n-1, 1:width+1] = left_object
+        
+        # Mirror the left object to the right side (flip horizontally)
+        right_start = n - width - 1
+        grid[1:n-1, right_start:n-1] = np.fliplr(left_object)
+        
         return grid
 
     def transform_input(self, grid: np.ndarray, taskvars=None) -> np.ndarray:
-                
         n = grid.shape[0]
         mid_col = n // 2
         output = grid.copy()
 
-        # Transform the right half of the square frame
-        for r in range(1, n - 1):
-            for c in range(1, n - 1):
-                # Horizontal top and bottom borders
-                if (r == 1 or r == n - 2) and c >= mid_col:
-                    if output[r, c] == taskvars['object_color1']:
-                        output[r, c] = taskvars['object_color3']
-                    elif output[r, c] == taskvars['object_color2']:
-                        output[r, c] = taskvars['object_color4']
-                
-                # Vertical right border
-                if c == n - 2:
+        # Transform any non-zero pixel in the right half
+        for r in range(n):
+            for c in range(mid_col, n):
+                if output[r, c] != 0:
                     if output[r, c] == taskvars['object_color1']:
                         output[r, c] = taskvars['object_color3']
                     elif output[r, c] == taskvars['object_color2']:
