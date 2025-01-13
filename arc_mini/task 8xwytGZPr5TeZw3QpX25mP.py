@@ -6,12 +6,12 @@ class Task8xwytGZPr5TeZw3QpX25mPGenerator(ARCTaskGenerator):
     def __init__(self):
         observation_chain = [
             "Input grids can have different sizes.",
-            "Each input matrix contains a 2x2 block which is made of {color('cell_color1')}, {color('cell_color2')}, {color('cell_color3')} and {color('object_color')} cells."
+            "Each input grids contains a 2x2 block which is made of {color('cell_color1')}, {color('cell_color2')}, {color('cell_color3')} and {color('object_color')} cells."
         ]
         reasoning_chain = [
-            "To construct the output matrix, create four 2x2 blocks, each block made of one color and positioned in one of the four corners of the matrix.",
-            "Each block is colored to match the corresponding cell in the 2x2 block from the input matrix.",
-            "All other cells of the output matrix are set to empty (0)."
+            "To construct the output grids, create four 2x2 blocks, each block made of one color and positioned in one of the four corners of the grid.",
+            "Each block is colored to match the corresponding cell in the 2x2 block from the input grids.",
+            "All other cells of the output grid are set to empty (0)."
         ]
         super().__init__(observation_chain, reasoning_chain)
 
