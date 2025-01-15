@@ -16,7 +16,7 @@ class ARCTask0962bcddGenerator(ARCTaskGenerator):
         
         transformation_reasoning_chain = [
             "The output grid has the same size as the input grid i.e. {vars['grid_size']} x {vars['grid_size']}.",
-            "Get all the 4-way connected plus shaped objects first.",
+            "Get all the 8-way connected plus shaped objects first.",
             "Each object in output grid is formed by scaling the arm length of plus shaped object by 2 with color {color('object_color_1')} and also filling the diagonals of the subgrid formed by the plus-shaped object, i.e. (top-left to bottom right and top-right to bottom-left) with the color {color('object_color_2')}.",
         ]
         
@@ -52,7 +52,7 @@ class ARCTask0962bcddGenerator(ARCTaskGenerator):
                 coords.append((center_row, center_col - i))
 
             # Reduce minimum distance requirement
-            min_distance = 3  # Changed from 4
+            min_distance = 4  # Changed from 4
             for r in range(grid_size):
                 for c in range(grid_size):
                     if grid[r, c] != 0:
@@ -89,32 +89,34 @@ class ARCTask0962bcddGenerator(ARCTaskGenerator):
 
         output_grid = np.zeros_like(grid)
         
-        objects = find_connected_objects(grid, diagonal_connectivity=False, background=0)
-        for obj in objects:
-            if obj.is_monochromatic and obj.size > 1:
-                center_row, center_col = next(iter(obj.coords))
-                arm_length = (obj.height - 1) // 2
-                # Scale arm length by 2
-                scaled_length = arm_length * 2
-                
-                # Draw scaled plus shape with boundary checks
-                for i in range(-scaled_length, scaled_length + 1):
-                    if i != 0:
-                        if 0 <= center_row + i < grid_size:
-                            output_grid[center_row + i, center_col] = object_color_1
-                        if 0 <= center_col + i < grid_size:
-                            output_grid[center_row, center_col + i] = object_color_1
-                    else:
-                        output_grid[center_row, center_col] = object_color_2
-
-                # Fill diagonals with boundary checks
-                for i in range(-scaled_length, scaled_length + 1):
-                    if (0 <= center_row + i < grid_size and 
-                        0 <= center_col + i < grid_size):
-                        output_grid[center_row + i, center_col + i] = object_color_2
-                    if (0 <= center_row + i < grid_size and 
-                        0 <= center_col - i < grid_size):
-                        output_grid[center_row + i, center_col - i] = object_color_2
+        # Find center positions of plus shapes (cells with color_2)
+        center_positions = [(r, c) for r in range(grid_size) 
+                           for c in range(grid_size) 
+                           if grid[r, c] == object_color_2]
+        
+        for center_row, center_col in center_positions:
+            # Scale arm length by 2 (original arm length is 1)
+            scaled_length = 2
+            
+            # Draw scaled plus shape
+            output_grid[center_row, center_col] = object_color_2  # Center
+            
+            # Vertical and horizontal arms
+            for i in range(-scaled_length, scaled_length + 1):
+                if i != 0:  # Skip center
+                    if 0 <= center_row + i < grid_size:
+                        output_grid[center_row + i, center_col] = object_color_1
+                    if 0 <= center_col + i < grid_size:
+                        output_grid[center_row, center_col + i] = object_color_1
+            
+            # Fill diagonals
+            for i in range(-scaled_length, scaled_length + 1):
+                if (0 <= center_row + i < grid_size and 
+                    0 <= center_col + i < grid_size):
+                    output_grid[center_row + i, center_col + i] = object_color_2
+                if (0 <= center_row + i < grid_size and 
+                    0 <= center_col - i < grid_size):
+                    output_grid[center_row + i, center_col - i] = object_color_2
 
         return output_grid
 
@@ -132,7 +134,7 @@ class ARCTask0962bcddGenerator(ARCTaskGenerator):
         
         # Initialize base_taskvars with both grid_size and the first pair of colors
         base_taskvars = {
-            'grid_size': random.randint(10, 22),
+            'grid_size': random.randint(15, 26),
             'object_color_1': color_pairs[0][0],  # Add initial color_1
             'object_color_2': color_pairs[0][1],  # Add initial color_2
         }
