@@ -55,8 +55,8 @@ class ARCTask1c786137Generator(ARCTaskGenerator):
                     all(grid[i+subrows-1, j:j+subcols] == subgrid_color) and  # bottom edge
                     all(grid[i:i+subrows, j] == subgrid_color) and  # left edge
                     all(grid[i:i+subrows, j+subcols-1] == subgrid_color)):  # right edge
-                    # Found the subgrid, extract it
-                    return grid[i:i+subrows, j:j+subcols]
+                    # Found the subgrid, extract it without the perimeter
+                    return grid[i+1:i+subrows-1, j+1:j+subcols-1]
         
         return None  # Return None if no valid subgrid is found
 

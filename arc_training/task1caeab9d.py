@@ -93,7 +93,7 @@ class ARCTask1caeab9dGenerator(ARCTaskGenerator):
 
 	def transform_input(self, grid, taskvars):
 		# Find all objects in the grid
-		objects = find_connected_objects(grid, diagonal_connectivity=False, background=0)
+		objects = find_connected_objects(grid, diagonal_connectivity=True, background=0)
 
 		# Map colors to objects
 		color_map = {
