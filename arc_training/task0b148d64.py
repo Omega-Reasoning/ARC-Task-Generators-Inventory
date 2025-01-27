@@ -9,13 +9,13 @@ class ARCTask0b148d64Generator(ARCTaskGenerator):
         input_reasoning_chain = [
             "Input grids have size {vars['rows']}x{vars['columns']}",
             "The input grid has four 8-way connected objects which form a subgrid of size {vars['sub_rows']}x{vars['sub_cols']}",
-            "Three objects have color {color('color_1')} and one object has color {color('color_2')}",
+            "Three objects have color color_1(between 1-9) and one object has color color_2(between 1-9)",
             "The four objects always take up the four corners of the input grid."
         ]
         transformation_reasoning_chain = [
             "The output grid size is different from the input grid size.",
             "First identify all the 8-way connected objects in the input grid.",
-            "The sub grid which has an object that has color {color('color_2')} is the output grid."
+            "The sub grid which has an object that has color color_2 is the output grid."
         ]
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
 
@@ -24,8 +24,8 @@ class ARCTask0b148d64Generator(ARCTaskGenerator):
         cols = taskvars['columns']
         sub_rows = taskvars['sub_rows']
         sub_cols = taskvars['sub_cols']
-        color_1 = taskvars['color_1']
-        color_2 = taskvars['color_2']
+        color_1 = gridvars['color_1']
+        color_2 = gridvars['color_2']
 
         grid = np.zeros((rows, cols), dtype=int)
 
@@ -78,10 +78,17 @@ class ARCTask0b148d64Generator(ARCTaskGenerator):
         return grid
 
     def transform_input(self, grid, taskvars):
-        color_2 = taskvars['color_2']
-
         # Find connected objects
         objects = find_connected_objects(grid, diagonal_connectivity=True)
+        
+        # Find the unique color that appears only once among all objects
+        color_counts = {}
+        for obj in objects:
+            for color in obj.colors:
+                color_counts[color] = color_counts.get(color, 0) + 1
+        
+        # The color that appears only once is color_2
+        color_2 = [color for color, count in color_counts.items() if count == 1][0]
 
         # Locate the object with color_2 and extract its bounding box
         for obj in objects:
@@ -126,14 +133,15 @@ class ARCTask0b148d64Generator(ARCTaskGenerator):
         # Create examples with different color pairs
         train_examples = []
         for i in range(nr_train):
-            taskvars['color_1'], taskvars['color_2'] = all_colors[i]
-            input_grid = self.create_input(taskvars, {})
+            gridvars = taskvars.copy()
+            gridvars['color_1'], gridvars['color_2'] = all_colors[i]
+            input_grid = self.create_input(taskvars, gridvars)
             output_grid = self.transform_input(input_grid, taskvars)
             train_examples.append(GridPair({"input": input_grid, "output": output_grid}))
 
         # Create test example with the last color pair
-        taskvars['color_1'], taskvars['color_2'] = all_colors[-1]
-        test_input = self.create_input(taskvars, {})
+        gridvars['color_1'], gridvars['color_2'] = all_colors[-1]
+        test_input = self.create_input(taskvars, gridvars)
         test_output = self.transform_input(test_input, taskvars)
         test_examples = [GridPair({"input": test_input, "output": test_output})]
 

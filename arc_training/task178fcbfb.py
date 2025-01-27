@@ -51,7 +51,7 @@ class ARCTask178fcbfbGenerator(ARCTaskGenerator):
                             break
 
             # Then place remaining cells randomly
-            for _ in range(taskvars['num_colored_cells'] - 3):
+            for _ in range(gridvars['num_colored_cells'] - 3):
                 while True:
                     row = random.randint(0, rows - 1)
                     col = random.randint(0, cols - 1)
@@ -108,16 +108,19 @@ class ARCTask178fcbfbGenerator(ARCTaskGenerator):
             'color_1': color_1,
             'color_2': color_2,
             'color_3': color_3,
-            'num_colored_cells': random.randint(3, 10)
         }
 
         train_examples = []
         for _ in range(random.randint(3, 4)):
-            input_grid = self.create_input(taskvars, {})
+            gridvars = {}
+            gridvars['num_colored_cells'] = random.randint(3, 10)
+            input_grid = self.create_input(taskvars, gridvars)
             output_grid = self.transform_input(input_grid, taskvars)
             train_examples.append({'input': input_grid, 'output': output_grid})
-
-        test_input = self.create_input(taskvars, {})
+        
+        gridvars = {}
+        gridvars['num_colored_cells'] = random.randint(3, 10)
+        test_input = self.create_input(taskvars, gridvars)
         test_output = self.transform_input(test_input, taskvars)
 
         train_test_data = {

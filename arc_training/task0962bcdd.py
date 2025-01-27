@@ -9,23 +9,23 @@ class ARCTask0962bcddGenerator(ARCTaskGenerator):
         input_reasoning_chain = [
             "Input grids can have size {vars['grid_size']} x {vars['grid_size']}",
             "The input grid consists of two plus shaped objects where each plus shape has:",
-            "* Arms (top, left, bottom, and right) of color {color('object_color_1')},",
-            "* Center cell of color {color('object_color_2')},",
+            "* Arms (top, left, bottom, and right) of color between(1-9)",
+            "* Center cell of color between(1-9)",
             "* All the remaining cells are empty cells."
         ]
         
         transformation_reasoning_chain = [
             "The output grid has the same size as the input grid i.e. {vars['grid_size']} x {vars['grid_size']}.",
             "Get all the 8-way connected plus shaped objects first.",
-            "Each object in output grid is formed by scaling the arm length of plus shaped object by 2 with color {color('object_color_1')} and also filling the diagonals of the subgrid formed by the plus-shaped object, i.e. (top-left to bottom right and top-right to bottom-left) with the color {color('object_color_2')}.",
+            "Each object in output grid is formed by scaling the arm length of plus shaped object by 2 with arm color and also filling the diagonals of the subgrid formed by the plus-shaped object, i.e. (top-left to bottom right and top-right to bottom-left) with the color of the center cell of the plus-shaped object.",
         ]
         
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
 
     def create_input(self, taskvars, gridvars):
         grid_size = taskvars['grid_size']
-        object_color_1 = taskvars['object_color_1']
-        object_color_2 = taskvars['object_color_2']
+        object_color_1 = gridvars['object_color_1']
+        object_color_2 = gridvars['object_color_2']
 
         grid = np.zeros((grid_size, grid_size), dtype=int)
 
@@ -84,9 +84,16 @@ class ARCTask0962bcddGenerator(ARCTaskGenerator):
 
     def transform_input(self, grid, taskvars):
         grid_size = grid.shape[0]
-        object_color_1 = taskvars['object_color_1']
-        object_color_2 = taskvars['object_color_2']
-
+        
+        # Find the two unique non-zero colors in the grid
+        unique_colors = sorted(list(set(grid.flatten()) - {0}))
+        
+        # Count occurrences of each color
+        # Arms will have more occurrences (4 cells) than center (1 cell)
+        color_counts = {color: np.sum(grid == color) for color in unique_colors}
+        object_color_1 = max(color_counts.items(), key=lambda x: x[1])[0]  # Color with more occurrences (arms)
+        object_color_2 = min(color_counts.items(), key=lambda x: x[1])[0]  # Color with fewer occurrences (center)
+        
         output_grid = np.zeros_like(grid)
         
         # Find center positions of plus shapes (cells with color_2)
@@ -134,9 +141,7 @@ class ARCTask0962bcddGenerator(ARCTaskGenerator):
         
         # Initialize base_taskvars with both grid_size and the first pair of colors
         base_taskvars = {
-            'grid_size': random.randint(15, 26),
-            'object_color_1': color_pairs[0][0],  # Add initial color_1
-            'object_color_2': color_pairs[0][1],  # Add initial color_2
+            'grid_size': random.randint(15, 26)
         }
         
         train_pairs = []
@@ -144,19 +149,19 @@ class ARCTask0962bcddGenerator(ARCTaskGenerator):
         
         # Generate training examples with different colors
         for i in range(3):
-            taskvars = base_taskvars.copy()
-            taskvars['object_color_1'] = color_pairs[i][0]
-            taskvars['object_color_2'] = color_pairs[i][1]
-            grid = self.create_input(taskvars, None)
-            transformed = self.transform_input(grid, taskvars)
+            gridvars = base_taskvars.copy()
+            gridvars['object_color_1'] = color_pairs[i][0]
+            gridvars['object_color_2'] = color_pairs[i][1]
+            grid = self.create_input(base_taskvars, gridvars)
+            transformed = self.transform_input(grid, base_taskvars)
             train_pairs.append(GridPair({"input": grid, "output": transformed}))
         
         # Generate test example
-        taskvars = base_taskvars.copy()
-        taskvars['object_color_1'] = color_pairs[3][0]
-        taskvars['object_color_2'] = color_pairs[3][1]
-        grid = self.create_input(taskvars, None)
-        transformed = self.transform_input(grid, taskvars)
+        gridvars = base_taskvars.copy()
+        gridvars['object_color_1'] = color_pairs[3][0]
+        gridvars['object_color_2'] = color_pairs[3][1]
+        grid = self.create_input(base_taskvars, gridvars)
+        transformed = self.transform_input(grid, base_taskvars)
         test_pairs = [GridPair({"input": grid, "output": transformed})]
         
         return base_taskvars, TrainTestData({"train": train_pairs, "test": test_pairs})

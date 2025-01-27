@@ -8,7 +8,8 @@ class ARCTask0ca9ddb6Generator(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
             "Input grids are square matrices with size {vars['grid_size']}x{vars['grid_size']}.",
-            "Some cells have color value (1-9) and all other cells are empty (0)."
+            "Some cells have color value (1-9) and all other cells are empty (0).",
+            "There are atleast one red cell (2) and one blue cell (1) in the input grid."
         ]
 
         transformation_reasoning_chain = [

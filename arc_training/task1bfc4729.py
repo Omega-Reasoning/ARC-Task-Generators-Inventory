@@ -6,25 +6,25 @@ class ARCTask1bfc4729Generator(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
             "The input grid has size {vars['rows']} X {vars['rows']}",
-            "First a cell {color('cell1')} is placed randomly in the first half of the rows in the input grid.",
-            "A second cell {color('cell2')} is placed on the second half of the rows in input grid symmetrical to the first cell(but can be placed in a different column than the first cell), i.e. if the first cell is placed at ith row then the second cell is placed at row {vars['rows']} - i (the row indexing starts from 0)."
+            "First a cell of color color_1(between 1 and 9) is placed randomly in the first half of the rows in the input grid.",
+            "A second cell of color color_2(between 1 and 9) is placed on the second half of the rows in input grid symmetrical to the first cell(but can be placed in a different column than the first cell), i.e. if the first cell is placed at ith row then the second cell is placed at row {vars['rows']} - i (the row indexing starts from 0)."
         ]
         
         transformation_reasoning_chain = [
             "The output grid has the same dimensions as the input grid.",
             "The input grid is copied to the output grid.",
-            "The row which has a cell with color {color('cell1')} and the 1st row is completely filled with {color('cell1')}.",
-            "The row which has a cell with color {color('cell2')} and the last row is completely filled with {color('cell2')}.",
-            "The first column and the last column are filled with color {color('cell1')} from 1st row to the middle row (floor({vars['rows']}/2)).",
-            "The first column and the last column are filled with color {color('cell2')} from (middle + 1)th row to the last row."
+            "The row which has a cell with color color_1 and the 1st row is completely filled with color_1.",
+            "The row which has a cell with color color_2 and the last row is completely filled with color_2.",
+            "The first column and the last column are filled with color color_1 from 1st row to the middle row (floor({vars['rows']}/2)).",
+            "The first column and the last column are filled with color color_2 from (middle + 1)th row to the last row."
         ]
         
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
 
     def create_input(self, taskvars: dict, gridvars: dict) -> np.ndarray:
         rows = taskvars['rows']
-        cell1 = taskvars['cell1']
-        cell2 = taskvars['cell2']
+        cell1 = gridvars['cell1']
+        cell2 = gridvars['cell2']
 
         grid = np.zeros((rows, rows), dtype=int)
 
@@ -42,8 +42,13 @@ class ARCTask1bfc4729Generator(ARCTaskGenerator):
 
     def transform_input(self, grid: np.ndarray, taskvars: dict) -> np.ndarray:
         rows = taskvars['rows']
-        cell1 = taskvars['cell1']
-        cell2 = taskvars['cell2']
+        
+        # Find the unique non-zero colors in the grid
+        unique_colors = np.unique(grid[grid != 0])
+        if len(unique_colors) != 2:
+            raise ValueError("Input grid must contain exactly two different non-zero colors")
+        
+        cell1, cell2 = unique_colors[0], unique_colors[1]
 
         output_grid = grid.copy()
 
@@ -79,6 +84,7 @@ class ARCTask1bfc4729Generator(ARCTaskGenerator):
             'rows': rows,
         }
 
+        gridvars = {}
         # Generate examples
         train_examples = []
         for _ in range(nr_train):
@@ -88,10 +94,10 @@ class ARCTask1bfc4729Generator(ARCTaskGenerator):
             while cell1 == cell2:
                 cell2 = random.randint(1, 9)
             
-            taskvars['cell1'] = cell1
-            taskvars['cell2'] = cell2
+            gridvars['cell1'] = cell1
+            gridvars['cell2'] = cell2
             
-            input_grid = self.create_input(taskvars, {})
+            input_grid = self.create_input(taskvars, gridvars)
             output_grid = self.transform_input(input_grid, taskvars)
             train_examples.append(GridPair({"input": input_grid, "output": output_grid}))
 
@@ -103,10 +109,10 @@ class ARCTask1bfc4729Generator(ARCTaskGenerator):
             while cell1 == cell2:
                 cell2 = random.randint(1, 9)
             
-            taskvars['cell1'] = cell1
-            taskvars['cell2'] = cell2
+            gridvars['cell1'] = cell1
+            gridvars['cell2'] = cell2
             
-            input_grid = self.create_input(taskvars, {})
+            input_grid = self.create_input(taskvars, gridvars)
             output_grid = self.transform_input(input_grid, taskvars)
             test_examples.append(GridPair({"input": input_grid, "output": output_grid}))
 

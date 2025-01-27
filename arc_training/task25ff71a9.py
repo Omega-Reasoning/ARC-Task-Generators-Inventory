@@ -7,7 +7,7 @@ class ARCTask25ff71a9Generator(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
             "The input grid has size {vars['rows']} X {vars['cols']}.",
-            "A single 4-way connected object is present in the input grid of color {color('input_color')}.",
+            "A single 4-way connected object is present in the input grid of color input_color(between 1 and 9).",
             "The remaining cells of the input grid are empty(0)."
         ]
 
@@ -21,7 +21,7 @@ class ARCTask25ff71a9Generator(ARCTaskGenerator):
 
     def create_input(self, taskvars, gridvars):
         rows, cols = taskvars['rows'], taskvars['cols']
-        input_color = taskvars['input_color']
+        input_color = gridvars['input_color']
 
         def generate_grid():
             grid = np.zeros((rows, cols), dtype=int)
@@ -99,15 +99,16 @@ class ARCTask25ff71a9Generator(ARCTaskGenerator):
             'cols': random.randint(10, 22),
         }
 
+        gridvars = {}
         train_pairs = []
         for _ in range(random.randint(3, 4)):
-            taskvars['input_color'] = random.randint(1, 9)
-            input_grid = self.create_input(taskvars, {})
+            gridvars['input_color'] = random.randint(1, 9)
+            input_grid = self.create_input(taskvars, gridvars)
             output_grid = self.transform_input(input_grid, taskvars)
             train_pairs.append(GridPair(input=input_grid, output=output_grid))
 
-        taskvars['input_color'] = random.randint(1, 9)
-        test_input = self.create_input(taskvars, {})
+        gridvars['input_color'] = random.randint(1, 9)
+        test_input = self.create_input(taskvars, gridvars)
         test_output = self.transform_input(test_input, taskvars)
 
         test_pair = [GridPair(input=test_input, output=test_output)]
