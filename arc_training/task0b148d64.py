@@ -108,7 +108,7 @@ class ARCTask0b148d64Generator(ARCTaskGenerator):
         }
 
         # Determine number of examples needed
-        nr_train = random.randint(3, 6)
+        nr_train = random.randint(3, 4)
         nr_test = 1
         total_examples = nr_train + nr_test
 
