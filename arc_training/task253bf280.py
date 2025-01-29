@@ -2,7 +2,7 @@ from arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
 import numpy as np
 import random
 
-class FillBetweenCellsTaskGenerator(ARCTaskGenerator):
+class ARCTask253bf280Generator(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
             "The input grid has size {vars['rows']} X {vars['cols']}",
