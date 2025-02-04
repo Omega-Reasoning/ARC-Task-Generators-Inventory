@@ -69,7 +69,7 @@ class Task79Wi23KvwkNQf83DTdS5xgGenerator(ARCTaskGenerator):
 
         return grid
 
-    def transform_input(self, grid: np.ndarray, taskvars: Dict[str, Any], gridvars: Dict[str, Any]) -> np.ndarray:
+    def transform_input(self, grid: np.ndarray, taskvars: Dict[str, Any]) -> np.ndarray:
         """
         Transform the input grid according to the transformation chain:
          * If the cell_color2 cell has an empty cell to its right (within bounds),
