@@ -5,12 +5,11 @@ import random
 class ARCTask2dc579daGenerator(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
-            "The input grid has a random odd size between 11x11 and 29x29.",
-            "All the cells except the middle row and column are colored with a base color (between 1-9).",
-            "The input grid dimensions are always odd.",
-            "The cells of the middle column and the middle row are either empty (0) or colored with a different color (between 1-9).",
+            "The input grid has a random odd size.",
+            "All the cells except the middle row and column are colored with a base color color_1(between 1-9).",
+            "The cells of the middle column and the middle row are either empty (0) or colored with a different color color_2(between 1-9).",
             "The input grid has four quadrants which are divided by the middle row and column.",
-            "A random quadrant cell is colored with a third unique color (between 1-9)."
+            "There is always one quadrant in which a single cell has a colour different color_3(between 1-9) from all other cells."
         ]
         
         transformation_reasoning_chain = [
@@ -23,7 +22,7 @@ class ARCTask2dc579daGenerator(ARCTaskGenerator):
 
     def create_input(self, taskvars: dict, gridvars: dict) -> np.ndarray:
         # Generate random odd size between 11 and 29
-        rows = random.choice(range(11, 30, 2))
+        rows = random.choice(range(7, 30, 2))
         
         # Generate three unique random colors
         colors = []
