@@ -5,7 +5,7 @@ from transformation_library import find_connected_objects
 from input_library import create_object, retry
 from scipy import ndimage
 
-class ARCTask228f6490Generator(ARCTaskGenerator):
+class ARCTask239be575Generator(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
             "The input grid has size {vars['rows']} X {vars['cols']}.",
