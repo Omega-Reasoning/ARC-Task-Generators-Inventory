@@ -7,9 +7,9 @@ class TaskoNFpUiszkfkwdYR89NZcnPGenerator(ARCTaskGenerator):
         # 1. Input reasoning chain
         input_reasoning_chain = [
             "Input grids can have different sizes.",
-            "They only contain {color('object_color')} and empty (0) cells.",
-            "The {color('object_color')} cells form one ore more closed objects, enclosing empty (0) cells.",
-            "At least one object encloses exactly one empty (0) cell."
+            "They only contain one or more {color('object_color')} objects, which are one-cell-wide rectangular frames enclosing empty (0) cells.",
+            "At least one object encloses exactly one empty (0) cell.",
+            
         ]
 
         # 2. Transformation reasoning chain
