@@ -24,6 +24,7 @@ class ARCTask:
     task_variables: Dict[str, Any]
     code: str
     data: Dict[str, List[Dict[str, np.ndarray]]]
+    generator_name: str = ""
 
     @staticmethod
     def write_csv_header(filename: str) -> None:
@@ -34,6 +35,7 @@ class ARCTask:
                 writer.writerow([
                     'task_id',
                     'created_at',
+                    'generator_name',
                     'input_reasoning_chain',
                     'transformation_reasoning_chain',
                     'task_variables',
@@ -50,6 +52,7 @@ class ARCTask:
         row = [
             shortuuid.uuid(),
             datetime.now().isoformat(),
+            self.generator_name,
             json.dumps(self.input_reasoning_chain),
             json.dumps(self.transformation_reasoning_chain),
             json.dumps(self.task_variables, cls=ARCDataEncoder),

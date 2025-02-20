@@ -56,10 +56,11 @@ def generate_dataset(generator_folders: List[str], nr_of_tasks: int, output_path
                 # Get generator class and create instance
                 generator_class = get_generator_class(gen_file)
                 generator = generator_class()
-                
+                generator_name = Path(gen_file).stem
                 # print(f"\nGenerating {nr_of_tasks} tasks using {gen_file}...")
                 for _ in range(nr_of_tasks):  
                     task = generator.create_task()
+                    task.generator_name = generator_name
                     task.append_to_csv(str(folder_output))
                     task.append_to_csv(str(all_tasks_file))
                 
