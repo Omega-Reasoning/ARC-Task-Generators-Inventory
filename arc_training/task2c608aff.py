@@ -5,7 +5,7 @@ from arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
 from input_library import retry
 from transformation_library import find_connected_objects, GridObject, GridObjects
 
-class RectangleExtensionTaskGenerator(ARCTaskGenerator):
+class ARCTask2c608affGenerator(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
             "The input grid has size {vars['rows']} X {vars['cols']}.",
