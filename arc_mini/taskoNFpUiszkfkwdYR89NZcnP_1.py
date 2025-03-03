@@ -1,6 +1,7 @@
 from arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
 import numpy as np
 import random
+from scipy.ndimage import label
 
 class TaskoNFpUiszkfkwdYR89NZcnP_1Generator(ARCTaskGenerator):
     def __init__(self):
@@ -21,7 +22,7 @@ class TaskoNFpUiszkfkwdYR89NZcnP_1Generator(ARCTaskGenerator):
             "object_color1": c1,
             "object_color2": c2
         }
-        nr_train_examples = random.randint(3, 6)
+        nr_train_examples = random.randint(3, 5)
         nr_test_examples = 1
         train_test_data = self.create_grids_default(nr_train_examples, nr_test_examples, taskvars)
         return taskvars, train_test_data
@@ -29,53 +30,73 @@ class TaskoNFpUiszkfkwdYR89NZcnP_1Generator(ARCTaskGenerator):
     def create_input(self, taskvars, gridvars):
         object_color1 = taskvars['object_color1']
         object_color2 = taskvars['object_color2']
-        rows = random.randint(8, 30)
-        cols = random.randint(8, 30)
+        
+        # Always ensure the grid is large enough (minimum 12x12)
+        rows = random.randint(12, 15)  
+        cols = random.randint(12, 15)
         grid = np.zeros((rows, cols), dtype=int)
         
-        def draw_frame(g, top, left, bottom, right, color):
-            g[top, left:right+1] = color
-            g[bottom, left:right+1] = color
-            g[top:bottom+1, left] = color
-            g[top:bottom+1, right] = color
-
-        def random_frame_positions(r, c, existing_frames=[]):
-            while True:
-                top = random.randint(0, r - 3)
-                bottom = random.randint(top + 2, r - 1)
-                left = random.randint(0, c - 3)
-                right = random.randint(left + 2, c - 1)
-                new_frame = (top, left, bottom, right)
-                if all(not self.frames_overlap(new_frame, f) for f in existing_frames):
-                    return new_frame
-
-        existing_frames = []
-        t1, l1, b1, r1 = random_frame_positions(rows, cols)
-        draw_frame(grid, t1, l1, b1, r1, object_color1)
-        existing_frames.append((t1, l1, b1, r1))
-
-        t2, l2, b2, r2 = random_frame_positions(rows, cols, existing_frames)
-        draw_frame(grid, t2, l2, b2, r2, object_color2)
+        # Simple, reliable positioning approach:
+        # Always create a color2 frame in top left and color1 frame in bottom right
+        
+        # Color2 frame in top left quadrant
+        top2 = 1
+        left2 = 1
+        bottom2 = top2 + random.randint(2, 4)
+        right2 = left2 + random.randint(2, 4)
+        self.draw_frame(grid, top2, left2, bottom2, right2, object_color2)
+        
+        # Color1 frame in bottom right quadrant
+        top1 = rows - 6
+        left1 = cols - 6
+        bottom1 = rows - 2
+        right1 = cols - 2
+        self.draw_frame(grid, top1, left1, bottom1, right1, object_color1)
         
         return grid
 
+    def draw_frame(self, g, top, left, bottom, right, color):
+        # Draw top and bottom edges
+        g[top, left:right+1] = color
+        g[bottom, left:right+1] = color
+        # Draw left and right edges
+        g[top:bottom+1, left] = color
+        g[top:bottom+1, right] = color
+        
     def frames_overlap(self, frame1, frame2):
         t1, l1, b1, r1 = frame1
         t2, l2, b2, r2 = frame2
-        return not (b1 < t2 or b2 < t1 or r1 < l2 or r2 < l1)
+        # Add a buffer of 1 cell to avoid frames being adjacent
+        return not (b1+1 < t2 or b2+1 < t1 or r1+1 < l2 or r2+1 < l1)
 
     def transform_input(self, grid, taskvars):
         object_color2 = taskvars['object_color2']
         output_grid = np.copy(grid)
-        rows_color2, cols_color2 = np.where(grid == object_color2)
-        if len(rows_color2) == 0:
-            return output_grid
-        top2, bottom2 = min(rows_color2), max(rows_color2)
-        left2, right2 = min(cols_color2), max(cols_color2)
-        if bottom2 - top2 > 1 and right2 - left2 > 1:
-            fill_region = (slice(top2+1, bottom2), slice(left2+1, right2))
-            interior = output_grid[fill_region]
-            interior[interior == 0] = object_color2
+        
+        # Find all color2 cells
+        mask = (grid == object_color2)
+        
+        # Find connected components (each should be a frame)
+        labeled_array, num_features = label(mask)
+        
+        # Process each component
+        for i in range(1, num_features + 1):
+            # Get coordinates of this component
+            rows, cols = np.where(labeled_array == i)
+            
+            if len(rows) < 4:  # Skip if too small to be a frame
+                continue
+                
+            # Get bounds
+            top, bottom = min(rows), max(rows)
+            left, right = min(cols), max(cols)
+            
+            # Only process if it could be a valid rectangle frame
+            if bottom - top > 1 and right - left > 1:
+                # Fill interior empty cells
+                for r in range(top+1, bottom):
+                    for c in range(left+1, right):
+                        if grid[r, c] == 0:  # Only fill empty cells
+                            output_grid[r, c] = object_color2
+        
         return output_grid
-
-
