@@ -19,7 +19,8 @@ class TaskTgAGKWBFa69KAznd7TaqibGenerator(ARCTaskGenerator):
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
 
     def create_input(self, taskvars: dict, gridvars: dict) -> np.ndarray:
-        grid_size = random.randint(5, 30), random.randint(5, 30)
+        # Choose a more reasonable grid size to avoid placement issues
+        grid_size = random.randint(10, 30), random.randint(10, 30)
         grid = np.zeros(grid_size, dtype=int)
 
         colors = [
@@ -29,13 +30,23 @@ class TaskTgAGKWBFa69KAznd7TaqibGenerator(ARCTaskGenerator):
             taskvars['object_color4']
         ]
 
+        # Limit the number of placement attempts to avoid infinite loops
+        max_attempts = 100
+        
         for color in colors:
-            obj_height = random.randint(1, 5)
-            obj_width = random.randint(1, 5)
+            # Make sure objects aren't too large for the grid
+            max_obj_size = min(grid.shape) // 3
+            obj_height = random.randint(1, min(5, max_obj_size))
+            obj_width = random.randint(1, min(5, max_obj_size))
+            
             obj = create_object(obj_height, obj_width, color_palette=color, contiguity=Contiguity.FOUR)
 
+            # Limit the number of placement attempts for each object
+            attempts = 0
             placed = False
-            while not placed:
+            
+            while not placed and attempts < max_attempts:
+                attempts += 1
                 row = random.randint(0, grid.shape[0] - obj.shape[0])
                 col = random.randint(0, grid.shape[1] - obj.shape[1])
                 
@@ -43,6 +54,11 @@ class TaskTgAGKWBFa69KAznd7TaqibGenerator(ARCTaskGenerator):
                 if np.all(grid[row:row+obj.shape[0], col:col+obj.shape[1]] == 0):
                     grid[row:row+obj.shape[0], col:col+obj.shape[1]] = obj
                     placed = True
+            
+            # If we couldn't place the object after max attempts, just continue
+            # This ensures we don't get stuck in an infinite loop
+            if not placed:
+                continue
 
         return grid
 

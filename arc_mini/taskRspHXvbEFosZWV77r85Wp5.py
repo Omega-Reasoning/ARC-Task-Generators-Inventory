@@ -27,18 +27,10 @@ class TaskRspHXvbEFosZWV77r85Wp5Generator(ARCTaskGenerator):
         #    (or you can pass a docstring with instructions). For clarity, we just use {}:
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
 
-    def create_input(self,
-                     taskvars: dict,
-                     gridvars: dict) -> np.ndarray:
+    def create_input(self, taskvars: dict, gridvars: dict) -> np.ndarray:
         """
-        Create an input grid according to the input reasoning chain:
-        1) Grid size: rows x cols
-        2) One 4-way-connected object of color object_color, located in the top half
-        3) The object must have a vertical bounding box of object_length
-        4) All other cells empty
-        5) The shape must not be a trivial block (we carve out some cells to provide variety)
+        Create an input grid according to the input reasoning chain
         """
-
         rows = taskvars['rows']
         cols = taskvars['cols']
         color = taskvars['object_color']
@@ -47,17 +39,12 @@ class TaskRspHXvbEFosZWV77r85Wp5Generator(ARCTaskGenerator):
         # Start with an all-empty grid
         grid = np.zeros((rows, cols), dtype=int)
 
-        # We will place the object so that its bounding box spans exactly the top object_length rows
-        # i.e. from row 0..(object_length-1) inclusive.
-        # We'll choose a random width and a random left offset to place the bounding rectangle,
-        # then carve out random holes, ensuring 4-way connectivity remains exactly 1 object.
-        # We'll do this inside a retry(...) so we can keep trying until constraints are met.
         def generate_object():
             # Work on a copy for each attempt
             attempt_grid = np.zeros((rows, cols), dtype=int)
 
-            # Choose a random width for the bounding region in [max(2, ...), up to cols]
-            w = random.randint(2, cols)  
+            # Choose a random width for the bounding region in [2, up to cols]
+            w = random.randint(2, min(cols, 10))  # Limit max width to prevent too many carve attempts
             # Random horizontal offset
             left_col = random.randint(0, cols - w)
 
@@ -66,56 +53,58 @@ class TaskRspHXvbEFosZWV77r85Wp5Generator(ARCTaskGenerator):
                 for c in range(left_col, left_col + w):
                     attempt_grid[r, c] = color
 
-            # Carve out random holes: we skip each cell with some probability
-            # but ensure we don't completely remove an entire row in that bounding region
+            # Carve out random holes but ensure connectivity
+            # First, create a copy to test connectivity after each carve
+            working_grid = attempt_grid.copy()
+            
+            # Try to carve each cell with some probability
+            carve_prob = 0.3  # ~30% chance to try carving
             for r in range(object_length):
-                # We want at least 1 cell to remain in row r
-                # We'll gather candidate columns in that row, and carve out some fraction
-                carved_any = False
-                col_indices = list(range(left_col, left_col + w))
-                random.shuffle(col_indices)
-                # Probability of carving a cell out
-                carve_prob = 0.2 + 0.3*random.random()  # ~20-50% chance
-                for c in col_indices:
-                    # If we haven't carved anything yet, let's ensure we can carve.
-                    # We'll carve only if it won't kill the entire row
-                    # i.e. we can carve if there's at least 2 colored cells left in the row
-                    if attempt_grid[r, c] == color:
-                        if random.random() < carve_prob:
-                            # Check how many colored cells remain in this row
-                            row_nonzero = np.count_nonzero(attempt_grid[r, left_col:left_col + w])
-                            if row_nonzero > 1:  # safe to carve
-                                attempt_grid[r, c] = 0
-                                carved_any = True
+                for c in range(left_col, left_col + w):
+                    if working_grid[r, c] == color and random.random() < carve_prob:
+                        # Temporarily remove this cell
+                        working_grid[r, c] = 0
+                        
+                        # Check if object remains connected and spans the required height
+                        objects = find_connected_objects(working_grid, 
+                                                        diagonal_connectivity=False,
+                                                        background=0, 
+                                                        monochromatic=True)
+                        
+                        if len(objects) == 1 and objects[0].height == object_length:
+                            # Carving is valid, keep it
+                            attempt_grid[r, c] = 0
+                        else:
+                            # Revert the carve
+                            working_grid[r, c] = color
 
             return attempt_grid
 
         def is_valid(grid_candidate: np.ndarray) -> bool:
-            # Find connected objects (4-way connectivity, background=0, monochromatic=True)
+            # Find connected objects
             objects = find_connected_objects(grid_candidate,
-                                             diagonal_connectivity=False,
-                                             background=0,
-                                             monochromatic=True)
+                                            diagonal_connectivity=False,
+                                            background=0,
+                                            monochromatic=True)
 
             # We want exactly 1 non-background object
             if len(objects) != 1:
                 return False
 
             obj = objects[0]
-            # Check the bounding box is exactly object_length in vertical dimension
+            
+            # Check it has cells in the top rows
             if obj.height != object_length:
                 return False
-
-            # Check it is indeed in the top half: bounding box's top row >= 0
-            # and bounding box's bottom row <= object_length-1
-            row_slice, col_slice = obj.bounding_box
+                
+            # Ensure the object starts at the top row and spans exactly object_length rows
+            row_slice, _ = obj.bounding_box
             if row_slice.start != 0 or row_slice.stop != object_length:
                 return False
 
-            # If we get here, constraints satisfied
             return True
 
-        # Attempt up to 100 times
+        # Attempt to generate a valid object
         object_grid = retry(generator=generate_object,
                             predicate=is_valid,
                             max_attempts=100)
