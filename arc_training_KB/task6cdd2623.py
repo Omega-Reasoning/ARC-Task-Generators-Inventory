@@ -13,63 +13,103 @@ class Task6cdd2623Generator(ARCTaskGenerator):
             "The pairs are positioned so that one cell appears in the start and one cell at the end of the specific row or column.",
             "If the pairs appear in two rows, the rows must be non-consecutive.",
             "The pairs must not be positioned in any of the grid corners.",
-            "The other two colors, different from the pattern-color, appear more frequently—either as isolated single cells or as small groups made of 4-way connected cells using both the colors."
+            "The other two colors, different from the pattern-color, appear more frequently—either as isolated single cells or as small groups made of 4-way connected cells using both the colors.",
+            "The colors including the pattern-color, must vary across examples"
         ]
         
         transformation_reasoning_chain = [
             "The output grids are constructed by copying the input grids and identifying the color that appears exactly in four cells, which is called pattern-color.",
+            "Remove all other colored cells except the four cells with pattern-color",
             "These four cells form two pairs, with each pair positioned either in a single row or a single column.",
             "Once identified, locate the rows or columns where the two same-colored pairs are placed.",
             "If one pair appears in a row and the other in a column, completely fill both the row and the column with the pattern-color.",
-            "If both pairs appear in two different rows, completely fill each of these rows with the pattern-color.",
-            "Any other colored cells already present in those rows or columns are overwritten by the pattern-color."
+            "If both pairs appear in two different rows, completely fill each of these rows with the pattern-color."
         ]
         
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
     
     def create_grids(self):
-        # Random task variables
-        taskvars = {
-            'rows': random.randint(8, 30),
-            'cols': random.randint(8, 30),
-            'color1': random.randint(1, 9),  # Color for the pairs
-            'color2': random.randint(1, 9),  # Additional color
-            'color3': random.randint(1, 9),  # Additional color
-        }
-        
-        # Make sure all colors are distinct
-        while len({taskvars['color1'], taskvars['color2'], taskvars['color3']}) < 3:
-            taskvars['color2'] = random.randint(1, 9)
-            taskvars['color3'] = random.randint(1, 9)
+        # Choose consistent grid size for all examples
+        rows = random.randint(8, 30)
+        cols = random.randint(8, 30)
         
         # We'll create 3-4 train examples
         num_train = random.randint(3, 4)
         
         train_pairs = []
+        test_pairs = []
+        
+        # Create color sets for each example to ensure they vary
+        # Need num_train + 2 color sets (for train examples + 2 test cases)
+        all_color_sets = []
+        
+        # Generate unique color sets for each example (training + 2 test examples)
+        for _ in range(num_train + 2):
+            # Create a new color set that's different from all previous ones
+            new_colors = self._generate_distinct_colors(all_color_sets)
+            all_color_sets.append(new_colors)
+        
+        # Add grid dimensions to each color set
+        for color_set in all_color_sets:
+            color_set['rows'] = rows
+            color_set['cols'] = cols
+        
         # First example with pairs in a row and column
-        train_pairs.append(self._create_row_column_case(taskvars))
+        train_pairs.append(self._create_row_column_case(all_color_sets[0]))
         
         # Second example with pairs in two non-consecutive rows
-        train_pairs.append(self._create_two_rows_case(taskvars))
+        train_pairs.append(self._create_two_rows_case(all_color_sets[1]))
         
         # Additional train examples (random configuration)
-        for _ in range(num_train - 2):
+        for i in range(2, num_train):
             if random.choice([True, False]):
-                train_pairs.append(self._create_row_column_case(taskvars))
+                train_pairs.append(self._create_row_column_case(all_color_sets[i]))
             else:
-                train_pairs.append(self._create_two_rows_case(taskvars))
+                train_pairs.append(self._create_two_rows_case(all_color_sets[i]))
         
-        # Test case (random configuration)
-        test_pairs = []
-        if random.choice([True, False]):
-            test_pairs.append(self._create_row_column_case(taskvars))
-        else:
-            test_pairs.append(self._create_two_rows_case(taskvars))
+        # Test cases (one for each pattern)
+        # First test case: row-column pattern
+        test_pairs.append(self._create_row_column_case(all_color_sets[num_train]))
+        # Second test case: two-rows pattern
+        test_pairs.append(self._create_two_rows_case(all_color_sets[num_train + 1]))
+        
+        # Use grid dimensions for display in the reasoning chain
+        taskvars = {
+            'rows': rows,
+            'cols': cols
+        }
         
         return taskvars, {
             'train': train_pairs,
             'test': test_pairs
         }
+    
+    def _generate_distinct_colors(self, existing_color_sets):
+        """Generate a set of colors that differs from all existing sets"""
+        while True:
+            color1 = random.randint(1, 9)  # Color for the pairs
+            color2 = random.randint(1, 9)  # Additional color
+            color3 = random.randint(1, 9)  # Additional color
+            
+            # Make sure all colors in this set are distinct
+            if len({color1, color2, color3}) < 3:
+                continue
+                
+            # Check if this color set is unique compared to existing ones
+            is_unique = True
+            for existing_set in existing_color_sets:
+                if (color1 == existing_set['color1'] and 
+                    color2 == existing_set['color2'] and 
+                    color3 == existing_set['color3']):
+                    is_unique = False
+                    break
+            
+            if is_unique:
+                return {
+                    'color1': color1,
+                    'color2': color2,
+                    'color3': color3
+                }
     
     def _create_row_column_case(self, taskvars):
         """Create a case where pairs are in one row and one column"""
@@ -188,7 +228,8 @@ class Task6cdd2623Generator(ARCTaskGenerator):
         return grid
     
     def transform_input(self, grid, taskvars):
-        output = grid.copy()
+        # Initialize the output grid with zeros (clear all colors)
+        output = np.zeros_like(grid)
         
         # Count occurrences of each color
         color_counts = {}
@@ -198,7 +239,7 @@ class Task6cdd2623Generator(ARCTaskGenerator):
                 if color > 0:  # Skip background
                     color_counts[color] = color_counts.get(color, 0) + 1
         
-        # Find the color that appears exactly 4 times
+        # Find the color that appears exactly 4 times (pattern-color)
         target_color = None
         for color, count in color_counts.items():
             if count == 4:
@@ -214,6 +255,8 @@ class Task6cdd2623Generator(ARCTaskGenerator):
             for c in range(grid.shape[1]):
                 if grid[r, c] == target_color:
                     target_positions.append((r, c))
+                    # Keep the pattern-color cells in the output
+                    output[r, c] = target_color
         
         # Group by rows and columns
         rows_with_targets = {}
@@ -241,4 +284,3 @@ class Task6cdd2623Generator(ARCTaskGenerator):
                 output[row, :] = target_color
         
         return output
-
