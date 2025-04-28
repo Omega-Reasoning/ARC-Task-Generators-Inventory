@@ -27,48 +27,69 @@ class Task3e6067c3Generator(ARCTaskGenerator):
         ]
         
         transformation_reasoning_chain = [
-            "Output grids are constructed by copying the input grids and identifying all {color('object_color')} square objects and their different interior color.",
-            "Once identified, follow the color sequence provided in the second-to-last row and create a path by recoloring some {color('background_color')} cells, starting from the first {color('object_color')} block and continuing to the block that has the interior color corresponding to the final color in the sequence of the second-to-last row.",
-            "The path is created using the colors that appear in sequence. For example, if the sequence in the second-to-last row is color a, b, c, the path would start from the block with color a as the interior color and extend to the block with color b as the interior color. This is done by recoloring {color('background_color')} cells, which are vertically or horizontally aligned with the cells that have color a as their interior color.",
-            "The path never overlaps {color('object_color')} cells and stops when it reaches the {color('object_color')} block that has the correct interior color, as indicated at the end of the sequence."
+            "Output grids are constructed by copying the input grids and identifying all square objects and their differently colored interior.",
+            "Once identified, follow the color sequence provided in the second-to-last row and create a path by recoloring certain background cells, starting from the first square block and continuing to the block with the interior color that matches the final color in the sequence.",
+            "The path is created using the colors that appear in sequence. For example, if the sequence in the second-to-last row is color a, b, c, the path would start from the block with color a as the interior color and extend to the block with color b as the interior color. This is done by recoloring cells, which are vertically or horizontally aligned with the cells that have color a as their interior color.",
+            "The path never overlaps any cells within the square objects and stops when it reaches the square block with the correct interior color, as indicated by the final color in the sequence given in second-to-last row."
         ]
         
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
         
     def create_grids(self) -> Tuple[Dict[str, Any], TrainTestData]:
-        # Initialize task variables
-        taskvars = {
+        # Initialize task variables for training examples
+        train_taskvars = {
             'object_color': random.randint(1, 9),
             'background_color': random.randint(1, 9)
         }
         
         # Ensure object_color and background_color are different
-        while taskvars['object_color'] == taskvars['background_color']:
-            taskvars['background_color'] = random.randint(1, 9)
+        while train_taskvars['object_color'] == train_taskvars['background_color']:
+            train_taskvars['background_color'] = random.randint(1, 9)
         
-        # Create 4 training examples and 1 test example
+        # Create separate variables for test grid with different colors
+        test_taskvars = {
+            'object_color': random.randint(1, 9),
+            'background_color': random.randint(1, 9)
+        }
+        
+        # Ensure test colors are different from each other
+        while test_taskvars['object_color'] == test_taskvars['background_color']:
+            test_taskvars['background_color'] = random.randint(1, 9)
+        
+        # Ensure test background color differs from training background color
+        while test_taskvars['background_color'] == train_taskvars['background_color']:
+            test_taskvars['background_color'] = random.randint(1, 9)
+        
+        # Ensure test object color differs from training object color
+        while test_taskvars['object_color'] == train_taskvars['object_color']:
+            test_taskvars['object_color'] = random.randint(1, 9)
+            # Re-check that it's different from background
+            if test_taskvars['object_color'] == test_taskvars['background_color']:
+                test_taskvars['object_color'] = random.randint(1, 9)
+        
+        # Create 4 training examples
         train_examples = []
         
         # Create two examples with 6 blocks (3 in each row)
         for _ in range(2):
             gridvars = {'block_style': 'six_blocks'}
-            input_grid = self.create_input(taskvars, gridvars)
-            output_grid = self.transform_input(input_grid, taskvars)
+            input_grid = self.create_input(train_taskvars, gridvars)
+            output_grid = self.transform_input(input_grid, train_taskvars)
             train_examples.append({'input': input_grid, 'output': output_grid})
         
         # Create two examples with 7 or 8 blocks (different patterns)
         for _ in range(2):
             gridvars = {'block_style': random.choice(['style_one', 'style_two', 'style_three'])}
-            input_grid = self.create_input(taskvars, gridvars)
-            output_grid = self.transform_input(input_grid, taskvars)
+            input_grid = self.create_input(train_taskvars, gridvars)
+            output_grid = self.transform_input(input_grid, train_taskvars)
             train_examples.append({'input': input_grid, 'output': output_grid})
         
         # Create test example (random style)
         test_gridvars = {'block_style': random.choice(['six_blocks', 'style_one', 'style_two', 'style_three'])}
-        test_input = self.create_input(taskvars, test_gridvars)
-        test_output = self.transform_input(test_input, taskvars)
+        test_input = self.create_input(test_taskvars, test_gridvars)
+        test_output = self.transform_input(test_input, test_taskvars)
         
-        return taskvars, {
+        return train_taskvars, {
             'train': train_examples,
             'test': [{'input': test_input, 'output': test_output}]
         }
@@ -456,4 +477,3 @@ class Task3e6067c3Generator(ARCTaskGenerator):
                     col = start_col + w
                     if 0 <= col < grid.shape[1] and grid[row, col] == background_color:
                         grid[row, col] = color
-
