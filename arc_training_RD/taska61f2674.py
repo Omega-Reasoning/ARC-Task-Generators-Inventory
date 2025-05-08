@@ -5,7 +5,7 @@ import numpy as np
 import random
 from typing import Dict, List, Tuple
 
-class TowerColoringTaskGenerator(ARCTaskGenerator):
+class Taska61g2674Generator(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
             f"Input grids are squares and can have different sizes.",
@@ -17,7 +17,7 @@ class TowerColoringTaskGenerator(ARCTaskGenerator):
         
         transformation_reasoning_chain = [
             "The output grid is constructed by copying the input grid and identifying the tallest and the shortest tower only.",
-            f"Once identified, consider filling the longest tower with {{color(\"fill_color1\")}} and the shortest tower with {{color(\"fill_color2\")}}."
+            f"Once identified, fill the longest tower with {{color(\"fill_color1\")}} and the shortest tower with {{color(\"fill_color2\")}}."
         ]
         
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
@@ -25,7 +25,7 @@ class TowerColoringTaskGenerator(ARCTaskGenerator):
 
     def create_input(self) -> np.ndarray:
         # Randomly determine grid size (between 5x5 and 12x12)
-        size = random.randint(5, 12)
+        size = random.randint(5, 30)
         
         # Create empty grid
         grid = np.zeros((size, size), dtype=int)
@@ -117,27 +117,3 @@ class TowerColoringTaskGenerator(ARCTaskGenerator):
         
         # Return taskvars and TrainTestData object
         return self.taskvars, TrainTestData(train=train_pairs, test=test_pairs)
-
-# Test the generator
-if __name__ == "__main__":
-    generator = TowerColoringTaskGenerator()
-    taskvars, train_test_data = generator.create_grids()
-    
-    print("Task Variables:")
-    print(taskvars)
-    print("\nTraining Examples:")
-    for i, pair in enumerate(train_test_data.train, 1):
-        print(f"\nTrain Pair {i}:")
-        print("Input:")
-        print(pair.input)
-        print("Output:")
-        print(pair.output)
-    
-    print("\nTest Example:")
-    print("Input:")
-    print(train_test_data.test[0].input)
-    print("Output:")
-    print(train_test_data.test[0].output)
-    
-    # Visualize the grids
-    ARCTaskGenerator.visualize_train_test_data(train_test_data.train, train_test_data.test)

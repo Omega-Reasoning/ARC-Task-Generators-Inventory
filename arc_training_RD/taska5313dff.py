@@ -5,7 +5,7 @@ from typing import Dict, List, Tuple  # Add Tuple to the imports
 from transformation_library import GridObject, find_connected_objects
 from input_library import create_object, enforce_object_height, enforce_object_width, retry
 
-class EnclosureTaskGenerator(ARCTaskGenerator):
+class Taska5313dffGenerator(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
             "The input grid is a square grid with dimension {vars['rows']} X {vars['rows']}.",

@@ -5,7 +5,7 @@ from typing import Dict, List, Any, Tuple
 from input_library import create_object, random_cell_coloring, retry
 from transformation_library import find_connected_objects, GridObject
 
-class AlternatingPatternFillGenerator(ARCTaskGenerator):
+class Taska699fb00Generator(ARCTaskGenerator):
     def __init__(self):
         self.input_reasoning_chain = [
             "Input grids are squares and can have different sizes.",
