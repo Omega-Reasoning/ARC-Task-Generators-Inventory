@@ -6,16 +6,16 @@ from input_library import create_object, Contiguity, random_cell_coloring
 
 class Taskc9e6f938Generator(ARCTaskGenerator):
     def __init__(self):
+
         input_reasoning_chain = [
-            "Input grids are square grids of size 3x3.",
-            "The grid consists of one object of {color('object_color')}color.",
-            "The object must have at least one colored cell in the right most column."
+            "Input grids are square grids of size M*M.",
+            "The grid consists of one object of {{color(\"object_color\")}} color."
         ]
         
         transformation_reasoning_chain = [
-            "The output grid has the same height but twice the width of the input grid (3x6).",
+            "The output grid has the same height but twice the width of the input grid (2M * M).",
             "The left half of the output grid is identical to the input grid.",
-            "The right half contains the vertical mirror reflection of the input object."
+            "The right half contains the vertical mirror reflection of the entire input grid."
         ]
         
         taskvars_definitions = {
@@ -29,27 +29,29 @@ class Taskc9e6f938Generator(ARCTaskGenerator):
             gridvars = {}
         
         object_color = gridvars.get("object_color", 1)
-        grid = np.zeros((3, 3), dtype=int)
+        grid_size = random.randint(3, 6)  # M can be between 3 and 6
+        grid = np.zeros((grid_size, grid_size), dtype=int)
         
-        # Create a connected object that touches rightmost column
+        # Create a connected object anywhere in the grid
         while True:
-            # Start with a cell in the rightmost column
-            start_row = random.randint(0, 2)
-            grid[start_row, 2] = object_color
+            # Start with a random cell
+            start_row = random.randint(0, grid_size - 1)
+            start_col = random.randint(0, grid_size - 1)
+            grid[start_row, start_col] = object_color
             
-            # Add 2-3 more connected cells
-            num_cells = random.randint(2, 3)
+            # Add 2-4 more connected cells
+            num_cells = random.randint(2, 4)
             cells_added = 1
-            current_row, current_col = start_row, 2
+            current_row, current_col = start_row, start_col
             
             while cells_added < num_cells:
                 # Try to add adjacent cells (4-connectivity)
-                directions = [(0, -1), (-1, 0), (1, 0)]  # left, up, down
+                directions = [(0, -1), (-1, 0), (1, 0), (0, 1)]  # left, up, down, right
                 random.shuffle(directions)
                 
                 for dr, dc in directions:
                     new_row, new_col = current_row + dr, current_col + dc
-                    if (0 <= new_row < 3 and 0 <= new_col < 3 and 
+                    if (0 <= new_row < grid_size and 0 <= new_col < grid_size and 
                         grid[new_row, new_col] == 0):
                         grid[new_row, new_col] = object_color
                         current_row, current_col = new_row, new_col
@@ -61,10 +63,10 @@ class Taskc9e6f938Generator(ARCTaskGenerator):
             
             # Verify we have a valid connected object
             objects = find_connected_objects(grid, diagonal_connectivity=False)
-            if len(objects.objects) == 1 and np.any(grid[:, 2] > 0):
+            if len(objects.objects) == 1:  # Removed the rightmost column requirement
                 break
             
-            grid = np.zeros((3, 3), dtype=int)
+            grid = np.zeros((grid_size, grid_size), dtype=int)
         
         return grid
 
@@ -76,12 +78,9 @@ class Taskc9e6f938Generator(ARCTaskGenerator):
         # Copy input grid to left half
         output_grid[:, :input_grid.shape[1]] = input_grid
         
-        # Create mirror image in right half
-        for r in range(output_rows):
-            for c in range(input_grid.shape[1]):
-                if input_grid[r, c] > 0:
-                    mirrored_c = output_cols - 1 - c
-                    output_grid[r, mirrored_c] = input_grid[r, c]
+        # Mirror the entire input grid in the right half
+        right_half = np.fliplr(input_grid)
+        output_grid[:, input_grid.shape[1]:] = right_half
         
         return output_grid
     
@@ -110,4 +109,4 @@ class Taskc9e6f938Generator(ARCTaskGenerator):
         
         return gridvars, TrainTestData(train=train_pairs, test=test_pairs)
 
-#{{color(\"object_color\")}} 
+#{{color(\"object_color\")}}

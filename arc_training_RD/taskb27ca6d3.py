@@ -4,18 +4,24 @@ import random
 from transformation_library import find_connected_objects, GridObject, GridObjects
 from input_library import Contiguity, retry, create_object, random_cell_coloring
 
-class ScatteredCellsBoundaryGenerator(ARCTaskGenerator):
+class Taskb27ca6d3yGenerator(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
             "Input grids can be of different sizes.",
-            "The grid consists of many scattered cells of red color. Most of them are properly scattered and away from each other. But very few of them have only 1 cell adjacent to them."
+            "The grid consists of scattered cells of {{color(\"object_color\")}} color.",
+            "Most cells are individual and uniformly scattered with proper spacing.",
+            "Some cells appear in pairs that are 4-way-connected to each other.",
+            "Each pair is placed with enough surrounding space for a complete boundary."
         ]
         
         transformation_reasoning_chain = [
             "The output grid is copied from the input grid.",
-            "The scattered cells without adjacent cells are displayed as it is.",
-            "The scattered cells with 1 adjacent cell have a boundary forming around it of blue color.",
-            "If the 2 cells are occurring on the edges of the grid, form a boundary of 3 sides."
+            "Individual scattered cells remain unchanged.",
+            "For each pair of adjacent cells:",
+            "- If the pair is not on any grid edge, create a complete boundary of {{color(\"bound_color\")}} color around both cells",
+            "- If the pair touches a grid edge, create a partial boundary only on the non-edge sides",
+            "- The boundary includes both orthogonal and diagonal positions around the pair",
+            "- Boundaries never overlap with existing cells or other boundaries"
         ]
         
         taskvars_definitions = {
@@ -28,44 +34,41 @@ class ScatteredCellsBoundaryGenerator(ARCTaskGenerator):
     def create_input(self, taskvars):
         object_color = taskvars["object_color"]
         
-        # Generate a random grid size between 5 and 20
-        height = random.randint(5, 20)
-        width = random.randint(5, 20)
+        # Generate a random grid size
+        height = random.randint(8, 12)  # Increased minimum size for better spacing
+        width = random.randint(8, 12)
         
-        # Create an empty grid
         grid = np.zeros((height, width), dtype=int)
         
-        # Calculate number of adjacent pairs based on grid size (reduced ratio)
+        # Calculate balanced distribution with more spacing
         grid_area = height * width
-        min_pairs = 1  # Always at least 1 pair
-        max_pairs = max(2, grid_area // 40)  # Significantly reduced ratio for pairs
-        num_pairs = random.randint(min_pairs, max_pairs)
+        total_cells = grid_area // 8  # Further reduced density for better spacing
         
-        placed_cells = 0
+        # Determine ratio of pairs vs individual cells
+        pair_ratio = random.uniform(0.3, 0.5)  # Reduced maximum ratio for better balance
+        num_pairs = int(total_cells * pair_ratio) // 2
+        num_individual = total_cells - (num_pairs * 2)
+        
+        # First place pairs with proper spacing
         pairs_placed = 0
-        max_attempts = 100
-        
-        # First, place the required number of adjacent pairs
-        while pairs_placed < num_pairs and max_attempts > 0:
-            r = random.randint(0, height - 1)
-            c = random.randint(0, width - 1)
+        attempts = 0
+        while pairs_placed < num_pairs and attempts < 150:
+            r = random.randint(1, height - 2)  # Keep away from edges initially
+            c = random.randint(1, width - 2)
             
-            # Check if this location and its surroundings are empty
             if grid[r, c] == 0:
-                valid_surroundings = True
-                # Check 5x5 neighborhood to ensure pairs are well-spaced
+                # Check 3x3 neighborhood to ensure space for boundary
+                valid = True
                 for dr in range(-2, 3):
                     for dc in range(-2, 3):
                         nr, nc = r + dr, c + dc
                         if (0 <= nr < height and 0 <= nc < width and 
                             grid[nr, nc] != 0):
-                            valid_surroundings = False
+                            valid = False
                             break
-                    if not valid_surroundings:
-                        break
                 
-                if valid_surroundings:
-                    # Try to place second cell of the pair
+                if valid:
+                    # Try to place second cell
                     directions = [(0, 1), (1, 0), (0, -1), (-1, 0)]
                     random.shuffle(directions)
                     
@@ -73,90 +76,107 @@ class ScatteredCellsBoundaryGenerator(ARCTaskGenerator):
                         new_r, new_c = r + dr, c + dc
                         if (0 <= new_r < height and 0 <= new_c < width and 
                             grid[new_r, new_c] == 0):
-                            # Place the adjacent pair
-                            grid[r, c] = object_color
-                            grid[new_r, new_c] = object_color
-                            placed_cells += 2
-                            pairs_placed += 1
-                            break
+                            # Check space for boundary around second cell
+                            valid_second = True
+                            for d2r in range(-1, 2):
+                                for d2c in range(-1, 2):
+                                    check_r, check_c = new_r + d2r, new_c + d2c
+                                    if (0 <= check_r < height and 0 <= check_c < width and 
+                                        check_r != r and check_c != c and
+                                        grid[check_r, check_c] != 0):
+                                        valid_second = False
+                                        break
+                            
+                            if valid_second:
+                                grid[r, c] = object_color
+                                grid[new_r, new_c] = object_color
+                                pairs_placed += 1
+                                break
             
-            max_attempts -= 1
-
-        # Calculate remaining scattered cells (increased ratio)
-        min_cells = max(8, height * width // 8)  # Increased minimum cells
-        max_cells = max(min_cells + 2, height * width // 6)  # Increased maximum cells
-        num_scattered_cells = random.randint(min_cells, max_cells)
+            attempts += 1
         
-        # Place remaining cells with spacing (no adjacency)
+        # Then place individual cells with spacing
+        placed_cells = 0
         attempts = 0
-        while placed_cells < num_scattered_cells and attempts < 100:
+        while placed_cells < num_individual and attempts < 100:
             r = random.randint(0, height - 1)
             c = random.randint(0, width - 1)
             
-            # Check 3x3 neighborhood to ensure proper spacing
-            valid = True
-            for dr in [-1, 0, 1]:
-                for dc in [-1, 0, 1]:
-                    if dr == 0 and dc == 0:
-                        continue
-                    nr, nc = r + dr, c + dc
-                    if (0 <= nr < height and 0 <= nc < width and 
-                        grid[nr, nc] != 0):
-                        valid = False
-                        break
-                if not valid:
-                    break
-                    
-            if valid and grid[r, c] == 0:
-                grid[r, c] = object_color
-                placed_cells += 1
+            if grid[r, c] == 0:
+                # Check 2x2 neighborhood for spacing
+                valid = True
+                for dr in range(-1, 2):
+                    for dc in range(-1, 2):
+                        nr, nc = r + dr, c + dc
+                        if (0 <= nr < height and 0 <= nc < width and 
+                            grid[nr, nc] != 0):
+                            valid = False
+                            break
+                
+                if valid:
+                    grid[r, c] = object_color
+                    placed_cells += 1
             
             attempts += 1
         
         return grid
     
     def transform_input(self, grid, taskvars):
-        # Extract color variables
         object_color = taskvars["object_color"]
         bound_color = taskvars["bound_color"]
         
-        # Create a copy of the input grid for the output
         output_grid = grid.copy()
-        
-        # Find all connected objects
         objects = find_connected_objects(grid, diagonal_connectivity=False, background=0, monochromatic=True)
-        
-        # Filter for objects of the specified color
         colored_objects = objects.with_color(object_color)
-        
         height, width = grid.shape
         
-        # Process each connected object
         for obj in colored_objects:
-            # We only add boundaries to pairs of adjacent cells
-            if len(obj) == 2:
+            if len(obj) == 2:  # Handle pairs
                 coords = list(obj.coords)
-                
-                # Create a boundary around the entire pair
                 boundary_positions = set()
                 
-                # For each cell in the pair
+                # Check if the pair is on the edge
+                edges = {'left': False, 'right': False, 'top': False, 'bottom': False}
                 for r, c in coords:
-                    # Check all 8 surrounding positions
-                    for dr in [-1, 0, 1]:
-                        for dc in [-1, 0, 1]:
-                            if dr == 0 and dc == 0:
-                                continue  # Skip the cell itself
-                            
-                            nr, nc = r + dr, c + dc
-                            if 0 <= nr < height and 0 <= nc < width:
-                                # Only add boundary if this position isn't part of the object
-                                if (nr, nc) not in coords and output_grid[nr, nc] == 0:
-                                    boundary_positions.add((nr, nc))
+                    if r == 0: edges['top'] = True
+                    if r == height-1: edges['bottom'] = True
+                    if c == 0: edges['left'] = True
+                    if c == width-1: edges['right'] = True
                 
-                # Add the boundary in the output grid
+                is_edge_pair = any(edges.values())
+                
+                # Generate boundary positions based on edge status
+                for r, c in coords:
+                    if is_edge_pair:
+                        # Add orthogonal directions except where there's an edge
+                        if not edges['top'] and r > 0: boundary_positions.add((r-1, c))
+                        if not edges['bottom'] and r < height-1: boundary_positions.add((r+1, c))
+                        if not edges['left'] and c > 0: boundary_positions.add((r, c-1))
+                        if not edges['right'] and c < width-1: boundary_positions.add((r, c+1))
+                        
+                        # Add diagonals only for non-edge corners
+                        if not edges['top'] and not edges['left'] and r > 0 and c > 0:
+                            boundary_positions.add((r-1, c-1))
+                        if not edges['top'] and not edges['right'] and r > 0 and c < width-1:
+                            boundary_positions.add((r-1, c+1))
+                        if not edges['bottom'] and not edges['left'] and r < height-1 and c > 0:
+                            boundary_positions.add((r+1, c-1))
+                        if not edges['bottom'] and not edges['right'] and r < height-1 and c < width-1:
+                            boundary_positions.add((r+1, c+1))
+                    else:
+                        # Full boundary for non-edge pairs
+                        for dr in [-1, 0, 1]:
+                            for dc in [-1, 0, 1]:
+                                if dr != 0 or dc != 0:
+                                    nr, nc = r + dr, c + dc
+                                    if (0 <= nr < height and 0 <= nc < width and
+                                        (nr, nc) not in coords):
+                                        boundary_positions.add((nr, nc))
+                
+                # Apply boundary only where there's no existing color
                 for r, c in boundary_positions:
-                    output_grid[r, c] = bound_color
+                    if output_grid[r, c] == 0:
+                        output_grid[r, c] = bound_color
         
         return output_grid
     
