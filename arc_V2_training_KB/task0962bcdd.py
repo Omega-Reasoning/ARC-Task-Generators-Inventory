@@ -4,7 +4,7 @@ import random
 from input_library import create_object, Contiguity
 from transformation_library import find_connected_objects, GridObject, GridObjects
 
-class Tasktask0962bcddGenerator(ARCTaskGenerator):
+class Task0962bcddGenerator(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
             "Input grids are of size {vars['rows']} x {vars['cols']}.",
