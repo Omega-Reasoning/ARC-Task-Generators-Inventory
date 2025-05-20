@@ -5,7 +5,7 @@ from typing import Dict, List, Any, Tuple
 from input_library import create_object, retry, Contiguity
 from transformation_library import find_connected_objects
 
-class RectangularFramePatternsTaskGenerator(ARCTaskGenerator):
+class Task135a2760Generator(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
             "Input grids have {vars['cols']} columns, and the number of rows follows the form (m × n + 1), where m can be 4, 5, 6, or 7, and n is between 1 and 5.",
@@ -1503,8 +1503,3 @@ class RectangularFramePatternsTaskGenerator(ARCTaskGenerator):
             print(f"Error in _is_u_shape_pattern: {e}")
             return color1  # Default
 
-# Test the generator
-if __name__ == "__main__":
-    generator = RectangularFramePatternsTaskGenerator()
-    taskvars, train_test_data = generator.create_grids()
-    ARCTaskGenerator.visualize_train_test_data(train_test_data)
