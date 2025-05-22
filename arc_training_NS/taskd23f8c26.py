@@ -1,92 +1,107 @@
 from arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
+from input_library import random_cell_coloring
 import numpy as np
 import random
-from input_library import random_cell_coloring
+from typing import Dict, Any, Tuple, List
 
 class Taskd23f8c26(ARCTaskGenerator):
+    
     def __init__(self):
         input_reasoning_chain = [
-            "The input grid is of size n x n.",
-            "n is a positive odd integer greater than 1 and varies for each input grid.",
-            "m random cells in the grid are colored using k random colors, where m and k are integers greater than 1. The remaining cells are empty (0)."
+            "Input grids are of size n x n, where n is a positive odd integer greater than 1 and may vary for each input grid.",
+            "Within each grid, m cells are randomly selected and assigned one of k distinct colors, where both m and k are integers greater than 2. The remaining cells are empty (0).",
+            "Among the k colors, one is {color('color_1')} and one is {color('color_2')}."
         ]
         
         transformation_reasoning_chain = [
             "The output grid has the same size as the input grid.",
-            "First copy the output grid.",
+            "The output grid is constructed by copying the input grid.",
             "Any cell aside from the cells on the middle column is converted to empty(0)."
         ]
         
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
-    
-    def create_grids(self):
-        taskvars = {}
-        
-        # Generate 3-6 training examples
-        num_train_examples = random.randint(3, 6)
-        
-        train_examples = []
-        for _ in range(num_train_examples):
-            # Generate random grid size (odd number between 5 and 13)
-            n = random.choice([i for i in range(3, 14, 2)])
-            
-            # For each training example, generate random parameters
-            gridvars = {
-                'size': n, 
-                'num_colors': random.randint(2, 5),  # k random colors
-                'density': random.uniform(0.3, 0.7)  # controls m (number of colored cells)
-            }
-            
-            input_grid = self.create_input(taskvars, gridvars)
-            output_grid = self.transform_input(input_grid, taskvars)
-            
-            train_examples.append({
-                'input': input_grid,
-                'output': output_grid
-            })
-        
-        # Generate one test example
-        n = random.choice([i for i in range(3, 14, 2)])
-        gridvars = {
-            'size': n,
-            'num_colors': random.randint(2, 5),
-            'density': random.uniform(0.3, 0.7)
+
+    def create_grids(self) -> Tuple[Dict[str, Any], TrainTestData]:
+        # Generate random task variables
+        taskvars = {
+            'color_1': random.choice([1, 2, 3, 4, 5, 6, 7, 8, 9]),
+            'color_2': random.choice([1, 2, 3, 4, 5, 6, 7, 8, 9])
         }
         
-        input_grid = self.create_input(taskvars, gridvars)
+        # Ensure colors are different
+        while taskvars['color_2'] == taskvars['color_1']:
+            taskvars['color_2'] = random.choice([1, 2, 3, 4, 5, 6, 7, 8, 9])
+        
+        # Generate 3-6 training examples and 1 test example
+        num_train = random.randint(3, 6)
+        
+        train_examples = []
+        for _ in range(num_train):
+            input_grid = self.create_input(taskvars, {})
+            output_grid = self.transform_input(input_grid, taskvars)
+            train_examples.append({'input': input_grid, 'output': output_grid})
+        
+        test_examples = []
+        input_grid = self.create_input(taskvars, {})
         output_grid = self.transform_input(input_grid, taskvars)
+        test_examples.append({'input': input_grid, 'output': output_grid})
         
-        test_examples = [{'input': input_grid, 'output': output_grid}]
+        train_test_data = {
+            'train': train_examples,
+            'test': test_examples
+        }
         
-        return taskvars, {'train': train_examples, 'test': test_examples}
-    
-    def create_input(self, taskvars, gridvars):
-        # Create an empty grid of size n x n
-        n = gridvars['size']
+        return taskvars, train_test_data
+
+    def create_input(self, taskvars: Dict[str, Any], gridvars: Dict[str, Any]) -> np.ndarray:
+        # Generate random odd grid size between 5 and 29 (to stay within 30x30 limit)
+        possible_sizes = [i for i in range(5, 30, 2)]  # odd numbers from 5 to 29
+        n = random.choice(possible_sizes)
+        
+        # Create empty grid
         grid = np.zeros((n, n), dtype=int)
         
-        # Generate a list of k random colors (1-9)
-        colors = random.sample(range(1, 10), gridvars['num_colors'])
+        # Generate k distinct colors (k > 2), ensuring color_1 and color_2 are included
+        available_colors = [i for i in range(1, 10) if i not in [taskvars['color_1'], taskvars['color_2']]]
+        k = random.randint(3, min(7, len(available_colors) + 2))  # k > 2, but not too many
         
-        # Randomly color cells in the grid
-        return random_cell_coloring(
-            grid=grid,
-            color_palette=colors,
-            density=gridvars['density'],
-            background=0
-        )
-    
-    def transform_input(self, grid, taskvars):
-        # Create a copy of the input grid
+        # Start with required colors
+        color_palette = [taskvars['color_1'], taskvars['color_2']]
+        
+        # Add additional random colors to reach k colors
+        additional_colors = random.sample(available_colors, k - 2)
+        color_palette.extend(additional_colors)
+        
+        # Calculate m (number of colored cells) - must be at least one-third of total cells
+        total_cells = n * n
+        min_m = (total_cells + 2) // 3  # At least one-third (using ceiling division)
+        max_m = min(total_cells - 1, int(total_cells * 0.8))  # Leave some empty cells, but not all
+        m = random.randint(min_m, max_m)
+        
+        # Randomly select m cells to color
+        all_positions = [(r, c) for r in range(n) for c in range(n)]
+        selected_positions = random.sample(all_positions, m)
+        
+        # Assign random colors to selected positions
+        for r, c in selected_positions:
+            grid[r, c] = random.choice(color_palette)
+        
+        return grid
+
+    def transform_input(self, grid: np.ndarray, taskvars: Dict[str, Any]) -> np.ndarray:
+        # Copy the input grid
         output_grid = grid.copy()
         
-        # Calculate the middle column index
-        middle_col = grid.shape[1] // 2
+        # Get grid dimensions
+        n = grid.shape[0]
         
-        # Set all cells except those in the middle column to empty
-        for row in range(grid.shape[0]):
-            for col in range(grid.shape[1]):
-                if col != middle_col:
-                    output_grid[row, col] = 0
+        # Calculate middle column index
+        middle_col = n // 2
+        
+        # Set all cells except middle column to empty (0)
+        for r in range(n):
+            for c in range(n):
+                if c != middle_col:
+                    output_grid[r, c] = 0
         
         return output_grid
