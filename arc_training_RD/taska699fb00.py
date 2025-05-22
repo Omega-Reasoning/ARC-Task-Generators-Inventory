@@ -215,10 +215,3 @@ class Taska699fb00Generator(ARCTaskGenerator):
         
         return gridvars, data
 
-# Test the generator
-if __name__ == "__main__":
-    generator = AlternatingPatternFillGenerator()
-    gridvars, data = generator.create_grids()
-    print("Grid variables:", gridvars)
-    print(f"Generated {len(data.train)} training pairs and {len(data.test)} test pairs.")
-    generator.visualize_train_test_data(data)

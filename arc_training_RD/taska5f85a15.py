@@ -8,21 +8,31 @@ class Taska5f85a15Generator(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
             "Input grids are squares and of different sizes.",
-            "The grid has multiple diagonal lines of {{color(\"object_color\")}} color that run across from top-left to bottom-right, they can start from any column.",
+            "The grid has multiple diagonal lines of {color('object_color')} color that run across from top-left to bottom-right, they can start from any column.",
             "The diagonal lines are placed well spaced."
         ]
         
         transformation_reasoning_chain = [
             "The output grid is constructed by copying the input grid.",
-            "Each diagonal line has alternating fill colors in the output grid, namely {{color(\"object_color\")}} color and {{color(\"fill_color\")}} color."
+            "Each diagonal line has alternating fill colors in the output grid, namely {color('object_color')} color and {color('fill_color')} color."
         ]
         
-        taskvars_definitions = {
-            "object_color": "Color of diagonal lines in the input grid (object_Colord)",
-            "fill_color": "Alternate color used in the output grid (fill_color)"
-        }
-        
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
+    
+    def color_name(self, color: int) -> str:
+        color_map = {
+            0: "black",
+            1: "blue",
+            2: "red",
+            3: "green",
+            4: "yellow",
+            5: "gray",
+            6: "magenta",
+            7: "orange",
+            8: "cyan",
+            9: "brown"
+        }
+        return color_map.get(color, f"color_{color}")
     
     def create_input(self, taskvars):
         # Define colors
@@ -75,12 +85,12 @@ class Taska5f85a15Generator(ARCTaskGenerator):
         
         return grid
     
-    def transform_input(self, input_grid, taskvars):
+    def transform_input(self, input_grid):
         # Create output grid by copying input grid
         output_grid = np.copy(input_grid)
         
-        object_color = taskvars["object_color"]
-        fill_color = taskvars["fill_color"]
+        object_color = self.taskvars["object_color"]
+        fill_color = self.taskvars["fill_color"]
         
         # Find starting points of diagonal lines (top row or leftmost column)
         height, width = input_grid.shape
@@ -123,19 +133,38 @@ class Taska5f85a15Generator(ARCTaskGenerator):
         fill_colors.remove(taskvars["object_color"])
         taskvars["fill_color"] = random.choice(fill_colors)
         
+        # Store taskvars as instance variable for access in transform_input
+        self.taskvars = taskvars
+        
+        # Helper for reasoning chain formatting
+        def color_fmt(key):
+            color_id = taskvars[key]
+            return f"{self.color_name(color_id)} ({color_id})"
+
+        # Replace {color('object_color')} etc. in reasoning chains
+        self.input_reasoning_chain = [
+            chain.replace("{color('object_color')}", color_fmt('object_color'))
+            for chain in self.input_reasoning_chain
+        ]
+        self.transformation_reasoning_chain = [
+            chain.replace("{color('object_color')}", color_fmt('object_color'))
+                 .replace("{color('fill_color')}", color_fmt('fill_color'))
+            for chain in self.transformation_reasoning_chain
+        ]
+        
         # Generate train and test pairs
         train_pairs = []
         num_train_pairs = random.randint(3, 5)
             
         for _ in range(num_train_pairs):
             input_grid = self.create_input(taskvars)
-            output_grid = self.transform_input(input_grid,taskvars)
-            train_pairs.append(GridPair(input=input_grid, output=output_grid))  # Use keyword arguments
+            output_grid = self.transform_input(input_grid)
+            train_pairs.append(GridPair(input=input_grid, output=output_grid))
         
         # Create test pair
         test_input = self.create_input(taskvars)
-        test_output = self.transform_input(test_input,taskvars)
-        test_pairs = [GridPair(input=test_input, output=test_output)]  # Use keyword arguments
+        test_output = self.transform_input(test_input)
+        test_pairs = [GridPair(input=test_input, output=test_output)]
         
         # Return taskvars and TrainTestData object
         return taskvars, TrainTestData(train=train_pairs, test=test_pairs)

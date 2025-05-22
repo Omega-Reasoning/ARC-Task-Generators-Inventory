@@ -7,7 +7,7 @@ class Taskae4f1146Generator(ARCTaskGenerator):
         input_reasoning_chain = [
             "Input grids are 9x9 fixed size.",
             "The grid consists of sub-grids of 3x3 spread across the main grid, these sub-grids may or may not have patterns within them. These patterns can be just single cells or scattered cells, or an actual pattern.",
-            "These sub-grids consists of two colors namely {{color(\"base_color\")}} color color which contributes to the base color of the sub-grid and {{color(\"pattern_color\")}} color which contributes to the formation of patterns within the sub-grid."
+            "These sub-grids consists of two colors namely {color('base_color')} color which contributes to the base color of the sub-grid and {color('pattern_color')} color which contributes to the formation of patterns within the sub-grid."
         ]
         
         transformation_reasoning_chain = [
@@ -15,26 +15,32 @@ class Taskae4f1146Generator(ARCTaskGenerator):
             "The output grid is formed by identifying that one sub-grid from the input grid which has the maximum patterns."
         ]
         
-        taskvars_definitions = {
-            "grid_Size": "Size of the square grid 9x9.",
-            "base_color": "Integer between 1 and 9", 
-            "pattern_color": "Integer between 1 and 9"}
-        
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
     
-    def create_input(self, gridvars):
+    def color_name(self, color: int) -> str:
+        color_map = {
+            0: "black",
+            1: "blue",
+            2: "red",
+            3: "green",
+            4: "yellow",
+            5: "gray",
+            6: "magenta",
+            7: "orange",
+            8: "cyan",
+            9: "brown"
+        }
+        return color_map.get(color, f"color_{color}")
+    
+    def create_input(self, taskvars):
         """Create a 9x9 input grid with 4 sub-grids (3x3 each), with three distinct colors.
         Input grid is always 9x9 fixed size."""
         # Create a 9x9 grid filled with zeros
         grid = np.zeros((9, 9), dtype=int)
         
-        # Get colors from gridvars
-        base_color = gridvars.get('base_color', random.randint(1, 9))
-        pattern_color = gridvars.get('pattern_color', random.randint(1, 9))
-        
-        # Ensure the two colors are different
-        while pattern_color == base_color:
-            pattern_color = random.randint(1, 9)
+        # Get colors from taskvars
+        base_color = taskvars['base_color']
+        pattern_color = taskvars['pattern_color']
         
         # Create a 9x9 grid filled with main grid color
         grid = np.zeros((9, 9), dtype=int)
@@ -74,36 +80,12 @@ class Taskae4f1146Generator(ARCTaskGenerator):
         
         return grid
     
-    def transform_input(self, inp, gridvars):
+    def transform_input(self, inp):
         """Extract the 3x3 sub-grid with the maximum number of pattern cells.
         Output grid is always 3x3 fixed size."""
-        # Remove grid_size initialization since output is always 3x3
-        base_color = gridvars['base_color']
-        pattern_color = gridvars['pattern_color']
-        
-        # Identify the colors if not provided
-        if base_color is None or pattern_color is None:
-            # Get non-zero colors (excluding background)
-            non_zero_colors = [col for col in np.unique(inp) if col != 0]
-            
-            if len(non_zero_colors) >= 2:
-                # Count occurrences of each color
-                counts = {color: np.sum(inp == color) for color in non_zero_colors}
-                # Sort colors by frequency
-                sorted_colors = sorted(counts.items(), key=lambda x: x[1], reverse=True)
-                
-                # The most common color is likely the subgrid base color
-                # The second most common is likely the pattern color
-                base_color = sorted_colors[0][0]
-                pattern_color = sorted_colors[1][0]
-            elif len(non_zero_colors) == 1:
-                # If only one color is present, use it as both
-                base_color = non_zero_colors[0]
-                pattern_color = non_zero_colors[0]
-            else:
-                # Default fallback (should not happen)
-                base_color = 1
-                pattern_color = 2
+        # Get colors from taskvars stored as instance variable
+        base_color = self.taskvars['base_color']
+        pattern_color = self.taskvars['pattern_color']
         
         # Define the positions of the 4 sub-grids
         subgrid_positions = [
@@ -144,7 +126,6 @@ class Taskae4f1146Generator(ARCTaskGenerator):
             
         return max_subgrid
 
-
     def create_grids(self):
         """Create training and test pairs with diverse patterns in 9x9 input grids"""
         color_pool = list(range(1, 10))
@@ -153,33 +134,40 @@ class Taskae4f1146Generator(ARCTaskGenerator):
         base_color = color_pool[0]
         pattern_color = color_pool[1]
             
-        gridvars = {
+        taskvars = {
             'base_color': base_color, 
-            'pattern_color': pattern_color
-        }   
+            'pattern_color': pattern_color,
+            'input_grid_size': '9x9',
+            'output_grid_size': '3x3'
+        }
+        
+        # Store taskvars as instance variable for access in transform_input
+        self.taskvars = taskvars
+        
+        # Helper for reasoning chain formatting
+        def color_fmt(key):
+            color_id = taskvars[key]
+            return f"{self.color_name(color_id)} ({color_id})"
+
+        # Replace {color('base_color')} etc. in reasoning chains
+        self.input_reasoning_chain = [
+            chain.replace("{color('base_color')}", color_fmt('base_color'))
+                 .replace("{color('pattern_color')}", color_fmt('pattern_color'))
+            for chain in self.input_reasoning_chain
+        ]
         
         # Generate 3-5 training pairs
         num_train = random.randint(3, 5)
         train_pairs = []
         
         for _ in range(num_train):
-            input_grid = self.create_input(gridvars)    
-            output_grid = self.transform_input(input_grid, gridvars)
+            input_grid = self.create_input(taskvars)    
+            output_grid = self.transform_input(input_grid)
             train_pairs.append(GridPair(input=input_grid, output=output_grid))
         
         # Create test pair
-        test_input = self.create_input(gridvars)
-        test_output = self.transform_input(test_input, gridvars)
+        test_input = self.create_input(taskvars)
+        test_output = self.transform_input(test_input)
         test_examples = [GridPair(input=test_input, output=test_output)]
         
-        # Create task variables for display
-        taskvars = {
-            'input_grid_size': '9x9',  # Input grid size
-            'base_color': base_color,
-            'pattern_color': pattern_color,
-            'output_grid_size': '3x3'  # Output grid size
-        }
-        
         return taskvars, TrainTestData(train=train_pairs, test=test_examples)
-
-

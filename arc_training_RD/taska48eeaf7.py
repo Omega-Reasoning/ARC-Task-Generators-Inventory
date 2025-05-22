@@ -8,32 +8,44 @@ class Taska48eeafGenerator(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
             "Input grids can have different sizes.",
-            "The grid contains one main block which is a 2x2 square in red color (between 1-9) and this block can be placed anywhere in the grid.",
-            "The main block 2x2 square is covered with two types of cells namely empty (0) cells and scattered cells (<5), where the scattered cells are of gray color.",
+            "The grid contains one main block which is a 2x2 square in {color('object_color')} color (between 1-9) and this block can be placed anywhere in the grid.",
+            "The main block 2x2 square is covered with two types of cells namely empty (0) cells and scattered cells (<5), where the scattered cells are of {color('cell_color')} color.",
             "These scattered cells are placed such that they are either horizontal or vertical or diagonal to the 2x2 main block square cells."
         ]
         
         transformation_reasoning_chain = [
             "The output grid is constructed by copying the input grid main 2x2 square block.",
             "And the scattered cells around the main block, are attached like tails to the main block with respect to their position. Suppose if one of the scattered cells is horizontally placed across the main block, then it gets attached besides the main block horizontally. The same rule is applied for cells being vertical and diagonally placed.",
-            "The attachment should not disturb the main block. The scattered cells must occur just as an extensions of the main block in the output grid"
+            "The attachment should not disturb the main block. The scattered cells must occur just as an extensions of the main block in the output grid",
             "Also, the scattered cell alone must be attached to the main block, it must not form like a series of attachments."
         ]
         
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
     
-    def create_input(self):
+    def color_name(self, color: int) -> str:
+        color_map = {
+            0: "black",
+            1: "blue",
+            2: "red",
+            3: "green",
+            4: "yellow",
+            5: "gray",
+            6: "magenta",
+            7: "orange",
+            8: "cyan",
+            9: "brown"
+        }
+        return color_map.get(color, f"color_{color}")
+    
+    def create_input(self, taskvars):
+        # Get colors from taskvars
+        main_block_color = taskvars['object_color']
+        scattered_color = taskvars['cell_color']
+        
         # Determine grid size
         rows = random.randint(10, 20)  # Larger minimum to allow for scattered cells
         cols = random.randint(10, 20)
         grid = np.zeros((rows, cols), dtype=int)
-        
-        # Choose a color for the main block between 1-9
-        main_block_color = random.randint(1, 9)
-        
-        # Choose a different color for scattered cells (between 1-9)
-        scattered_colors = [i for i in range(1, 10) if i != main_block_color]
-        scattered_color = random.choice(scattered_colors)
         
         # Place the 2x2 main block
         max_row = rows - 2  # Ensure space for the 2x2 block
@@ -41,7 +53,7 @@ class Taska48eeafGenerator(ARCTaskGenerator):
         
         if max_row < 0 or max_col < 0:
             # Grid too small, create a larger one
-            return self.create_input()
+            return self.create_input(taskvars)
             
         top_row = random.randint(0, max_row)
         left_col = random.randint(0, max_col)
@@ -139,7 +151,7 @@ class Taska48eeafGenerator(ARCTaskGenerator):
         # Make sure we actually placed at least one scattered cell
         if successful_placements == 0:
             # If we couldn't place any scattered cells, try again with a larger grid
-            return self.create_input()
+            return self.create_input(taskvars)
         
         return grid
     
@@ -279,21 +291,37 @@ class Taska48eeafGenerator(ARCTaskGenerator):
         train_pairs = []
 
         # Select colors for the task (between 1-9)
-        object_color1 = random.randint(1, 9)
+        object_color = random.randint(1, 9)
+        cell_color = random.choice([c for c in range(1, 10) if c != object_color])
         
-        self.taskvars = {
-            'object_color1': object_color1
+        taskvars = {
+            'object_color': object_color,
+            'cell_color': cell_color
         }
         
+        # Helper for reasoning chain formatting
+        def color_fmt(key):
+            color_id = taskvars[key]
+            return f"{self.color_name(color_id)} ({color_id})"
+
+        # Make taskvars available to transform_input
+        self.taskvars = taskvars
+
+        # Replace {color('object_color')} etc. in reasoning chains
+        self.input_reasoning_chain = [
+            chain.replace("{color('object_color')}", color_fmt('object_color'))
+                 .replace("{color('cell_color')}", color_fmt('cell_color'))
+            for chain in self.input_reasoning_chain
+        ]
+        
         for _ in range(num_train_pairs):
-            input_grid = self.create_input()
+            input_grid = self.create_input(taskvars)
             output_grid = self.transform_input(input_grid)
-            train_pairs.append(GridPair(input = input_grid, output= output_grid))
+            train_pairs.append(GridPair(input=input_grid, output=output_grid))
         
         # Create test pair
-        test_input = self.create_input()
+        test_input = self.create_input(taskvars)
         test_output = self.transform_input(test_input)
         test_pairs = [GridPair(input=test_input, output=test_output)] 
         
-        return self.taskvars, TrainTestData(train=train_pairs, test=test_pairs)
-
+        return taskvars, TrainTestData(train=train_pairs, test=test_pairs)
