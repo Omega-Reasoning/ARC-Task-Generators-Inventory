@@ -6,29 +6,38 @@ from transformation_library import find_connected_objects, GridObject, GridObjec
 
 class Taskb1948b0aGenerator(ARCTaskGenerator):
     def __init__(self):
-        self.input_reasoning_chain = [
+        input_reasoning_chain = [
             "Input grids are of size MxN.",
-            "The grid is completely filled with two colors namely {{color(\"object_color\")}} color and {{color(\"fill_color\")}} color.",
+            "The grid is completely filled with two colors namely {color('object_color')} and {color('fill_color')}.",
             "The objects can form any random shape."
         ]
         
-        self.transformation_reasoning_chain = [
+        transformation_reasoning_chain = [
             "The output grid is constructed by copying the input grid",
-            "The {{color(\"object_color\")}} color cells remain as it is but the {{color(\"fill_color\")}} color cells change to {{color(\"replace_color\")}} color color."
+            "The {color('object_color')} cells remain as it is but the {color('fill_color')} cells change to {color('replace_color')}."
         ]
         
-        taskvars_definitions = {
-            "object_color": "object_color used in the grid",
-            "fill_color": "fill_color that gets replaced",
-            "replace_color": "replace_color color that replaces green"
-        }
-        
-        super().__init__(self.input_reasoning_chain, self.transformation_reasoning_chain)
+        super().__init__(input_reasoning_chain, transformation_reasoning_chain)
     
-    def create_input(self, vars):
-        # Get colors from vars
-        object_color = vars["object_color"]
-        fill_color = vars["fill_color"]
+    def color_name(self, color: int) -> str:
+        color_map = {
+            0: "black",
+            1: "blue",
+            2: "red",
+            3: "green",
+            4: "yellow",
+            5: "gray",
+            6: "magenta",
+            7: "orange",
+            8: "cyan",
+            9: "brown"
+        }
+        return color_map.get(color, f"color_{color}")
+    
+    def create_input(self, taskvars):
+        # Get colors from taskvars
+        object_color = taskvars["object_color"]
+        fill_color = taskvars["fill_color"]
         
         # Create a grid of random size between 5x5 and 15x15
         rows = random.randint(5, 15)
@@ -82,12 +91,12 @@ class Taskb1948b0aGenerator(ARCTaskGenerator):
                     
         return grid
     
-    def transform_input(self, input_grid, vars):
+    def transform_input(self, input_grid, taskvars):
         output_grid = input_grid.copy()
         
-        # Get colors from vars
-        fill_color = vars["fill_color"]
-        replace_color = vars["replace_color"]
+        # Get colors from taskvars
+        fill_color = taskvars["fill_color"]
+        replace_color = taskvars["replace_color"]
         
         # Replace fill_color cells with replace_color
         output_grid[output_grid == fill_color] = replace_color
@@ -95,6 +104,9 @@ class Taskb1948b0aGenerator(ARCTaskGenerator):
         return output_grid
     
     def create_grids(self):
+        num_train_pairs = random.randint(3, 5)
+        train_pairs = []
+        
         # Define random colors for the task (all different)
         colors = random.sample(range(1, 10), 3)
         taskvars = {
@@ -103,11 +115,28 @@ class Taskb1948b0aGenerator(ARCTaskGenerator):
             "replace_color": colors[2]
         }
         
-        # Create random number of training examples
-        num_train_examples = random.randint(3, 5)
-        train_pairs = []
+        # Helper for reasoning chain formatting
+        def color_fmt(key):
+            color_id = taskvars[key]
+            return f"{self.color_name(color_id)} ({color_id})"
+
+        # Replace color placeholders in reasoning chains
+        self.input_reasoning_chain = [
+            chain.replace("{color('object_color')}", color_fmt('object_color'))
+                 .replace("{color('fill_color')}", color_fmt('fill_color'))
+                 .replace("{color('replace_color')}", color_fmt('replace_color'))
+            for chain in self.input_reasoning_chain
+        ]
         
-        for _ in range(num_train_examples):
+        self.transformation_reasoning_chain = [
+            chain.replace("{color('object_color')}", color_fmt('object_color'))
+                 .replace("{color('fill_color')}", color_fmt('fill_color'))
+                 .replace("{color('replace_color')}", color_fmt('replace_color'))
+            for chain in self.transformation_reasoning_chain
+        ]
+        
+        # Create training examples
+        for _ in range(num_train_pairs):
             input_grid = self.create_input(taskvars)
             output_grid = self.transform_input(input_grid, taskvars)
             train_pairs.append(GridPair(input=input_grid, output=output_grid))
@@ -119,5 +148,3 @@ class Taskb1948b0aGenerator(ARCTaskGenerator):
         
         # Return taskvars and TrainTestData object
         return taskvars, TrainTestData(train=train_pairs, test=test_pairs)
-
-

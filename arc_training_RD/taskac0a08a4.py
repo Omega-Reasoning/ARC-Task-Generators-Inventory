@@ -6,40 +6,28 @@ class ColorExpansionTaskGenerator(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
             "Input grids are {task_var('input_grid_size')} fixed size.",
-            "Each grid contains 1 to 4 colored cells, and each colored cell has a unique color.",
+            "Each grid contains between 1 and 6 colored cells, and each colored cell has a unique color.",
             "The positions of the colored cells within the {task_var('input_grid_size')} grid determine their placement in the output grid."
         ]
         
         transformation_reasoning_chain = [
             "The transformation follows these rules:",
-            "- If there is only 1 colored cell in the bottom-right corner, the output grid is identical to the input grid.",
-            "- If there is only 1 colored cell in the top row, it expands to fill the entire column.",
-            "- If there are exactly 2 colored cells, the output grid is identical to the input grid.",
-            "- If there are 3 or more colored cells, each colored cell expands to a 3×3 block of the same color.",
-            "- For 3+ colored cells, the output grid is 12×12, and the 3×3 blocks are positioned based on the original cell positions.",
-            "- Top row cells expand to blocks at rows 0-2, middle row at rows 5-7, and bottom row at rows 8-10.",
-            "- Left column cells expand to blocks at columns 0-2, middle at 5-7, and right at 8-10."
+            "- For n colored cells, the output grid is of size 9x9, and each colored cell expands to a 3x3 block.",
+            "- Each block is placed in the output grid at the magnified position corresponding to its original cell position in the input grid."
         ]
         
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
     
     def create_input(self, taskvars):
-        # Get input grid size from taskvars
         input_size = taskvars["input_size"]
-        
-        # Create a grid with n colored cells where n is between 1 and 4
-        n_objects = random.randint(1, 4)
+        n_objects = taskvars["num_colors"]
         colors = random.sample(range(1, 10), n_objects)  # Select unique colors
         
         # Create empty input_size x input_size grid
         grid = np.zeros((input_size, input_size), dtype=int)
         
         # Randomly place n colored cells
-        positions = []
-        for r in range(input_size):
-            for c in range(input_size):
-                positions.append((r, c))
-        
+        positions = [(r, c) for r in range(input_size) for c in range(input_size)]
         selected_positions = random.sample(positions, n_objects)
         
         for (r, c), color in zip(selected_positions, colors):
@@ -48,75 +36,32 @@ class ColorExpansionTaskGenerator(ARCTaskGenerator):
         return grid
     
     def transform_input(self, input_grid):
-        # Get input grid size
-        input_size = self.taskvars["input_size"]
-        
-        # Find all colored cells
-        colored_cells = []
+        input_size = self.taskvars["input_size"]  # Always 3
+        block_size = input_size  # Always 3
+        output_size = input_size * input_size  # 9
+
+        output_grid = np.zeros((output_size, output_size), dtype=int)
+
         for r in range(input_size):
             for c in range(input_size):
-                if input_grid[r, c] > 0:
-                    colored_cells.append((r, c, input_grid[r, c]))
-        
-        num_colored_cells = len(colored_cells)
-        
-        # Handle case with no colored cells
-        if num_colored_cells == 0:
-            return np.zeros((input_size, input_size), dtype=int)
-        
-        # Handle single cell cases
-        if num_colored_cells == 1:
-            r, c, color = colored_cells[0]
-            
-            # If it's in the top row, fill the entire column
-            if r == 0:
-                output_grid = np.zeros((input_size, input_size), dtype=int)
-                for row in range(input_size):
-                    output_grid[row, c] = color
-                return output_grid
-            
-            # Otherwise, no change
-            return input_grid.copy()
-        
-        # For exactly 2 colored cells, return input unchanged
-        if num_colored_cells == 2:
-            return input_grid.copy()
-        
-        # For 3+ colored cells, create a 12×12 output grid
-        output_grid = np.zeros((12, 12), dtype=int)
-        
-        # Place each colored cell as a 3×3 block at a specific position
-        for r, c, color in colored_cells:
-            # Determine row and column placement in output grid
-            if r == 0:  # Top row
-                row_start = 0
-            elif r == 1:  # Middle row
-                row_start = 5
-            else:  # Bottom row (r == 2)
-                row_start = 8
-            
-            if c == 0:  # Left column
-                col_start = 0
-            elif c == 1:  # Middle column
-                col_start = 5
-            else:  # Right column (c == 2)
-                col_start = 8
-            
-            # Fill a 3×3 block with the color
-            for dr in range(3):
-                for dc in range(3):
-                    output_grid[row_start + dr, col_start + dc] = color
-        
+                color = input_grid[r, c]
+                if color > 0:
+                    row_start = r * block_size
+                    col_start = c * block_size
+                    output_grid[row_start:row_start+block_size, col_start:col_start+block_size] = color
+
         return output_grid
     
     def create_grids(self):
         # Set input grid size
-        input_size = 3  # Fixed at 3x3 as per the reasoning
+        input_size = 3  # Always 3x3
+        num_colors = random.randint(1, 6)  # 1 to 6 colors
         
         # Create task variables
         taskvars = {
             "input_size": input_size,
-            "input_grid_size": f"{input_size}x{input_size}"
+            "input_grid_size": f"{input_size}x{input_size}",
+            "num_colors": num_colors
         }
         
         # Store taskvars as instance variable for access in transform_input

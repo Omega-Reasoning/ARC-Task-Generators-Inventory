@@ -8,7 +8,7 @@ class Taskb27ca6d3yGenerator(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
             "Input grids can be of different sizes.",
-            "The grid consists of scattered cells of {{color(\"object_color\")}} color.",
+            "The grid consists of scattered cells of {color('object_color')}.",
             "Most cells are individual and uniformly scattered with proper spacing.",
             "Some cells appear in pairs that are 4-way-connected to each other.",
             "Each pair is placed with enough surrounding space for a complete boundary."
@@ -18,18 +18,28 @@ class Taskb27ca6d3yGenerator(ARCTaskGenerator):
             "The output grid is copied from the input grid.",
             "Individual scattered cells remain unchanged.",
             "For each pair of adjacent cells:",
-            "- If the pair is not on any grid edge, create a complete boundary of {{color(\"bound_color\")}} color around both cells",
+            "- If the pair is not on any grid edge, create a complete boundary of {color('bound_color')} around both cells",
             "- If the pair touches a grid edge, create a partial boundary only on the non-edge sides",
             "- The boundary includes both orthogonal and diagonal positions around the pair",
             "- Boundaries never overlap with existing cells or other boundaries"
         ]
         
-        taskvars_definitions = {
-            "object_color": "The color of the scattered cells (1-9)",
-            "bound_color": "The color of the boundary (1-9, different from object_color)"
-        }
-        
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
+    
+    def color_name(self, color: int) -> str:
+        color_map = {
+            0: "black",
+            1: "blue",
+            2: "red",
+            3: "green",
+            4: "yellow",
+            5: "gray",
+            6: "magenta",
+            7: "orange",
+            8: "cyan",
+            9: "brown"
+        }
+        return color_map.get(color, f"color_{color}")
     
     def create_input(self, taskvars):
         object_color = taskvars["object_color"]
@@ -181,32 +191,45 @@ class Taskb27ca6d3yGenerator(ARCTaskGenerator):
         return output_grid
     
     def create_grids(self):
-        # Randomly choose colors
-        color_options = list(range(1, 10))
-        object_color = random.choice(color_options)
+        num_train_pairs = random.randint(3, 5)
+        train_pairs = []
         
-        # Make sure bound_color is different from object_color
-        remaining_colors = [c for c in color_options if c != object_color]
-        bound_color = random.choice(remaining_colors)
+        # Randomly choose colors
+        object_color = random.randint(1, 9)
+        bound_color = random.choice([c for c in range(1, 10) if c != object_color])
         
         taskvars = {
             "object_color": object_color,
             "bound_color": bound_color
         }
         
-        # Determine number of training examples
-        num_train = random.randint(3, 5)
+        # Helper for reasoning chain formatting
+        def color_fmt(key):
+            color_id = taskvars[key]
+            return f"{self.color_name(color_id)} ({color_id})"
+
+        # Replace color placeholders in reasoning chains
+        self.input_reasoning_chain = [
+            chain.replace("{color('object_color')}", color_fmt('object_color'))
+                 .replace("{color('bound_color')}", color_fmt('bound_color'))
+            for chain in self.input_reasoning_chain
+        ]
+        
+        self.transformation_reasoning_chain = [
+            chain.replace("{color('object_color')}", color_fmt('object_color'))
+                 .replace("{color('bound_color')}", color_fmt('bound_color'))
+            for chain in self.transformation_reasoning_chain
+        ]
         
         # Generate training pairs
-        train_pairs = []
-        for i in range(num_train):
+        for i in range(num_train_pairs):
             input_grid = self.create_input(taskvars)
             output_grid = self.transform_input(input_grid, taskvars)
             train_pairs.append(GridPair(input=input_grid, output=output_grid))
         
         # Generate test pair
         test_input = self.create_input(taskvars)
-        test_output = self.transform_input(test_input, taskvars)  # Added taskvars parameter
+        test_output = self.transform_input(test_input, taskvars)
         test_pairs = [GridPair(input=test_input, output=test_output)]
         
         return taskvars, TrainTestData(train=train_pairs, test=test_pairs)

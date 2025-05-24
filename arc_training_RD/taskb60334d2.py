@@ -8,7 +8,7 @@ class Taskb60334d2Generator(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
             "Input grids are of size MXM.",
-            "The grid consists of exactly 4 cells of {{color(\"object_color\")}} color.",
+            "The grid consists of exactly 4 cells of {color('object_color')}.",
             "They are scattered in such a way that it can form a boundary around each cell.",
             "Boundaries never overlap with existing cells or other boundaries."
         ]
@@ -17,31 +17,35 @@ class Taskb60334d2Generator(ARCTaskGenerator):
             "The output grid is copied from the input grid.",
             "The original cells become empty (color 0) in the output.",
             "The boundaries have specific colors based on their position with center cell:",
-            "- If the boundary forming cells are 4-way connected to main cell, then fill it with {{color(\"object_color\")}} color",
-            "- If the boundary forming cells are 8-way connected to the main cell then fill it with {{color(\"fill_color\")}} color."
+            "- If the boundary forming cells are 4-way connected to main cell, then fill it with {color('fill_color_4way')}",
+            "- If the boundary forming cells are 8-way connected to the main cell then fill it with {color('object_color')}."
         ]
-        
-        taskvars_definitions = {
-            "object_color": "The color of the main cells that form the objects",
-            "fill_color_4way": "The color used for the 4-way connected boundary cells",
-            "fill_color_8way": "The color used for the 8-way connected boundary cells",
-            "grid_size": "The size of the grid (MxM)"
-        }
         
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
     
-    def create_input(self, grid_size=None, object_color=None, existing_grid=None):
+    def color_name(self, color: int) -> str:
+        color_map = {
+            0: "black",
+            1: "blue",
+            2: "red",
+            3: "green",
+            4: "yellow",
+            5: "gray",
+            6: "magenta",
+            7: "orange",
+            8: "cyan",
+            9: "brown"
+        }
+        return color_map.get(color, f"color_{color}")
+    
+    def create_input(self, taskvars, grid_size=None):
+        object_color = taskvars["object_color"]
+        
         if grid_size is None:
             grid_size = random.randint(7, 15)  # Randomizing grid size between 7 and 15
         
-        if object_color is None:
-            object_color = random.randint(1, 9)  # Randomizing object color between 1 and 9
-        
-        # Initialize grid if not provided
-        if existing_grid is None:
-            grid = np.zeros((grid_size, grid_size), dtype=int)
-        else:
-            grid = existing_grid.copy()
+        # Initialize grid
+        grid = np.zeros((grid_size, grid_size), dtype=int)
         
         # We need to place 4 random cells with enough spacing between them
         def place_cells_with_spacing():
@@ -75,29 +79,14 @@ class Taskb60334d2Generator(ARCTaskGenerator):
         
         return grid
 
-    def transform_input(self, input_grid, vars=None):
+    def transform_input(self, input_grid, taskvars):
+        object_color = taskvars["object_color"]
+        fill_color_4way = taskvars["fill_color_4way"]
+        # 8-way connected cells use the same color as object_color
+        fill_color_8way = object_color
+        
         # Create empty output grid (all zeros)
         output_grid = np.zeros_like(input_grid)
-        
-        if vars is None:
-            # If vars not provided, infer from the input grid
-            object_color = None
-            for color in range(1, 10):  # Find the color used for objects
-                if np.sum(input_grid == color) == 4:  # There should be exactly 4 cells
-                    object_color = color
-                    break
-            
-            if object_color is None:
-                raise ValueError("Could not determine object color from input grid")
-            
-            # Choose colors for boundaries that are different from object_color
-            possible_colors = [c for c in range(1, 10) if c != object_color]
-            fill_color_4way = possible_colors[0]
-            fill_color_8way = possible_colors[1]
-        else:
-            object_color = vars["object_color"]
-            fill_color_4way = vars["object_color"]
-            fill_color_8way = vars["fill_color_8way"]
         
         # Find the 4 object cells from input grid
         objects = find_connected_objects(input_grid, diagonal_connectivity=False, background=0)
@@ -124,40 +113,57 @@ class Taskb60334d2Generator(ARCTaskGenerator):
             for nr, nc in eight_way:
                 if (0 <= nr < input_grid.shape[0] and 0 <= nc < input_grid.shape[1] and 
                     output_grid[nr, nc] == 0):  # Only if cell is empty
-                    output_grid[nr, nc] = fill_color_8way
+                    output_grid[nr, nc] = fill_color_8way  # This is object_color
         
         return output_grid
     
     def create_grids(self):
-        # Choose random parameters for the task
-        grid_size = random.randint(7, 15)
-        
-        # Pick distinct colors for objects and boundaries
-        colors = random.sample(range(1, 10), 3)
-        object_color = colors[0]
-        fill_color_4way = colors[1]
-        fill_color_8way = colors[2]
-        
-        # Store the variables for the task
-        vars_dict = {
-            "object_color": object_color,
-            "fill_color_4way": fill_color_4way,
-            "fill_color_8way": fill_color_8way,
-            "grid_size": f"{grid_size}x{grid_size}"
-        }
-        
-        # Generate train and test pairs
         num_train_pairs = random.randint(3, 5)
         train_pairs = []
         
+        # Choose random parameters for the task
+        grid_size = random.randint(7, 15)
+        
+        # Pick distinct colors for objects and 4-way boundary
+        # We only need 2 distinct colors since 8-way uses object_color
+        colors = random.sample(range(1, 10), 2)
+        object_color = colors[0]
+        fill_color_4way = colors[1]
+        
+        # Store the variables for the task
+        taskvars = {
+            "object_color": object_color,
+            "fill_color_4way": fill_color_4way,
+            "grid_size": f"{grid_size}x{grid_size}"
+        }
+        
+        # Helper for reasoning chain formatting
+        def color_fmt(key):
+            color_id = taskvars[key]
+            return f"{self.color_name(color_id)} ({color_id})"
+
+        # Replace color placeholders in reasoning chains
+        self.input_reasoning_chain = [
+            chain.replace("{color('object_color')}", color_fmt('object_color'))
+                 .replace("{color('fill_color_4way')}", color_fmt('fill_color_4way'))
+            for chain in self.input_reasoning_chain
+        ]
+        
+        self.transformation_reasoning_chain = [
+            chain.replace("{color('object_color')}", color_fmt('object_color'))
+                 .replace("{color('fill_color_4way')}", color_fmt('fill_color_4way'))
+            for chain in self.transformation_reasoning_chain
+        ]
+        
+        # Generate train pairs
         for _ in range(num_train_pairs):
-            input_grid = self.create_input(grid_size=grid_size, object_color=object_color)
-            output_grid = self.transform_input(input_grid, vars=vars_dict)
+            input_grid = self.create_input(taskvars, grid_size=grid_size)
+            output_grid = self.transform_input(input_grid, taskvars)
             train_pairs.append(GridPair(input=input_grid, output=output_grid))
         
         # Create test pair
-        test_input = self.create_input(grid_size=grid_size, object_color=object_color)
-        test_output = self.transform_input(test_input, vars=vars_dict)
+        test_input = self.create_input(taskvars, grid_size=grid_size)
+        test_output = self.transform_input(test_input, taskvars)
         test_pairs = [GridPair(input=test_input, output=test_output)]
         
-        return vars_dict, TrainTestData(train=train_pairs, test=test_pairs)
+        return taskvars, TrainTestData(train=train_pairs, test=test_pairs)
