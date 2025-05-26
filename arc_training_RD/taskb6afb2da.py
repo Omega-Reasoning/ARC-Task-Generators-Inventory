@@ -4,10 +4,10 @@ import random
 from transformation_library import find_connected_objects, GridObject
 from input_library import Contiguity, create_object, retry
 
-class BlockSplittingTaskGenerator(ARCTaskGenerator):
+class Taskb6afb2daGenerator(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
-            "Input grids are of size MXM.",
+            "Input grids are square grids and can have size {vars['grid_size']} x {vars['grid_size']}.",
             "The grid consists of exactly square or rectangular blocks of {color('object_color')}.",
             "The blocks are usually greater than or equal to 4x4 for a square block and 4x5 or 5x4 for a rectangular block.",
             "They are spaced uniformly.",
@@ -41,11 +41,8 @@ class BlockSplittingTaskGenerator(ARCTaskGenerator):
         return color_map.get(color, f"color_{color}")
     
     def create_input(self, taskvars):
-        # Create a grid with some square and rectangular blocks
         object_color = taskvars['object_color']
-        
-        # Choose a random grid size
-        grid_size = random.randint(12, 20)
+        grid_size = taskvars['grid_size']
         grid = np.zeros((grid_size, grid_size), dtype=int)
         
         # Determine number of blocks to place
@@ -114,8 +111,8 @@ class BlockSplittingTaskGenerator(ARCTaskGenerator):
     def transform_input(self, grid, taskvars):
         object_color = taskvars['object_color']
         fill_color = taskvars['fill_color']
-        bound_color1 = taskvars['bound_color1']  # Corner cells
-        bound_color2 = taskvars['bound_color2']  # 4-way connected boundary cells
+        bound_color1 = taskvars['bound_color1']
+        bound_color2 = taskvars['bound_color2']
         
         # Find blocks in the grid
         blocks = find_connected_objects(grid, diagonal_connectivity=False, background=0, monochromatic=True)
@@ -169,32 +166,37 @@ class BlockSplittingTaskGenerator(ARCTaskGenerator):
     def create_grids(self):
         num_train_pairs = random.randint(3, 5)
         train_pairs = []
-        
+
         # Randomly select colors ensuring they are all different
         available_colors = list(range(1, 10))
         random.shuffle(available_colors)
-        
+
+        # Choose a random grid size
+        grid_size = random.randint(12, 20)
+
         taskvars = {
-            'object_color': available_colors[0],  # Original block color
-            'fill_color': available_colors[1],    # Inner cells
-            'bound_color1': available_colors[2],  # Corner cells
-            'bound_color2': available_colors[3]   # 4-way connected boundary cells
+            'object_color': available_colors[0],  # Original block color (int)
+            'fill_color': available_colors[1],    # Inner cells (int)
+            'bound_color1': available_colors[2],  # Corner cells (int)
+            'bound_color2': available_colors[3],  # 4-way connected boundary cells (int)
+            'grid_size': grid_size,               # <-- integer for logic
         }
-        
+
         # Helper for reasoning chain formatting
         def color_fmt(key):
             color_id = taskvars[key]
             return f"{self.color_name(color_id)} ({color_id})"
 
-        # Replace color placeholders in reasoning chains
+        # Replace color and grid_size placeholders in reasoning chains
         self.input_reasoning_chain = [
             chain.replace("{color('object_color')}", color_fmt('object_color'))
                  .replace("{color('fill_color')}", color_fmt('fill_color'))
                  .replace("{color('bound_color1')}", color_fmt('bound_color1'))
                  .replace("{color('bound_color2')}", color_fmt('bound_color2'))
+                 .replace("{vars['grid_size']} x {vars['grid_size']}", f"{taskvars['grid_size']} x {taskvars['grid_size']}")
             for chain in self.input_reasoning_chain
         ]
-        
+
         self.transformation_reasoning_chain = [
             chain.replace("{color('object_color')}", color_fmt('object_color'))
                  .replace("{color('fill_color')}", color_fmt('fill_color'))

@@ -12,8 +12,8 @@ class ColorExpansionTaskGenerator(ARCTaskGenerator):
         
         transformation_reasoning_chain = [
             "The transformation follows these rules:",
-            "- For n colored cells, the output grid is of size 9x9, and each colored cell expands to a 3x3 block.",
-            "- Each block is placed in the output grid at the magnified position corresponding to its original cell position in the input grid."
+            "For n colored cells, the output grid is of size 9x9, and each colored cell expands to a 3x3 block.",
+            "Each block is placed in the output grid at the magnified position corresponding to its original cell position in the input grid."
         ]
         
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)

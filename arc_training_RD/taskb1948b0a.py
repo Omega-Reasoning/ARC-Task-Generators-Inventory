@@ -7,7 +7,7 @@ from transformation_library import find_connected_objects, GridObject, GridObjec
 class Taskb1948b0aGenerator(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
-            "Input grids are of size MxN.",
+            "Input grids are of different sizes.",
             "The grid is completely filled with two colors namely {color('object_color')} and {color('fill_color')}.",
             "The objects can form any random shape."
         ]
@@ -42,6 +42,9 @@ class Taskb1948b0aGenerator(ARCTaskGenerator):
         # Create a grid of random size between 5x5 and 15x15
         rows = random.randint(5, 15)
         cols = random.randint(5, 15)
+        # taskvars["rows"] = rows
+        # taskvars["cols"] = cols
+        # taskvars["grid_size"] = f"{rows} x {cols}"
         
         # Initialize grid with the fill_color (now we'll add object_color instead of the reverse)
         grid = np.full((rows, cols), fill_color, dtype=int)
@@ -88,7 +91,14 @@ class Taskb1948b0aGenerator(ARCTaskGenerator):
                         new_grid[r, c] = fill_color
             
             grid = new_grid
-                    
+
+        # Ensure at least one object_color cell is present
+        if not np.any(grid == object_color):
+            rand_r = random.randint(0, rows - 1)
+            rand_c = random.randint(0, cols - 1)
+            grid[rand_r, rand_c] = object_color
+
+        # taskvars["grid_size"] = f"{rows} x {cols}"
         return grid
     
     def transform_input(self, input_grid, taskvars):
@@ -106,7 +116,7 @@ class Taskb1948b0aGenerator(ARCTaskGenerator):
     def create_grids(self):
         num_train_pairs = random.randint(3, 5)
         train_pairs = []
-        
+
         # Define random colors for the task (all different)
         colors = random.sample(range(1, 10), 3)
         taskvars = {
@@ -114,37 +124,43 @@ class Taskb1948b0aGenerator(ARCTaskGenerator):
             "fill_color": colors[1],
             "replace_color": colors[2]
         }
-        
+
         # Helper for reasoning chain formatting
         def color_fmt(key):
             color_id = taskvars[key]
             return f"{self.color_name(color_id)} ({color_id})"
 
-        # Replace color placeholders in reasoning chains
+        # --- Generate the first input grid to set rows/cols in taskvars ---
+        input_grid = self.create_input(taskvars)
+        output_grid = self.transform_input(input_grid, taskvars)
+        train_pairs.append(GridPair(input=input_grid, output=output_grid))
+
+        # Now update the reasoning chains with the correct grid size
         self.input_reasoning_chain = [
             chain.replace("{color('object_color')}", color_fmt('object_color'))
                  .replace("{color('fill_color')}", color_fmt('fill_color'))
                  .replace("{color('replace_color')}", color_fmt('replace_color'))
+                #  .replace("{vars['rows']}", str(taskvars.get('rows', 'M')))
+                #  .replace("{vars['cols']}", str(taskvars.get('cols', 'N')))
             for chain in self.input_reasoning_chain
         ]
-        
+
         self.transformation_reasoning_chain = [
             chain.replace("{color('object_color')}", color_fmt('object_color'))
                  .replace("{color('fill_color')}", color_fmt('fill_color'))
                  .replace("{color('replace_color')}", color_fmt('replace_color'))
             for chain in self.transformation_reasoning_chain
         ]
-        
-        # Create training examples
-        for _ in range(num_train_pairs):
+
+        # Generate the rest of the training pairs
+        for _ in range(num_train_pairs - 1):
             input_grid = self.create_input(taskvars)
             output_grid = self.transform_input(input_grid, taskvars)
             train_pairs.append(GridPair(input=input_grid, output=output_grid))
-        
+
         # Create test pair
         test_input = self.create_input(taskvars)
         test_output = self.transform_input(test_input, taskvars)
         test_pairs = [GridPair(input=test_input, output=test_output)]
-        
-        # Return taskvars and TrainTestData object
+
         return taskvars, TrainTestData(train=train_pairs, test=test_pairs)
