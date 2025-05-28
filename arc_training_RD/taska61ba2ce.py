@@ -7,11 +7,11 @@ from input_library import Contiguity, create_object
 class Taska61ba2ceGenerator(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
-            "Input grids are square grids of size MxM.",
+            "Input grids are square grids of size {vars['grid_size']} x {vars['grid_size']}.",
             "The grid consists of an L shape which is specifically 2x2 size.",
             "There exist exactly 4 L shaped objects, but you must note that all these are rotated 90 degrees and are placed randomly across the grid.",
             "None of the rotations must repeat in the grid.",
-            "Each L shaped object rotations have specific colors namely {color('object_color1')}, {color('object_color2')}, {color('object_color3')} and {color('object_color4')}."
+            "Each L shaped object rotation has a distinct color."
         ]
 
         transformation_reasoning_chain = [
@@ -23,74 +23,44 @@ class Taska61ba2ceGenerator(ARCTaskGenerator):
 
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
 
-    def color_name(self, color: int) -> str:
-        color_map = {
-            0: "black",
-            1: "blue",
-            2: "red",
-            3: "green",
-            4: "yellow",
-            5: "gray",
-            6: "magenta",
-            7: "orange",
-            8: "cyan",
-            9: "brown"
-        }
-        return color_map.get(color, f"color_{color}")
-
     def create_grids(self):
-        # Create variables
-        available_colors = [i for i in range(1, 10)]
-        object_colors = random.sample(available_colors, 4)
-        
-        # Set grid variables
-        taskvars = {
-            "object_colors": object_colors,
-            "object_color1": object_colors[0],
-            "object_color2": object_colors[1],
-            "object_color3": object_colors[2],
-            "object_color4": object_colors[3]
-        }        
-
-        # Store taskvars as instance variable for access in transform_input
-        self.taskvars = taskvars
-
-        # Helper for reasoning chain formatting
-        def color_fmt(key):
-            color_id = taskvars[key]
-            return f"{self.color_name(color_id)} ({color_id})"
-
-        # Replace {color('object_color1')} etc. in reasoning chains
-        self.input_reasoning_chain = [
-            chain.replace("{color('object_color1')}", color_fmt('object_color1'))
-                 .replace("{color('object_color2')}", color_fmt('object_color2'))
-                 .replace("{color('object_color3')}", color_fmt('object_color3'))
-                 .replace("{color('object_color4')}", color_fmt('object_color4'))
-            for chain in self.input_reasoning_chain
-        ]
-
-        # Generate 3-5 train pairs
         num_train_pairs = random.randint(3, 5)
         train_pairs = []
+
+        # Choose a random grid size
+        grid_size = random.randint(5, 20)
+
+        taskvars = {
+            'grid_size': grid_size,  # <-- integer for logic
+        }
+
+        # Replace grid_size placeholders in reasoning chains
+        self.input_reasoning_chain = [
+            chain.replace("{vars['grid_size']} x {vars['grid_size']}", f"{taskvars['grid_size']} x {taskvars['grid_size']}")
+            for chain in self.input_reasoning_chain
+        ]
+        
+        # Create train and test data
         for _ in range(num_train_pairs):
             input_grid = self.create_input(taskvars)
-            output_grid = self.transform_input(input_grid)
+            output_grid = self.transform_input(input_grid.copy(), taskvars)
             train_pairs.append(GridPair(input=input_grid, output=output_grid))
         
-        # Generate test pair
-        test_input_grid = self.create_input(taskvars)
-        test_output_grid = self.transform_input(test_input_grid)
-        test_pairs = [GridPair(input=test_input_grid, output=test_output_grid)] 
+        # Create test pair
+        test_input = self.create_input(taskvars)
+        test_output = self.transform_input(test_input.copy(), taskvars)
+        test_pairs = [GridPair(input=test_input, output=test_output)]
         
         return taskvars, TrainTestData(train=train_pairs, test=test_pairs)
 
     def create_input(self, taskvars):
-        # Create a square grid of size between 5 and 20
-        grid_size = random.randint(5, 20)
+        # Get grid size from taskvars
+        grid_size = taskvars['grid_size']
         grid = np.zeros((grid_size, grid_size), dtype=int)
         
-        # Get colors from taskvars
-        object_colors = taskvars["object_colors"]
+        # Randomly select 4 different colors for each grid
+        available_colors = list(range(1, 10))
+        object_colors = random.sample(available_colors, 4)
         
         # Create the 4 L-shaped objects with different rotations
         l_shapes = []
@@ -125,7 +95,7 @@ class Taska61ba2ceGenerator(ARCTaskGenerator):
         
         return grid
 
-    def transform_input(self, input_grid):
+    def transform_input(self, input_grid, taskvars):
         # Output grid is always 4x4
         output_grid = np.zeros((4, 4), dtype=int)
         

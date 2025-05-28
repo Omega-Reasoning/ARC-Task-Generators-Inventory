@@ -2,17 +2,18 @@ from arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
 import numpy as np
 import random
 
-class ColorExpansionTaskGenerator(ARCTaskGenerator):
+class Taskac0a08a4Generator(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
-            "Input grids are {task_var('input_grid_size')} fixed size.",
-            "Each grid contains between 1 and 6 colored cells, and each colored cell has a unique color.",
-            "The positions of the colored cells within the {task_var('input_grid_size')} grid determine their placement in the output grid."
+            "Input grids are {vars['input_grid_size']} x {vars['input_grid_size']} fixed size.",
+            "Each grid contains between 2 and 6 colored cells, and each colored cell has a unique color.",
+            "The positions of the colored cells within the input grid determine their placement in the output grid."
         ]
         
         transformation_reasoning_chain = [
             "The transformation follows these rules:",
-            "For n colored cells, the output grid is of size 9x9, and each colored cell expands to a 3x3 block.",
+            "For n colored cells, the output grid size is determined by n × input_size (where n is the number of colors).",
+            "Each colored cell expands to an n×n block in the output grid.",
             "Each block is placed in the output grid at the magnified position corresponding to its original cell position in the input grid."
         ]
         
@@ -35,10 +36,11 @@ class ColorExpansionTaskGenerator(ARCTaskGenerator):
             
         return grid
     
-    def transform_input(self, input_grid):
-        input_size = self.taskvars["input_size"]  # Always 3
-        block_size = input_size  # Always 3
-        output_size = input_size * input_size  # 9
+    def transform_input(self, input_grid, taskvars):
+        input_size = taskvars["input_size"]
+        num_colors = taskvars["num_colors"]
+        block_size = num_colors  # Block size equals number of colors
+        output_size = input_size * block_size  # Output size is input_size × num_colors
 
         output_grid = np.zeros((output_size, output_size), dtype=int)
 
@@ -53,44 +55,34 @@ class ColorExpansionTaskGenerator(ARCTaskGenerator):
         return output_grid
     
     def create_grids(self):
-        # Set input grid size
+        num_train_pairs = random.randint(3, 5)
+        train_pairs = []
+
+        # Set input grid size and number of colors
         input_size = 3  # Always 3x3
-        num_colors = random.randint(1, 6)  # 1 to 6 colors
+        num_colors = random.randint(2, 6)  # 2 to 6 colors (minimum 2)
         
-        # Create task variables
         taskvars = {
             "input_size": input_size,
-            "input_grid_size": f"{input_size}x{input_size}",
+            "input_grid_size": input_size,  # <-- integer for logic
             "num_colors": num_colors
         }
-        
-        # Store taskvars as instance variable for access in transform_input
-        self.taskvars = taskvars
-        
-        # Update reasoning chains with task variables
+
+        # Replace grid_size placeholders in reasoning chains
         self.input_reasoning_chain = [
-            chain.replace("{task_var('input_grid_size')}", taskvars["input_grid_size"])
+            chain.replace("{vars['input_grid_size']} x {vars['input_grid_size']}", f"{taskvars['input_grid_size']} x {taskvars['input_grid_size']}")
             for chain in self.input_reasoning_chain
         ]
         
-        self.transformation_reasoning_chain = [
-            chain.replace("{task_var('input_grid_size')}", taskvars["input_grid_size"])
-                 .replace("{task_var('input_size')}", str(taskvars["input_size"]))
-            for chain in self.transformation_reasoning_chain
-        ]
-        
-        # Generate train examples
-        num_train = random.randint(3, 5)
-        train_pairs = []
-        
-        for _ in range(num_train):
+        # Create train and test data
+        for _ in range(num_train_pairs):
             input_grid = self.create_input(taskvars)
-            output_grid = self.transform_input(input_grid)
+            output_grid = self.transform_input(input_grid.copy(), taskvars)
             train_pairs.append(GridPair(input=input_grid, output=output_grid))
         
         # Create test pair
         test_input = self.create_input(taskvars)
-        test_output = self.transform_input(test_input)
-        test_examples = [GridPair(input=test_input, output=test_output)]
+        test_output = self.transform_input(test_input.copy(), taskvars)
+        test_pairs = [GridPair(input=test_input, output=test_output)]
         
-        return taskvars, TrainTestData(train=train_pairs, test=test_examples)
+        return taskvars, TrainTestData(train=train_pairs, test=test_pairs)

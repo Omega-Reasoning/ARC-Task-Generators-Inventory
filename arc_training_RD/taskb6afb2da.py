@@ -18,8 +18,8 @@ class Taskb6afb2daGenerator(ARCTaskGenerator):
             "The output grid is copied from the input grid.",
             "The blocks are split into two parts such as the outermost cells being one part and the inner cells being the other part.",
             "For each block outermost cells form contribute to form boundaries in specific colors, based on their position:",
-            "- If the boundary forming cells are in 4-way connection to inner block, then fill it with {color('bound_color2')}",
-            "- If the boundary forming cells are corner cells of the boundary then fill it with {color('bound_color1')}.",
+            "If the boundary forming cells are in 4-way connection to inner block, then fill it with {color('bound_color2')}",
+            "If the boundary forming cells are corner cells of the boundary then fill it with {color('bound_color1')}.",
             "And for the inner cells, fill it with {color('fill_color')}."
         ]
         
