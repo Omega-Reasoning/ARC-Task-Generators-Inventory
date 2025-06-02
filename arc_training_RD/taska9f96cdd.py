@@ -6,7 +6,7 @@ from transformation_library import find_connected_objects, GridObject
 class Taska9f96cddGenerator(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
-            "Input grids are square grids of size MxN.",
+            "Input grids are grids of size {vars['grid_rows']} x {vars['grid_cols']}.",
             "The grid consists of only one cell randomly placed on the grid of {color('main_color')} color."
         ]
         
@@ -43,14 +43,16 @@ class Taska9f96cddGenerator(ARCTaskGenerator):
         available_colors = [i for i in range(1, 10) if i != main_color]
         object_colors = random.sample(available_colors, 4)
         
-        # Set task variables with individual color names
+        # Set task variables with grid dimensions and colors
         taskvars = {
+            "grid_rows": 3,
+            "grid_cols": 5,
             "main_color": main_color,
             "object_colors": object_colors,
-            "object_color1": object_colors[0],
-            "object_color2": object_colors[1],
-            "object_color3": object_colors[2],
-            "object_color4": object_colors[3]
+            "object_color1": object_colors[0],  # Top-left diagonal
+            "object_color2": object_colors[1],  # Top-right diagonal
+            "object_color3": object_colors[2],  # Bottom-left diagonal
+            "object_color4": object_colors[3]   # Bottom-right diagonal
         }
         
         # Store taskvars as instance variable for access in transform_input
@@ -61,9 +63,11 @@ class Taska9f96cddGenerator(ARCTaskGenerator):
             color_id = taskvars[key]
             return f"{self.color_name(color_id)} ({color_id})"
 
-        # Replace {color('main_color')} etc. in reasoning chains
+        # Replace placeholders in reasoning chains
         self.input_reasoning_chain = [
             chain.replace("{color('main_color')}", color_fmt('main_color'))
+                 .replace("{vars['grid_rows']}", str(taskvars['grid_rows']))
+                 .replace("{vars['grid_cols']}", str(taskvars['grid_cols']))
             for chain in self.input_reasoning_chain
         ]
         self.transformation_reasoning_chain = [
@@ -88,14 +92,15 @@ class Taska9f96cddGenerator(ARCTaskGenerator):
         return GridPair(input=input_grid, output=output_grid)
     
     def create_input(self, taskvars):
-        # Create a random size grid between 5x5 and 20x20
-        size = random.randint(5, 20)
-        grid = np.zeros((size, size), dtype=np.int32)
+        # Use fixed grid size from task variables
+        rows = taskvars['grid_rows']
+        cols = taskvars['grid_cols']
+        grid = np.zeros((rows, cols), dtype=np.int32)
         
         # Allow the main cell to be placed anywhere in the grid
         # This creates more diversity including edge cases
-        row = random.randint(0, size - 1)
-        col = random.randint(0, size - 1)
+        row = random.randint(0, rows - 1)
+        col = random.randint(0, cols - 1)
         
         grid[row, col] = taskvars["main_color"]
         
@@ -122,24 +127,18 @@ class Taska9f96cddGenerator(ARCTaskGenerator):
         # Create output grid without the main cell
         output_grid = np.zeros_like(grid)
         
-        # Define the 8-way connections (diagonal only for this task)
-        neighbor_positions = [
-            (-1, -1),          (-1, 1),
-            (1, -1),            (1, 1)
-        ]
+        # Define the 4 diagonal positions with their consistent color mapping
+        diagonal_positions = {
+            (-1, -1): taskvars["object_color1"],  # Top-left diagonal
+            (-1, 1): taskvars["object_color2"],   # Top-right diagonal
+            (1, -1): taskvars["object_color3"],   # Bottom-left diagonal
+            (1, 1): taskvars["object_color4"]     # Bottom-right diagonal
+        }
         
-        # Check which positions are available (within grid bounds)
-        available_positions = []
-        for dr, dc in neighbor_positions:
+        # Fill each diagonal position if it's within bounds
+        for (dr, dc), color in diagonal_positions.items():
             new_r, new_c = main_r + dr, main_c + dc
             if 0 <= new_r < grid.shape[0] and 0 <= new_c < grid.shape[1]:
-                available_positions.append((new_r, new_c))
-        
-        # Randomly shuffle available positions to add variety
-        random.shuffle(available_positions)
-        
-        # Fill available cells (up to 4) with different colors
-        for i, (r, c) in enumerate(available_positions[:min(4, len(available_positions))]):
-            output_grid[r, c] = taskvars["object_colors"][i]
+                output_grid[new_r, new_c] = color
         
         return output_grid
