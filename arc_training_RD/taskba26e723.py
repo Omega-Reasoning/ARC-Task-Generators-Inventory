@@ -9,25 +9,34 @@ class Taskba26e723Generator(ARCTaskGenerator):
         input_reasoning_chain = [
             "Input grids have exactly 3 rows and can have any number of columns.",
             "The grid follows an alternating pattern: in the first column, the top two cells are filled; in the next column, the bottom two cells are filled. This alternation continues across all columns.",
-            "The filled cells are evenly spaced and use the color {color(\"fill_color\")}.",
+            "The filled cells are evenly spaced and use the color {color('fill_color')}.",
             "In some grids, the pattern starts with the bottom two cells of the first column being filled, followed by the top two cells in the second column, maintaining the alternating sequence."
         ]
         
         transformation_reasoning_chain = [
             "The output grid is copied from the input grid.",
-            "The first column is filled with a {color(\"highlight_color\")} color, referred to as the highlight color.",
+            "The first column is filled with a {color('highlight_color')} color, referred to as the highlight color.",
             "Starting from the first column, every third column (i.e., columns at positions 0, 3, 6, 9, ...) is also filled with the highlight color.",
-            "All other filled columns follow the standard color {color(\"fill_color\")}.",
+            "All other filled columns follow the standard color {color('fill_color')}.",
             "This pattern continues uniformly across the entire grid."
         ]
         
-        taskvars_definitions = {
-            "fill_color": "The primary color used for filling cells (yellow)",
-            "highlight_color": "The color used to highlight every third column (pink)",
-            "start_pattern": "Whether the pattern starts with top two cells filled (0) or bottom two cells filled (1)"
-        }
-        
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
+    
+    def color_name(self, color: int) -> str:
+        color_map = {
+            0: "black",
+            1: "blue",
+            2: "red",
+            3: "green",
+            4: "yellow",
+            5: "gray",
+            6: "magenta",
+            7: "orange",
+            8: "cyan",
+            9: "brown"
+        }
+        return color_map.get(color, f"color_{color}")
     
     def create_input(self, taskvars):
         # Fixed number of rows
@@ -79,22 +88,38 @@ class Taskba26e723Generator(ARCTaskGenerator):
         return output_grid
     
     def create_grids(self):
-        # Generate random values for task variables
-        # Make sure fill_color and highlight_color are different
+        num_train_pairs = random.randint(3, 5)
+        train_pairs = []
+        
+        # Randomly choose colors
         fill_color = random.randint(1, 9)
         highlight_color = random.choice([c for c in range(1, 10) if c != fill_color])
-        start_pattern = random.choice([0, 1])  # 0 for top-first, 1 for bottom-first
         
         taskvars = {
             "fill_color": fill_color,
             "highlight_color": highlight_color
         }
         
-        # Generate 3-5 training pairs
-        num_train_pairs = random.randint(3, 5)
-        train_pairs = []
+        # Helper for reasoning chain formatting
+        def color_fmt(key):
+            color_id = taskvars[key]
+            return f"{self.color_name(color_id)} ({color_id})"
+
+        # Replace color placeholders in reasoning chains
+        self.input_reasoning_chain = [
+            chain.replace("{color('fill_color')}", color_fmt('fill_color'))
+                 .replace("{color('highlight_color')}", color_fmt('highlight_color'))
+            for chain in self.input_reasoning_chain
+        ]
         
-        for _ in range(num_train_pairs):
+        self.transformation_reasoning_chain = [
+            chain.replace("{color('fill_color')}", color_fmt('fill_color'))
+                 .replace("{color('highlight_color')}", color_fmt('highlight_color'))
+            for chain in self.transformation_reasoning_chain
+        ]
+        
+        # Generate training pairs
+        for i in range(num_train_pairs):
             # For some variety, allow different starting patterns in training examples
             train_taskvars = taskvars.copy()
             train_taskvars["start_pattern"] = random.choice([0, 1])
@@ -105,6 +130,7 @@ class Taskba26e723Generator(ARCTaskGenerator):
         
         # Generate test pair
         test_taskvars = taskvars.copy()
+        test_taskvars["start_pattern"] = random.choice([0, 1])
         test_input = self.create_input(test_taskvars)
         test_output = self.transform_input(test_input, test_taskvars)
         test_pairs = [GridPair(input=test_input, output=test_output)]

@@ -7,7 +7,7 @@ from input_library import Contiguity, retry, create_object, random_cell_coloring
 class Taskb27ca6d3yGenerator(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
-            "Input grids can be of different sizes.",
+            "Input grids are of different sizes.",
             "The grid consists of scattered cells of {color('object_color')}.",
             "Most cells are individual and uniformly scattered with proper spacing.",
             "Some cells appear in pairs that are 4-way-connected to each other.",
@@ -18,10 +18,10 @@ class Taskb27ca6d3yGenerator(ARCTaskGenerator):
             "The output grid is copied from the input grid.",
             "Individual scattered cells remain unchanged.",
             "For each pair of adjacent cells:",
-            "- If the pair is not on any grid edge, create a complete boundary of {color('bound_color')} around both cells",
-            "- If the pair touches a grid edge, create a partial boundary only on the non-edge sides",
-            "- The boundary includes both orthogonal and diagonal positions around the pair",
-            "- Boundaries never overlap with existing cells or other boundaries"
+            "If the pair is not on any grid edge, create a complete boundary of {color('bound_color')} around both cells",
+            "If the pair touches a grid edge, create a partial boundary only on the non-edge sides",
+            "The boundary includes both orthogonal and diagonal positions around the pair",
+            "Boundaries never overlap with existing cells or other boundaries"
         ]
         
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)

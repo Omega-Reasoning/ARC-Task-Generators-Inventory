@@ -12,7 +12,8 @@ class Taskb190f7f5Generator(ARCTaskGenerator):
             "The left half contains a pattern made up of a single color or a uniform shape.",
             "The right half contains a shape that consists of multiple colors arranged meaningfully (e.g., in a T or cross shape).",
             "These roles may also be interchanged:",
-            "The left half might have the multi-colored pattern while the right half contains the single-color shape."
+            "The left half might have the multi-colored pattern while the right half contains the single-color shape.",
+            "The single-color shape uses the same color across all input grids."
         ]
         
         transformation_reasoning_chain = [
@@ -21,8 +22,8 @@ class Taskb190f7f5Generator(ARCTaskGenerator):
             "The multi-colored shape as a layout guide to decide where and how to place copies of the building block.",
             "Create a new output grid that is square with size equal to the square of input height (row² × row²).",
             "For each colored cell in the multi-colored shape:",
-            "- Place a copy of the template shape at the corresponding location in the output.",
-            "- But recolor the copy to match the color of that cell in the multi-colored shape."
+            "Place a copy of the template shape at the corresponding location in the output.",
+            "But recolor the copy to match the color of that cell in the multi-colored shape."
         ]
         
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
@@ -204,8 +205,8 @@ class Taskb190f7f5Generator(ARCTaskGenerator):
         
         grid = np.zeros((input_height, input_width), dtype=int)
         
-        # Randomly select colors for this specific input
-        template_color = random.randint(1, 9)
+        # Use the consistent template color from taskvars
+        template_color = taskvars['template_color']
         
         # Generate 2-4 different colors for the layout (excluding template color)
         max_layout_colors = min(4, half_size * half_size - 1)
@@ -289,7 +290,7 @@ class Taskb190f7f5Generator(ARCTaskGenerator):
         max_r = max(pos[0] for pos in layout_positions)
         max_c = max(pos[1] for pos in layout_positions)
         
-        # Output size should accommodate the farthest template placement
+        # Calculate output grid size based on maximum position and template size - FROM REFERENCE
         calculated_height = (max_r + 1) * half_size
         calculated_width = (max_c + 1) * half_size
         
@@ -329,8 +330,12 @@ class Taskb190f7f5Generator(ARCTaskGenerator):
         num_train_pairs = random.randint(3, 5)
         train_pairs = []
 
-        # No task-level variables since everything changes per grid
-        taskvars = {}
+        # Choose a consistent template color for all grids
+        template_color = random.randint(1, 9)
+        
+        taskvars = {
+            'template_color': template_color
+        }
         
         # Generate training pairs with validation
         attempts = 0

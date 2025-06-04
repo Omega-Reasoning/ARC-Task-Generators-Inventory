@@ -5,26 +5,36 @@ from typing import Dict, List, Tuple, Set, Optional
 from input_library import create_object, Contiguity, retry
 from transformation_library import find_connected_objects, GridObject
 
-class FillBlocksInteriorTaskGenerator(ARCTaskGenerator):
+class Taskbb43febbGenerator(ARCTaskGenerator):
     def __init__(self):
-        self.input_reasoning_chain = [
+        input_reasoning_chain = [
             "The input grid consists of square grids of varying sizes.",
-            "The grid contains square and rectangle blocks filled with {color(\"block_color\")} color.",
+            "The grid contains square and rectangle blocks filled with {color('block_color')} color.",
             "The square blocks are typically ≥ 3x3, and the rectangle blocks are ≥ 4x3 or 3x4 in size."
         ]
         
-        self.transformation_reasoning_chain = [
+        transformation_reasoning_chain = [
             "The output grid is a copy of the input grid.",
             "All blocks (square and rectangular) are preserved in position and size.",
-            "In the output, each block boundary remains {color(\"block_color\")} color, while the inner region is filled with {color(\"inner_color\")} color."
+            "In the output, each block boundary remains {color('block_color')} color, while the inner region is filled with {color('inner_color')} color."
         ]
         
-        taskvars_definitions = {
-            "block_color": "The color of the blocks in the input grid",
-            "inner_color": "The color used to fill the interior of blocks in the output grid"
+        super().__init__(input_reasoning_chain, transformation_reasoning_chain)
+    
+    def color_name(self, color: int) -> str:
+        color_map = {
+            0: "black",
+            1: "blue",
+            2: "red",
+            3: "green",
+            4: "yellow",
+            5: "gray",
+            6: "magenta",
+            7: "orange",
+            8: "cyan",
+            9: "brown"
         }
-        
-        super().__init__(self.input_reasoning_chain, self.transformation_reasoning_chain)
+        return color_map.get(color, f"color_{color}")
     
     def create_input(self, grid_size: Tuple[int, int], n_blocks: int, block_color: int) -> np.ndarray:
         """Create an input grid with blocks of the specified color"""
@@ -76,10 +86,10 @@ class FillBlocksInteriorTaskGenerator(ARCTaskGenerator):
         
         return grid
     
-    def transform_input(self, grid: np.ndarray, vars: Dict[str, int]) -> np.ndarray:
+    def transform_input(self, grid: np.ndarray, taskvars: Dict[str, int]) -> np.ndarray:
         """Transform the input grid by filling the interior of blocks"""
-        block_color = vars["block_color"]
-        inner_color = vars["inner_color"]
+        block_color = taskvars["block_color"]
+        inner_color = taskvars["inner_color"]
         
         # Create a copy of the input grid
         output_grid = grid.copy()
@@ -121,36 +131,54 @@ class FillBlocksInteriorTaskGenerator(ARCTaskGenerator):
         return output_grid
     
     def create_grids(self) -> Tuple[Dict[str, int], TrainTestData]:
+        num_train_examples = random.randint(3, 5)
+        train_data = []
+        
         # Choose colors for blocks and inner filling
         valid_colors = list(range(1, 10))
         block_color = random.choice(valid_colors)
         valid_colors.remove(block_color)
         inner_color = random.choice(valid_colors)
         
-        vars = {
+        taskvars = {
             "block_color": block_color,
             "inner_color": inner_color
         }
         
-        # Create training examples
-        num_train_examples = random.randint(3, 5)
-        train_data = []
+        # Helper for reasoning chain formatting
+        def color_fmt(key):
+            color_id = taskvars[key]
+            return f"{self.color_name(color_id)} ({color_id})"
+
+        # Replace color placeholders in reasoning chains
+        self.input_reasoning_chain = [
+            chain.replace("{color('block_color')}", color_fmt('block_color'))
+                 .replace("{color('inner_color')}", color_fmt('inner_color'))
+            for chain in self.input_reasoning_chain
+        ]
         
+        self.transformation_reasoning_chain = [
+            chain.replace("{color('block_color')}", color_fmt('block_color'))
+                 .replace("{color('inner_color')}", color_fmt('inner_color'))
+            for chain in self.transformation_reasoning_chain
+        ]
+        
+        # Create training examples
         for _ in range(num_train_examples):
             # Randomize grid size and number of blocks
             grid_size = (random.randint(7, 15), random.randint(7, 15))
             n_blocks = random.randint(1, 5)
             
             input_grid = self.create_input(grid_size, n_blocks, block_color)
-            output_grid = self.transform_input(input_grid, vars)
+            output_grid = self.transform_input(input_grid, taskvars)
             train_data.append(GridPair(input=input_grid, output=output_grid))
+        
         # Create test example - make it a bit more complex
         test_grid_size = (random.randint(10, 20), random.randint(10, 20))
         test_n_blocks = random.randint(2, 6)
         test_input = self.create_input(test_grid_size, test_n_blocks, block_color)
-        test_output = self.transform_input(test_input, vars)
+        test_output = self.transform_input(test_input, taskvars)
         
         test_data = [GridPair(input=test_input, output=test_output)]
         
-        return vars, TrainTestData(train = train_data, test = test_data)
-
+        return taskvars, TrainTestData(train=train_data, test=test_data)
