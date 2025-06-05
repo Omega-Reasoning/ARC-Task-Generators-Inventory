@@ -14,7 +14,8 @@ class Tasktaskbe94b721Generator(ARCTaskGenerator):
         
         transformation_reasoning_chain = [
             "The output grid is formed by identifying that one single pattern which is big and covers many cells.",
-            "Only that pattern must be displayed in the output grid with its color."
+            "Only that pattern must be displayed in the output grid with its color.",
+            "The output grid size is exactly the bounding box of the largest pattern."
         ]
         
         # No task variables needed for this task
@@ -22,7 +23,7 @@ class Tasktaskbe94b721Generator(ARCTaskGenerator):
         
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
     
-    def create_input(self, gridvars=None):
+    def create_input(self, taskvars, gridvars):
         # Generate random grid size (between 8x8 and 20x20)
         height = random.randint(8, 20)
         width = random.randint(8, 20)
@@ -149,11 +150,11 @@ class Tasktaskbe94b721Generator(ARCTaskGenerator):
         # Count actual patterns in the grid
         objects = find_connected_objects(grid, diagonal_connectivity=True, background=0, monochromatic=True)
         if len(objects.objects) < 2:
-            return self.create_input(gridvars)
+            return self.create_input(taskvars, gridvars)
         
         return grid
     
-    def transform_input(self, input_grid):
+    def transform_input(self, input_grid, taskvars):
         # Find all connected objects in the input grid
         objects = find_connected_objects(input_grid, diagonal_connectivity=True, background=0, monochromatic=True)
         
@@ -162,33 +163,37 @@ class Tasktaskbe94b721Generator(ARCTaskGenerator):
         
         if len(sorted_objects.objects) == 0:
             # Edge case: no objects found
-            return np.zeros_like(input_grid)
+            return np.zeros((1, 1), dtype=int)
         
         # Get the largest object
         largest_object = sorted_objects[0]
         
-        # Create output grid (same size as input) with background=0
-        output_grid = np.zeros_like(input_grid)
+        # Get the bounding box of the largest object
+        bounding_box = largest_object.bounding_box
         
-        # Paste the largest object onto the output grid
-        largest_object.paste(output_grid)
+        # Extract the pattern as a minimal array
+        pattern_array = largest_object.to_array()
         
-        return output_grid
+        return pattern_array
     
     def create_grids(self):
+        # Empty taskvars since no task variables are needed
+        taskvars = {}
+        
         # Number of train pairs (3-5)
         num_train_pairs = random.randint(3, 5)
         
         # Generate train pairs
         train_pairs = []
         for _ in range(num_train_pairs):
-            input_grid = self.create_input()
-            output_grid = self.transform_input(input_grid)
+            input_grid = self.create_input(taskvars, {})
+            output_grid = self.transform_input(input_grid, taskvars)
             train_pairs.append(GridPair(input=input_grid, output=output_grid))
         
         # Generate test pair
-        test_input = self.create_input()
-        test_output = self.transform_input(test_input)
+        test_input = self.create_input(taskvars, {})
+        test_output = self.transform_input(test_input, taskvars)
         test_pairs = [GridPair(input=test_input, output=test_output)]
         
-        return {}, TrainTestData(train=train_pairs, test=test_pairs)
+        return taskvars, TrainTestData(train=train_pairs, test=test_pairs)
+

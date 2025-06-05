@@ -4,51 +4,50 @@ import random
 from transformation_library import find_connected_objects
 from input_library import retry, Contiguity
 
-class IntersectingLinesTaskGenerator(ARCTaskGenerator):
+class Taskbdad9b1fGenerator(ARCTaskGenerator):
     def __init__(self):
+        # Use placeholders in the reasoning chains
         input_reasoning_chain = [
             "Input grids are square grids of same sizes.", 
             "Each grid contains :", 
-            "  * - Two-celled horizontal blocks with {{color(\"h_color\")}} color.",
-            "  * - Two-celled vertical blocks with {{color(\"v_color\")}} color.", 
-            "These horizontal and vertical blocks are positioned such that when extended in their respective directions, they intersect at one or more grid cells.."
+            "Two-celled horizontal blocks with {color('h_color')} color.",
+            "Two-celled vertical blocks with {color('v_color')} color.", 
+            "These horizontal and vertical blocks are positioned such that when extended in their respective directions, they intersect at one or more grid cells."
         ]
         
         transformation_reasoning_chain = [
             "The output grid is copied from the input grid.",
             "Each horizontal and vertical block is then extended fully:",
-            "  * - Horizontal blocks extend left and right across the row, maintaining the {{color(\"h_color\")}} color.",
-            "  * - Vertical blocks extend up and down across the column, maintaining the {{color(\"v_color\")}} color.",
-            "Wherever a horizontal and vertical extension intersect, the cell at the intersection is assigned a distinct {{color(\"i_color\")}} color."
+            "Horizontal blocks extend left and right across the row, maintaining the {color('h_color')} color.",
+            "Vertical blocks extend up and down across the column, maintaining the {color('v_color')} color.",
+            "Wherever a horizontal and vertical extension intersect, the cell at the intersection is assigned a distinct {color('i_color')} color."
         ]
         
-        taskvars_definitions = {
-            "h_color": {
-                "type": "int",
-                "description": "Color of the horizontal blocks.",
-                "range": [1, 9]
-            },  
-            "v_color": {
-                "type": "int",
-                "description": "Color of the vertical blocks.",
-                "range": [1, 9]
-            },
-            "i_color": {
-                "type": "int",
-                "description": "Color of the intersection cells.",
-                "range": [1, 9]
-            }
-        }
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
     
-    def create_input(self, gridvars):
+    def color_name(self, color: int) -> str:
+        color_map = {
+            0: "black",
+            1: "blue",
+            2: "red",
+            3: "green",
+            4: "yellow",
+            5: "gray",
+            6: "magenta",
+            7: "orange",
+            8: "cyan",
+            9: "brown"
+        }
+        return color_map.get(color, f"color_{color}")
+    
+    def create_input(self, taskvars, gridvars):
         # Random grid size (preferring even numbers and more than 5 rows/columns)
         size = random.choice([6, 8, 10, 12, 14, 16])
         
         # Colors for horizontal, vertical blocks and intersections
-        h_color = self.gridvars.get("h_color", random.randint(1, 9))
-        v_color = self.gridvars.get("v_color", random.choice([c for c in range(1, 10) if c != h_color]))
-        i_color = self.gridvars.get("i_color", random.choice([c for c in range(1, 10) if c != h_color and c != v_color]))
+        h_color = taskvars["h_color"]
+        v_color = taskvars["v_color"]
+        i_color = taskvars["i_color"]
         
         # Initialize empty grid
         grid = np.zeros((size, size), dtype=int)
@@ -70,10 +69,12 @@ class IntersectingLinesTaskGenerator(ARCTaskGenerator):
             # Make sure at least one cell of the vertical block doesn't overlap with the horizontal
             # (we need two distinct blocks, not just one L-shape)
             if v_row_start <= h_row and v_row_start + 1 >= h_row:
-                if h_row > 0:
+                if h_row > 0 and v_row_start > 0:
                     v_row_start = h_row - 1
-                else:
+                elif h_row < size - 2:
                     v_row_start = h_row + 1
+                else:
+                    v_row_start = max(0, h_row - 1)
             
             grid[v_row_start:v_row_start+2, v_col] = v_color
             
@@ -84,47 +85,35 @@ class IntersectingLinesTaskGenerator(ARCTaskGenerator):
                 grid[h_row, v_col] = v_color
         else:
             # Place vertical block to not overlap with horizontal block, but to create intersection when extended
-            v_col = random.randint(0, size-1)
+            v_col = random.randint(h_col_start, h_col_start+1)  # Ensure intersection when extended
             v_row_start = random.randint(0, size-2)
             
-            # Ensure they will intersect when extended
-            while v_col < h_col_start or v_col > h_col_start+1:
-                v_col = random.randint(0, size-1)
-                
             # Ensure they don't overlap in the input
             while (h_row >= v_row_start and h_row < v_row_start+2):
                 v_row_start = random.randint(0, size-2)
                 
             grid[v_row_start:v_row_start+2, v_col] = v_color
         
-        # Store colors as grid variables
-        self.gridvars["h_color"] = h_color
-        self.gridvars["v_color"] = v_color
-        self.gridvars["i_color"] = i_color
-        
         return grid
     
-    def transform_input(self, input_grid, gridvars=None):
-        # Extract colors from gridvars if provided, otherwise use self.gridvars
-        if gridvars is None:
-            gridvars = self.gridvars
-            
-        h_color = gridvars["h_color"]
-        v_color = gridvars["v_color"]
-        i_color = gridvars["i_color"]
+    def transform_input(self, grid, taskvars):
+        # Extract colors from taskvars
+        h_color = taskvars["h_color"]
+        v_color = taskvars["v_color"]
+        i_color = taskvars["i_color"]
         
         # Create a copy of the input grid
-        output_grid = np.copy(input_grid)
+        output_grid = np.copy(grid)
         
         # Find the horizontal block
-        horizontal_blocks = find_connected_objects(input_grid, diagonal_connectivity=False, background=0)
+        horizontal_blocks = find_connected_objects(grid, diagonal_connectivity=False, background=0)
         horizontal_blocks = horizontal_blocks.filter(lambda obj: 
                                                    h_color in obj.colors and 
                                                    obj.width == 2 and
                                                    obj.height == 1)
         
         # Find the vertical block
-        vertical_blocks = find_connected_objects(input_grid, diagonal_connectivity=False, background=0)
+        vertical_blocks = find_connected_objects(grid, diagonal_connectivity=False, background=0)
         vertical_blocks = vertical_blocks.filter(lambda obj: 
                                                v_color in obj.colors and 
                                                obj.width == 1 and
@@ -150,34 +139,77 @@ class IntersectingLinesTaskGenerator(ARCTaskGenerator):
         return output_grid
     
     def create_grids(self):
-        # Random number of training examples
-        num_train_pairs = random.randint(3, 5)
+        # Define task variables with distinct colors
+        h_color = random.randint(1, 9)
+        v_color = random.choice([c for c in range(1, 10) if c != h_color])
+        i_color = random.choice([c for c in range(1, 10) if c != h_color and c != v_color])
         
-        gridvars = {
-            "h_color": random.randint(1, 9),
-            "v_color": None,
-            "i_color": None
+        taskvars = {
+            "h_color": h_color,
+            "v_color": v_color,
+            "i_color": i_color
         }
         
-        # Ensure different colors for vertical blocks and intersections
-        while gridvars["v_color"] is None or gridvars["v_color"] == gridvars["h_color"]:
-            gridvars["v_color"] = random.randint(1, 9)
+        # Helper for reasoning chain formatting
+        def color_fmt(key):
+            color_id = taskvars[key]
+            return f"{self.color_name(color_id)} ({color_id})"
+        
+        # Replace placeholders in reasoning chains
+        self.input_reasoning_chain = [
+            chain.replace("{color('h_color')}", color_fmt('h_color'))
+                 .replace("{color('v_color')}", color_fmt('v_color'))
+                 .replace("{color('i_color')}", color_fmt('i_color'))
+            for chain in self.input_reasoning_chain
+        ]
+        self.transformation_reasoning_chain = [
+            chain.replace("{color('h_color')}", color_fmt('h_color'))
+                 .replace("{color('v_color')}", color_fmt('v_color'))
+                 .replace("{color('i_color')}", color_fmt('i_color'))
+            for chain in self.transformation_reasoning_chain
+        ]
+        
+        nr_train = random.randint(3, 5)
+        nr_test = random.randint(1, 2)
+
+        # Use the same pattern as the reference code to ensure diversity
+        def generate_examples(n, is_test=False):
+            examples = []
+            attempts = 0
+            max_attempts = 100 
             
-        while gridvars["i_color"] is None or gridvars["i_color"] == gridvars["h_color"] or gridvars["i_color"] == gridvars["v_color"]:
-            gridvars["i_color"] = random.randint(1, 9)
+            while len(examples) < n and attempts < max_attempts:
+                input_grid = self.create_input(taskvars, {})
+                output_grid = self.transform_input(input_grid, taskvars)
+                
+                # For test examples, always add the first one and ensure second is different
+                if is_test and len(examples) == 0:
+                    examples.append({'input': input_grid, 'output': output_grid})
+                    attempts += 1
+                    continue
+                    
+                # Check if input equals output
+                if not np.array_equal(input_grid, output_grid):
+                    examples.append({'input': input_grid, 'output': output_grid})
+                else:
+                    # For training set, allow at most one equal case
+                    equal_cases = sum(1 for ex in examples if np.array_equal(ex['input'], ex['output']))
+                    if equal_cases == 0:
+                        examples.append({'input': input_grid, 'output': output_grid})
+                        
+                attempts += 1
+                
+            if attempts >= max_attempts:
+                raise RuntimeError("Could not generate enough diverse examples")
+                
+            return examples
+
+        train_examples = generate_examples(nr_train)
+        test_examples = generate_examples(nr_test, is_test=True)
         
-        self.gridvars = gridvars
+        # Convert to the expected format
+        train_pairs = [GridPair(input=ex['input'], output=ex['output']) for ex in train_examples]
+        test_pairs = [GridPair(input=ex['input'], output=ex['output']) for ex in test_examples]
         
-        # Generate train and test pairs
-        train_pairs = []
-        for _ in range(num_train_pairs):
-            input_grid = self.create_input(gridvars)
-            output_grid = self.transform_input(input_grid, gridvars)
-            train_pairs.append(GridPair(input=input_grid, output=output_grid))
-        
-        # Generate test pair
-        test_input = self.create_input(gridvars)
-        test_output = self.transform_input(test_input, gridvars)
-        test_pairs = [GridPair(input=test_input, output=test_output)]
-        
-        return gridvars, TrainTestData(train=train_pairs, test=test_pairs)
+        return taskvars, TrainTestData(train=train_pairs, test=test_pairs)
+
