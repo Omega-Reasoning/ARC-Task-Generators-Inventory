@@ -13,7 +13,9 @@ class Taskb230c067Generator(ARCTaskGenerator):
         
         transformation_reasoning_chain = [
             "The output grid is copied from the input grid.",
-            "Only the different object gets a new color, namely {color('fill_color')}. But similar objects retain their original {color('object_color')} from the input grid."
+            "The two identical objects get a new color, namely {color('same_color')}.",
+            "The different object gets another new color, namely {color('different_color')}.",
+            "All objects change from their original {color('object_color')} to their respective new colors."
         ]
         
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
@@ -211,35 +213,45 @@ class Taskb230c067Generator(ARCTaskGenerator):
         return grid
 
     def transform_input(self, input_grid, taskvars):
-        fill_color = taskvars["fill_color"]
-        output_grid = input_grid.copy()
+        same_color = taskvars["same_color"]
+        different_color = taskvars["different_color"]
+        output_grid = np.zeros_like(input_grid)  # Start with empty grid
+        
         objects = find_connected_objects(input_grid, diagonal_connectivity=False)
         
         if len(objects) != 3:
-            return output_grid  # Should have exactly 3 objects
+            return input_grid.copy()  # Should have exactly 3 objects
         
-        # Find the different object by comparing shapes
+        # Find the different object and the identical objects by comparing shapes
         object_arrays = []
         for obj in objects:
             arr = obj.to_array()
             object_arrays.append((arr, obj))
         
-        # Find the object that has no matches (the different one)
-        different_obj = None
+        # Classify objects as identical or different
+        identical_objects = []
+        different_objects = []
+        
         for i, (arr1, obj1) in enumerate(object_arrays):
             matches = 0
             for j, (arr2, _) in enumerate(object_arrays):
                 if i != j and self.objects_are_identical(arr1, arr2):
                     matches += 1
             
-            if matches == 0:  # This is our different object
-                different_obj = obj1
-                break
+            if matches == 1:  # This object has exactly one match (part of identical pair)
+                identical_objects.append(obj1)
+            elif matches == 0:  # This object has no matches (unique/different)
+                different_objects.append(obj1)
         
-        # Color the different object
-        if different_obj is not None:
-            for r, c, _ in different_obj:
-                output_grid[r, c] = fill_color
+        # Color the identical objects with same_color
+        for obj in identical_objects:
+            for r, c, _ in obj:
+                output_grid[r, c] = same_color
+        
+        # Color the different object with different_color
+        for obj in different_objects:
+            for r, c, _ in obj:
+                output_grid[r, c] = different_color
         
         return output_grid
     
@@ -247,13 +259,18 @@ class Taskb230c067Generator(ARCTaskGenerator):
         num_train_pairs = random.randint(3, 5)
         train_pairs = []
         
-        # Choose random colors between 1-9
-        object_color = random.randint(1, 9)
-        fill_color = random.choice([c for c in range(1, 10) if c != object_color])
+        # Choose 3 different random colors between 1-9
+        available_colors = list(range(1, 10))
+        random.shuffle(available_colors)
+        
+        object_color = available_colors[0]
+        same_color = available_colors[1]
+        different_color = available_colors[2]
             
         taskvars = {
             "object_color": object_color,
-            "fill_color": fill_color
+            "same_color": same_color,
+            "different_color": different_color
         }
         
         # Helper for reasoning chain formatting
@@ -264,13 +281,15 @@ class Taskb230c067Generator(ARCTaskGenerator):
         # Replace color placeholders in reasoning chains
         self.input_reasoning_chain = [
             chain.replace("{color('object_color')}", color_fmt('object_color'))
-                 .replace("{color('fill_color')}", color_fmt('fill_color'))
+                 .replace("{color('same_color')}", color_fmt('same_color'))
+                 .replace("{color('different_color')}", color_fmt('different_color'))
             for chain in self.input_reasoning_chain
         ]
         
         self.transformation_reasoning_chain = [
             chain.replace("{color('object_color')}", color_fmt('object_color'))
-                 .replace("{color('fill_color')}", color_fmt('fill_color'))
+                 .replace("{color('same_color')}", color_fmt('same_color'))
+                 .replace("{color('different_color')}", color_fmt('different_color'))
             for chain in self.transformation_reasoning_chain
         ]
         
