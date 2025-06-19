@@ -1,13 +1,11 @@
 from arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
 import numpy as np
 import random
-from input_library import create_object, Contiguity, retry
-from transformation_library import find_connected_objects, BorderBehavior
 
 class Taska5f85a15Generator(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
-            "Input grids are squares and can have different sizes.",
+            "Input grids are squares of size {vars['rows']}x{vars['cols']}.",
             "They contain one or more same-colored diagonal lines, with the remaining cells being empty (0).",
             "The diagonal lines are in the direction which is parallel to the main diagonal (top-left to bottom-right).",
             "The diagonal lines may not necessarily be on the main diagonal but parallel to it.",
@@ -17,62 +15,68 @@ class Taska5f85a15Generator(ARCTaskGenerator):
         
         transformation_reasoning_chain = [
             "The output grid is constructed by copying the input grid and identifying the colored diagonal lines.",
-            "Once identified, for each diagonal line, start from the second cell and change its color to a different color.", 
+            "Once identified, for each diagonal line, start from the second cell and change its color to a different color (color 6).", 
             "Repeat this process by changing the color of all alternating cells along the diagonal line, continuing until no more cells can be recolored."
         ]
         
-        # Call parent constructor
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
     
     def create_grids(self) -> tuple[dict[str, any], TrainTestData]:
-        # Generate 3-4 training pairs
-        num_train_pairs = random.randint(3, 4)
-        
-        # Ensure we have different grid sizes for each grid
-        grid_sizes = random.sample(range(15, 31), num_train_pairs + 1)  # +1 for test grid
-        
-        # Generate different line colors for each grid (ensuring they're all different)
-        available_colors = list(range(1, 10))
-        line_colors = random.sample(available_colors, num_train_pairs + 1)
-        
-        # Generate different fill colors for each grid (must be different from corresponding line color)
-        fill_colors = []
-        for line_color in line_colors:
-            available_fill_colors = [c for c in available_colors if c != line_color]
-            fill_colors.append(random.choice(available_fill_colors))
-        
-        # Generate train grids
+        # Create 3-4 training examples
+        num_train_examples = random.randint(3, 4)
         train_pairs = []
-        for i in range(num_train_pairs):
+        
+        # Generate different grid sizes for each example
+        train_grid_sizes = random.sample(range(15, 25), num_train_examples)
+        
+        # Define test grid size for taskvars
+        test_grid_size = random.randint(15, 20)
+        
+        # Initialize task variables with test grid size
+        taskvars = {
+            'rows': test_grid_size,
+            'cols': test_grid_size
+        }
+        
+        # Create training examples
+        for i in range(num_train_examples):
+            # Generate a random line color for this grid (not 6)
+            available_colors = [c for c in range(1, 10) if c != 6]
+            line_color = random.choice(available_colors)
+            
             gridvars = {
-                "size": grid_sizes[i],
-                "line_color": line_colors[i],
-                "fill_color": fill_colors[i],
+                "size": train_grid_sizes[i],
+                "line_color": line_color,
                 "has_main_diag": random.choice([True, False]),
                 "num_diags": random.randint(1, 3)
             }
             
             input_grid = self.create_input(gridvars)
-            output_grid = self.transform_input(input_grid, gridvars)
+            output_grid = self.transform_input(input_grid)
+            
+            # Use GridPair instead of dictionary
             train_pairs.append(GridPair(input=input_grid, output=output_grid))
         
-        # Generate test grid
+        # Create test example with the size specified in taskvars
+        # Generate random colors for the test example (not 6)
+        available_colors = [c for c in range(1, 10) if c != 6]
+        test_line_color = random.choice(available_colors)
+        
         test_gridvars = {
-            "size": grid_sizes[-1],
-            "line_color": line_colors[-1],
-            "fill_color": fill_colors[-1],
+            "size": test_grid_size,
+            "line_color": test_line_color,
             "has_main_diag": random.choice([True, False]),
             "num_diags": random.randint(1, 3)
         }
         
         test_input = self.create_input(test_gridvars)
-        test_output = self.transform_input(test_input, test_gridvars)
+        test_output = self.transform_input(test_input)
         
-        # Return empty dictionary for task variables since we don't want any predefined
-        return {}, TrainTestData(
-            train=train_pairs,
-            test=[GridPair(input=test_input, output=test_output)]
-        )
+        # Use GridPair for test example
+        test_pairs = [GridPair(input=test_input, output=test_output)]
+        
+        # Return TrainTestData object
+        return taskvars, TrainTestData(train=train_pairs, test=test_pairs)
     
     def create_input(self, gridvars: dict[str, any]) -> np.ndarray:
         # Extract variables
@@ -85,8 +89,6 @@ class Taska5f85a15Generator(ARCTaskGenerator):
         grid = np.zeros((grid_size, grid_size), dtype=int)
         
         # Find valid diagonal offsets that would give at least 3 cells on each diagonal
-        # An offset of k means cells at positions (i, i+k) or (i-k, i)
-        # Length of diagonal with offset k is (grid_size - abs(k))
         valid_offsets = [k for k in range(-grid_size+3, grid_size-2) if abs(k) <= grid_size-3]
         
         # If we need the main diagonal, make sure 0 is in the selected offsets
@@ -134,24 +136,36 @@ class Taska5f85a15Generator(ARCTaskGenerator):
         
         return grid
     
-    def transform_input(self, grid: np.ndarray, gridvars: dict[str, any]) -> np.ndarray:
+    def transform_input(self, grid: np.ndarray) -> np.ndarray:
+        """
+        Transform the input grid by recoloring alternating cells on each diagonal line.
+        """
         # Create a copy of the input grid
         output = grid.copy()
         
-        # Get the fill color for this specific grid
-        fill_color = gridvars["fill_color"]
+        # Get the line color from the input grid
+        line_color = None
+        for val in np.unique(grid):
+            if val != 0:
+                line_color = val
+                break
+        
+        if line_color is None:
+            return output
+        
+        # Always use color 6 for the alternating cells
+        fill_color = 6
         
         # Find all diagonal lines
-        # We'll use diagonal detection by iterating through all possible diagonals
         grid_size = grid.shape[0]
         
         # Process each diagonal (both main and parallel)
         for offset in range(-grid_size+1, grid_size):
             if offset >= 0:
-                # Diagonals below or on the main diagonal (from top-left to bottom-right)
+                # Diagonals below or on the main diagonal
                 cells = [(i, i+offset) for i in range(grid_size-offset)]
             else:
-                # Diagonals above the main diagonal (from top-left to bottom-right)
+                # Diagonals above the main diagonal
                 cells = [(i-offset, i) for i in range(grid_size+offset)]
             
             # Filter valid cells and check if this is a colored diagonal

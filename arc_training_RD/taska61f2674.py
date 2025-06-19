@@ -1,69 +1,45 @@
-from input_library import create_object, enforce_object_height, retry
-from transformation_library import GridObject, find_connected_objects
+from arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
+from transformation_library import find_connected_objects
 import numpy as np
 import random
-from typing import Dict, List, Tuple
-from arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
+from typing import Dict, Tuple
 
-class Taska61f2674Generator(ARCTaskGenerator):
+class Taska61g2674Generator(ARCTaskGenerator):
     def __init__(self):
-        # Use placeholders in the reasoning chains
+        # Use placeholders for colors in the reasoning chains
         input_reasoning_chain = [
-            "Input grids are squares and can have different sizes.",
+            "Input grids are squares of size {vars['rows']}x{vars['cols']}.",
             "They only contain {color('object_color')} color objects and empty (0) cells.",
-            "The {color('object_color')} color cells form tower-like vertical structures of varying sizes and are placed randomly.",
+            "The {color('object_color')} cells form tower-like vertical structures of varying sizes and are placed randomly.",
             "Every alternative column must be left empty beside the tower.",
             "No two towers can have the same height."
         ]
         
         transformation_reasoning_chain = [
             "The output grid is constructed by copying the input grid and identifying the tallest and the shortest tower only.",
-            "Once identified, fill the longest tower with {color('fill_color1')} color and the shortest tower with {color('fill_color2')} color."
+            "Once identified, fill the longest tower with {color('fill_color1')} and the shortest tower with {color('fill_color2')}."
         ]
         
-        # Initialize with default reasoning chains
+        # Initialize with placeholder reasoning chains
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
         
-    def color_name(self, color: int) -> str:
-        color_map = {
-            0: "black",
-            1: "blue",
-            2: "red",
-            3: "green",
-            4: "yellow",
-            5: "gray",
-            6: "magenta",
-            7: "orange",
-            8: "cyan",
-            9: "brown"
-        }
-        return color_map.get(color, f"color_{color}")
-
-    def create_input(self, taskvars):
-        object_color = taskvars['object_color']
-        fill_color1 = taskvars['fill_color1']   
-        fill_color2 = taskvars['fill_color2']
-
-        # Calculate minimum size needed for 4 towers (need at least 7 columns)
-        min_size = 9  # 4 towers + 5 empty columns
-        
-        # Randomly determine grid size (between min_size and 20)
-        size = random.randint(min_size, 20)
+    def create_input(self) -> np.ndarray:
+        """Create an input grid with towers of different heights"""
+        # Randomly determine grid size (between 5x5 and 12x12)
+        size = random.randint(5, 12)
         
         # Create empty grid
         grid = np.zeros((size, size), dtype=int)
         
-        # Use the object color from taskvars
-        object_color = taskvars['object_color']
+        # Get object color from taskvars (will be set in create_grids)
+        object_color = 1  # Default value, will be overridden in create_grids
+        if hasattr(self, 'taskvars') and 'object_color' in self.taskvars:
+            object_color = self.taskvars['object_color']
         
-        # Determine number of towers (4-6, but limited by available space)
-        max_possible_towers = size // 2  # Every other column
-        min_towers = 4  # Ensure at least 4 towers
+        # Determine number of towers (2-6, but limited by available space)
+        max_possible_towers = size // 2
+        min_towers = min(2, max_possible_towers)
         max_towers = min(6, max_possible_towers)
-        
-        # Ensure we can fit the minimum number of towers
-        if max_possible_towers < min_towers:
-            min_towers = max_possible_towers
         
         num_towers = random.randint(min_towers, max_towers)
         
@@ -85,78 +61,96 @@ class Taska61f2674Generator(ARCTaskGenerator):
         
         return grid
 
-    def transform_input(self, input_grid: np.ndarray) -> np.ndarray:
+    def transform_input(self, grid: np.ndarray) -> np.ndarray:
+        """
+        Transform input grid by coloring the tallest tower with one color and the shortest tower with another color.
+        
+        1. Find all connected components in the input grid
+        2. Identify the tallest tower (with maximum height)
+        3. Identify the shortest tower (with minimum height)
+        4. Create a new grid where only these two towers are colored
+        5. The tallest tower is colored with fill_color1
+        6. The shortest tower is colored with fill_color2
+        """
+        # Get fill colors from taskvars (will be set in create_grids)
+        fill_color1 = 2  # Default value, will be overridden in create_grids
+        fill_color2 = 3  # Default value, will be overridden in create_grids
+        
+        if hasattr(self, 'taskvars'):
+            if 'fill_color1' in self.taskvars:
+                fill_color1 = self.taskvars['fill_color1']
+            if 'fill_color2' in self.taskvars:
+                fill_color2 = self.taskvars['fill_color2']
+        
         # Make a copy of the input grid
-        output_grid = np.zeros_like(input_grid)  # Start with an empty grid
+        output_grid = np.zeros_like(grid)
         
         # Find all connected objects (towers)
-        objects = find_connected_objects(input_grid, diagonal_connectivity=False)
+        objects = find_connected_objects(grid, diagonal_connectivity=False)
         
-        if len(objects) < 2:
-            # If there's only one tower, just return it as is
-            return input_grid
+        # Get all non-zero objects
+        non_zero_objects = []
+        for obj in objects:
+            if any(color != 0 for _, _, color in obj.cells):
+                non_zero_objects.append(obj)
+        
+        # If fewer than 2 objects found, return the input grid
+        if len(non_zero_objects) < 2:
+            return grid
         
         # Sort objects by height (tallest first)
-        sorted_objects = sorted(objects, key=lambda obj: obj.height, reverse=True)
+        sorted_objects = sorted(non_zero_objects, key=lambda obj: obj.height, reverse=True)
         
+        # Get the tallest and shortest objects
         tallest = sorted_objects[0]
         shortest = sorted_objects[-1]
         
-        # Get colors from taskvars
-        fill_color1 = self.taskvars['fill_color1']
-        fill_color2 = self.taskvars['fill_color2']
-        
-        # Color only the tallest and shortest towers
+        # Color the tallest tower with fill_color1
         for r, c, _ in tallest.cells:
             output_grid[r, c] = fill_color1
+        
+        # Color the shortest tower with fill_color2
         for r, c, _ in shortest.cells:
             output_grid[r, c] = fill_color2
         
         return output_grid
 
     def create_grids(self) -> Tuple[Dict, TrainTestData]:
-        # Generate random colors that are all different
+        # Define the test grid size
+        test_grid_size = random.randint(7, 12)
+        
+        # Generate random colors for objects and fill
         object_color = random.randint(1, 9)
-        fill_color1 = random.choice([c for c in range(1, 10) if c != object_color])
-        fill_color2 = random.choice([c for c in range(1, 10) if c not in [object_color, fill_color1]])
-
-        # Store color ids for logic
-        taskvars = {
+        
+        # Choose different colors for fill_color1 and fill_color2
+        available_colors = [c for c in range(1, 10) if c != object_color]
+        fill_color1 = random.choice(available_colors)
+        available_colors.remove(fill_color1)
+        fill_color2 = random.choice(available_colors)
+        
+        # Store task variables
+        self.taskvars = {
             'object_color': object_color,
             'fill_color1': fill_color1,
             'fill_color2': fill_color2,
+            'rows': test_grid_size,
+            'cols': test_grid_size
         }
-
-        # Helper for reasoning chain formatting
-        def color_fmt(key):
-            color_id = taskvars[key]
-            return f"{self.color_name(color_id)} ({color_id})"
-
-        # Make taskvars available to transform_input
-        self.taskvars = taskvars
-
-        # Replace {color('object_color')} etc. in reasoning chains
-        self.input_reasoning_chain = [
-            chain.replace("{color('object_color')}", color_fmt('object_color'))
-            for chain in self.input_reasoning_chain
-        ]
-        self.transformation_reasoning_chain = [
-            chain.replace("{color('fill_color1')}", color_fmt('fill_color1'))
-                 .replace("{color('fill_color2')}", color_fmt('fill_color2'))
-            for chain in self.transformation_reasoning_chain
-        ]
-
-        # Create 3-5 train pairs and 1 test pair
+        
+        # Create 3-5 train pairs
         num_train = random.randint(3, 5)
         train_pairs = []
+        
         for _ in range(num_train):
-            input_grid = self.create_input(taskvars)
+            # Use random sizes for training examples
+            input_grid = self.create_input()
             output_grid = self.transform_input(input_grid)
             train_pairs.append(GridPair(input=input_grid, output=output_grid))
-
-        # Create test pair
-        test_input = self.create_input(taskvars)
+        
+        # Create test pair with the size specified in taskvars
+        test_input = self.create_input()
         test_output = self.transform_input(test_input)
         test_pairs = [GridPair(input=test_input, output=test_output)]
-
-        return taskvars, TrainTestData(train=train_pairs, test=test_pairs)
+        
+        # Return taskvars and TrainTestData object
+        return self.taskvars, TrainTestData(train=train_pairs, test=test_pairs)
