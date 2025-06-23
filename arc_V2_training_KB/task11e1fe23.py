@@ -4,7 +4,7 @@ from input_library import retry
 import numpy as np
 import random
 
-class ThreeCornerSquareGenerator(ARCTaskGenerator):
+class Task11e1fe23Generator(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
             "Input grids are of different sizes.",
@@ -174,12 +174,3 @@ class ThreeCornerSquareGenerator(ARCTaskGenerator):
             'test': test_examples
         }
 
-# Test the generator
-if __name__ == "__main__":
-    generator = ThreeCornerSquareGenerator()
-    taskvars, train_test_data = generator.create_grids()
-    print(f"Task variables: {taskvars}")
-    print(f"Number of training examples: {len(train_test_data['train'])}")
-    print(f"Number of test examples: {len(train_test_data['test'])}")
-    
-    ARCTaskGenerator.visualize_train_test_data(train_test_data)

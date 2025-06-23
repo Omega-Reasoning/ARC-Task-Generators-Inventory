@@ -3,7 +3,7 @@ from transformation_library import GridObject, GridObjects, find_connected_objec
 import numpy as np
 import random
 
-class ARCTaskGenerator2024_15(ARCTaskGenerator):
+class Task11dc524fGenerator(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
             "Input grids are of size {vars['grid_size']}x{vars['grid_size']}.",
@@ -248,8 +248,4 @@ class ARCTaskGenerator2024_15(ARCTaskGenerator):
 
 
 
-# Test the generator
-if __name__ == "__main__":
-    generator = ARCTaskGenerator2024_15()
-    taskvars, train_test_data = generator.create_grids()
-    generator.visualize_train_test_data(train_test_data)
+
