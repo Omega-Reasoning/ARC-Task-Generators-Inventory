@@ -1,157 +1,249 @@
-from input_library import create_object, enforce_object_height, retry
-from transformation_library import GridObject, find_connected_objects
+from arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
+from transformation_library import find_connected_objects, GridObjects
+from input_library import retry
 import numpy as np
 import random
-from typing import Dict, List, Tuple
-from arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
 
-class Taska61f2674Generator(ARCTaskGenerator):
+class BlockAttachmentTaskGenerator(ARCTaskGenerator):
+    
     def __init__(self):
-        # Use placeholders in the reasoning chains
+        # Input reasoning chain
         input_reasoning_chain = [
-            "Input grids are square grids of size {vars['grid_size']} x {vars['grid_size']}.",
-            "They only contain {color('object_color')} color objects and empty (0) cells.",
-            "The {color('object_color')} color cells form tower-like vertical structures of varying sizes and are placed randomly.",
-            "Every alternative column must be left empty beside the tower.",
-            "No two towers can have the same height."
+            "Input grids are of size NxN.",
+            "The grid contains one 2x2 square object of {color('block_color')} color, and this block can be placed anywhere in the grid.",
+            "The main block 2x2 square is covered with two types of cells namely empty (0) cells and scattered cells (<5), where the scattered cells are of {color('object_color')} color.",
+            "These scattered cells are placed such that they are either horizontal or vertical or diagonal to the 2x2 main block square cells, but NOT touching the main block or each other."
         ]
         
+        # Transformation reasoning chain
         transformation_reasoning_chain = [
-            "The output grid is constructed by copying the input grid and identifying the tallest and the shortest tower only.",
-            "Once identified, fill the longest tower with {color('fill_color1')} color and the shortest tower with {color('fill_color2')} color."
+            "The output grid is constructed by copying the input grid main 2x2 square block.",
+            "And the scattered cells around the main block, are attached like tails to the main block with respect to their position. Suppose if one of the scattered cells is horizontally placed across the main block, then it gets attached besides the main block horizontally. The same rule is applied for cells being vertical and diagonally placed.",
+            "The attachment should not disturb the main block. The scattered cells must occur just as an extension of the main block in the output grid.",
+            "Also, the scattered cell alone must be attached to the main block, it must not form like a series of attachments."
         ]
         
-        # Initialize with default reasoning chains
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
+    
+    def create_grids(self) -> tuple[dict[str, any], TrainTestData]:
+        """Create train and test grids with consistent variables."""
+        # Generate random colors ensuring they're different
+        block_color = random.randint(1, 9)
+        object_color = random.choice([c for c in range(1, 10) if c != block_color])
         
-    def color_name(self, color: int) -> str:
-        color_map = {
-            0: "black",
-            1: "blue",
-            2: "red",
-            3: "green",
-            4: "yellow",
-            5: "gray",
-            6: "magenta",
-            7: "orange",
-            8: "cyan",
-            9: "brown"
+        # Store task variables
+        taskvars = {
+            'block_color': block_color,
+            'object_color': object_color,
         }
-        return color_map.get(color, f"color_{color}")
-
-    def create_input(self, taskvars):
+        
+        # Generate 3-5 training examples
+        num_train_examples = random.randint(3, 5)
+        train_examples = []
+        
+        # Generate grid sizes
+        min_size = 5
+        max_size = 20
+        all_sizes = [random.randint(min_size, max_size) for _ in range(num_train_examples + 1)]
+        
+        # Create training examples
+        for i in range(num_train_examples):
+            gridvars = {'grid_size': all_sizes[i]}
+            
+            input_grid = self.create_input(taskvars, gridvars)
+            output_grid = self.transform_input(input_grid, taskvars)
+            
+            train_examples.append({
+                'input': input_grid,
+                'output': output_grid
+            })
+        
+        # Create test example
+        test_gridvars = {'grid_size': all_sizes[-1]}
+        test_input = self.create_input(taskvars, test_gridvars)
+        test_output = self.transform_input(test_input, taskvars)
+        
+        test_examples = [{
+            'input': test_input,
+            'output': test_output
+        }]
+        
+        return taskvars, {
+            'train': train_examples,
+            'test': test_examples
+        }
+    
+    def create_input(self, taskvars: dict[str, any], gridvars: dict[str, any]) -> np.ndarray:
+        """Create input grid with 2x2 block and scattered cells."""
+        block_color = taskvars['block_color']
         object_color = taskvars['object_color']
-        grid_size = taskvars['grid_size']
+        grid_size = gridvars['grid_size']
         
-        # Create empty grid with fixed size
-        grid = np.zeros((grid_size, grid_size), dtype=int)
+        def generate_valid_grid():
+            grid = np.zeros((grid_size, grid_size), dtype=int)
+            
+            # Place 2x2 block randomly
+            max_block_row = grid_size - 2
+            max_block_col = grid_size - 2
+            block_row = random.randint(0, max_block_row)
+            block_col = random.randint(0, max_block_col)
+            
+            # Create 2x2 block
+            for r in range(block_row, block_row + 2):
+                for c in range(block_col, block_col + 2):
+                    grid[r, c] = block_color
+            
+            # Get block cells for reference
+            block_cells = {(r, c) for r in range(block_row, block_row + 2) 
+                          for c in range(block_col, block_col + 2)}
+            
+            # Place 1-4 scattered cells
+            num_scattered = random.randint(1, 4)
+            scattered_positions = []
+            
+            for _ in range(num_scattered):
+                attempts = 0
+                while attempts < 100:
+                    # Choose direction: horizontal, vertical, or diagonal
+                    direction = random.choice(['horizontal', 'vertical', 'diagonal'])
+                    
+                    if direction == 'horizontal':
+                        # Left or right of block
+                        side = random.choice(['left', 'right'])
+                        if side == 'left' and block_col > 0:
+                            scatter_row = random.randint(block_row, block_row + 1)
+                            scatter_col = random.randint(0, block_col - 1)
+                        elif side == 'right' and block_col + 2 < grid_size:
+                            scatter_row = random.randint(block_row, block_row + 1)
+                            scatter_col = random.randint(block_col + 2, grid_size - 1)
+                        else:
+                            attempts += 1
+                            continue
+                    
+                    elif direction == 'vertical':
+                        # Above or below block
+                        side = random.choice(['above', 'below'])
+                        if side == 'above' and block_row > 0:
+                            scatter_row = random.randint(0, block_row - 1)
+                            scatter_col = random.randint(block_col, block_col + 1)
+                        elif side == 'below' and block_row + 2 < grid_size:
+                            scatter_row = random.randint(block_row + 2, grid_size - 1)
+                            scatter_col = random.randint(block_col, block_col + 1)
+                        else:
+                            attempts += 1
+                            continue
+                    
+                    else:  # diagonal
+                        # Choose diagonal direction
+                        diag_dir = random.choice(['top-left', 'top-right', 'bottom-left', 'bottom-right'])
+                        if diag_dir == 'top-left' and block_row > 0 and block_col > 0:
+                            scatter_row = random.randint(0, block_row - 1)
+                            scatter_col = random.randint(0, block_col - 1)
+                        elif diag_dir == 'top-right' and block_row > 0 and block_col + 2 < grid_size:
+                            scatter_row = random.randint(0, block_row - 1)
+                            scatter_col = random.randint(block_col + 2, grid_size - 1)
+                        elif diag_dir == 'bottom-left' and block_row + 2 < grid_size and block_col > 0:
+                            scatter_row = random.randint(block_row + 2, grid_size - 1)
+                            scatter_col = random.randint(0, block_col - 1)
+                        elif diag_dir == 'bottom-right' and block_row + 2 < grid_size and block_col + 2 < grid_size:
+                            scatter_row = random.randint(block_row + 2, grid_size - 1)
+                            scatter_col = random.randint(block_col + 2, grid_size - 1)
+                        else:
+                            attempts += 1
+                            continue
+                    
+                    # Check if position is valid (not touching block or other scattered cells)
+                    pos = (scatter_row, scatter_col)
+                    if pos in block_cells or pos in scattered_positions:
+                        attempts += 1
+                        continue
+                    
+                    # Check not touching block or other scattered cells
+                    valid = True
+                    for dr in [-1, 0, 1]:
+                        for dc in [-1, 0, 1]:
+                            if dr == 0 and dc == 0:
+                                continue
+                            check_pos = (scatter_row + dr, scatter_col + dc)
+                            if check_pos in block_cells or check_pos in scattered_positions:
+                                valid = False
+                                break
+                        if not valid:
+                            break
+                    
+                    if valid:
+                        scattered_positions.append(pos)
+                        grid[scatter_row, scatter_col] = object_color
+                        break
+                    
+                    attempts += 1
+            
+            return grid, len(scattered_positions) > 0
         
-        # Determine number of towers (4-6, but limited by available space)
-        max_possible_towers = grid_size // 2  # Every other column
-        min_towers = 4  # Ensure at least 4 towers
-        max_towers = min(6, max_possible_towers)
-        
-        # Ensure we can fit the minimum number of towers
-        if max_possible_towers < min_towers:
-            min_towers = max_possible_towers
-        
-        num_towers = random.randint(min_towers, max_towers)
-        
-        # Generate unique tower heights (between 2 and grid_size-1)
-        possible_heights = list(range(2, grid_size))
-        random.shuffle(possible_heights)
-        tower_heights = possible_heights[:num_towers]
-        
-        # Select column positions (every other column)
-        available_columns = list(range(0, grid_size, 2))
-        random.shuffle(available_columns)
-        tower_columns = available_columns[:num_towers]
-        
-        # Create towers fixed to the bottom row
-        for height, col in zip(tower_heights, tower_columns):
-            start_row = grid_size - height  # Ensure the tower is fixed to the bottom
-            for row in range(start_row, grid_size):
-                grid[row, col] = object_color
+        grid, has_scattered = retry(
+            generate_valid_grid,
+            lambda x: x[1],
+            max_attempts=100
+        )
         
         return grid
-
-    def transform_input(self, input_grid: np.ndarray) -> np.ndarray:
-        # Make a copy of the input grid
-        output_grid = np.zeros_like(input_grid)  # Start with an empty grid
+    
+    def transform_input(self, grid: np.ndarray, taskvars: dict[str, any]) -> np.ndarray:
+        """Transform by attaching scattered cells to the 2x2 block."""
+        output_grid = grid.copy()
+        block_color = taskvars['block_color']
+        object_color = taskvars['object_color']
         
-        # Find all connected objects (towers)
-        objects = find_connected_objects(input_grid, diagonal_connectivity=False)
+        # Find the 2x2 block
+        block_cells = set()
+        rows, cols = grid.shape
         
-        if len(objects.objects) < 2:
-            # If there's only one tower, just return it as is
-            return input_grid
+        for r in range(rows - 1):
+            for c in range(cols - 1):
+                if (grid[r, c] == block_color and grid[r, c+1] == block_color and
+                    grid[r+1, c] == block_color and grid[r+1, c+1] == block_color):
+                    block_cells = {(r, c), (r, c+1), (r+1, c), (r+1, c+1)}
+                    break
+            if block_cells:
+                break
         
-        # Sort objects by height (tallest first)
-        sorted_objects = sorted(objects.objects, key=lambda obj: obj.height, reverse=True)
+        # Find scattered cells
+        scattered_cells = []
+        for r in range(rows):
+            for c in range(cols):
+                if grid[r, c] == object_color:
+                    scattered_cells.append((r, c))
         
-        tallest = sorted_objects[0]
-        shortest = sorted_objects[-1]
+        # Remove all scattered cells from their original positions first
+        for scatter_r, scatter_c in scattered_cells:
+            output_grid[scatter_r, scatter_c] = 0
         
-        # Get colors from taskvars
-        fill_color1 = self.taskvars['fill_color1']
-        fill_color2 = self.taskvars['fill_color2']
-        
-        # Color only the tallest and shortest towers
-        for r, c, _ in tallest.cells:
-            output_grid[r, c] = fill_color1
-        for r, c, _ in shortest.cells:
-            output_grid[r, c] = fill_color2
+        # For each scattered cell, attach it to the block
+        for scatter_r, scatter_c in scattered_cells:
+            # Find the closest block edge cell
+            min_dist = float('inf')
+            closest_block_cell = None
+            
+            for block_r, block_c in block_cells:
+                dist = abs(scatter_r - block_r) + abs(scatter_c - block_c)
+                if dist < min_dist:
+                    min_dist = dist
+                    closest_block_cell = (block_r, block_c)
+            
+            if closest_block_cell:
+                block_r, block_c = closest_block_cell
+                
+                # Determine direction from block to scattered cell
+                dr = 0 if scatter_r == block_r else (1 if scatter_r > block_r else -1)
+                dc = 0 if scatter_c == block_c else (1 if scatter_c > block_c else -1)
+                
+                # Attach by placing the scattered cell adjacent to the block
+                attach_r = block_r + dr
+                attach_c = block_c + dc
+                
+                # Make sure attachment position is valid and not part of the block
+                if (0 <= attach_r < rows and 0 <= attach_c < cols and 
+                    (attach_r, attach_c) not in block_cells):
+                    output_grid[attach_r, attach_c] = object_color
         
         return output_grid
-
-    def create_grids(self) -> Tuple[Dict, TrainTestData]:
-        # Generate random colors that are all different
-        object_color = random.randint(1, 9)
-        fill_color1 = random.choice([c for c in range(1, 10) if c != object_color])
-        fill_color2 = random.choice([c for c in range(1, 10) if c not in [object_color, fill_color1]])
-        
-        # Generate fixed grid size for all grids in this task
-        grid_size = random.randint(12, 20)  # Minimum 12 to accommodate towers
-
-        # Store variables
-        taskvars = {
-            'object_color': object_color,
-            'fill_color1': fill_color1,
-            'fill_color2': fill_color2,
-            'grid_size': grid_size,
-        }
-
-        # Helper for reasoning chain formatting
-        def color_fmt(key):
-            color_id = taskvars[key]
-            return f"{self.color_name(color_id)} ({color_id})"
-
-        # Make taskvars available to transform_input
-        self.taskvars = taskvars
-
-        # Replace placeholders in reasoning chains
-        self.input_reasoning_chain = [
-            chain.replace("{color('object_color')}", color_fmt('object_color'))
-                 .replace("{vars['grid_size']}", str(grid_size))
-            for chain in self.input_reasoning_chain
-        ]
-        self.transformation_reasoning_chain = [
-            chain.replace("{color('fill_color1')}", color_fmt('fill_color1'))
-                 .replace("{color('fill_color2')}", color_fmt('fill_color2'))
-            for chain in self.transformation_reasoning_chain
-        ]
-
-        # Create 3-5 train pairs and 1 test pair
-        num_train = random.randint(3, 5)
-        train_pairs = []
-        for _ in range(num_train):
-            input_grid = self.create_input(taskvars)
-            output_grid = self.transform_input(input_grid)
-            train_pairs.append(GridPair(input=input_grid, output=output_grid))
-
-        # Create test pair
-        test_input = self.create_input(taskvars)
-        test_output = self.transform_input(test_input)
-        test_pairs = [GridPair(input=test_input, output=test_output)]
-
-        return taskvars, TrainTestData(train=train_pairs, test=test_pairs)

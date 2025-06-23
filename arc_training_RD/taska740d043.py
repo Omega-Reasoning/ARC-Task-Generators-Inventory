@@ -24,26 +24,11 @@ class Taska740d043Generator(ARCTaskGenerator):
         
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
     
-    def color_name(self, color: int) -> str:
-        color_map = {
-            0: "black",
-            1: "blue",
-            2: "red",
-            3: "green",
-            4: "yellow",
-            5: "gray",
-            6: "magenta",
-            7: "orange",
-            8: "cyan",
-            9: "brown"
-        }
-        return color_map.get(color, f"color_{color}")
-    
-    def create_input(self, taskvars, grid_colors):
-        # Get colors
+    def create_input(self, taskvars: dict, gridvars: dict) -> np.ndarray:
+        """Create input grid with background color and two minor colors forming objects."""
         background_color = taskvars['background_color']
-        minor_color1 = grid_colors["minor_color1"]
-        minor_color2 = grid_colors["minor_color2"]
+        minor_color1 = gridvars["minor_color1"]
+        minor_color2 = gridvars["minor_color2"]
         
         # Random grid size between 7x7 and 10x10
         rows = random.randint(7, 10)
@@ -195,47 +180,12 @@ class Taska740d043Generator(ARCTaskGenerator):
                                 grid[new_r, new_c] == background_color and
                                 (new_r, new_c) not in potential_cells):
                                 potential_cells.append((new_r, new_c))
-            
-            else:
-                # If we couldn't create a combined object, create a separate one instead
-                # Find a distant location for the second minor color
-                while True:
-                    center2_row = random.randint(1, rows-3)
-                    center2_col = random.randint(1, cols-3)
-                    
-                    # Check if the position is empty and far from first color
-                    if grid[center2_row, center2_col] == background_color:
-                        break
-                
-                # Create a connected object for the second minor color
-                num_cells2 = random.randint(3, 5)
-                cells_added = 1
-                grid[center2_row, center2_col] = minor_color2
-                
-                # Start with the center and add adjacent cells
-                potential_cells = [(center2_row+1, center2_col), (center2_row-1, center2_col), 
-                                  (center2_row, center2_col+1), (center2_row, center2_col-1)]
-                random.shuffle(potential_cells)
-                
-                while cells_added < num_cells2 and potential_cells:
-                    r, c = potential_cells.pop(0)
-                    if (0 <= r < rows and 0 <= c < cols and 
-                        grid[r, c] == background_color):
-                        grid[r, c] = minor_color2
-                        cells_added += 1
-                        
-                        # Add new adjacent cells to consider
-                        for dr, dc in [(1, 0), (-1, 0), (0, 1), (0, -1)]:
-                            new_r, new_c = r + dr, c + dc
-                            if (0 <= new_r < rows and 0 <= new_c < cols and 
-                                grid[new_r, new_c] == background_color and
-                                (new_r, new_c) not in potential_cells):
-                                potential_cells.append((new_r, new_c))
-                
+        
         return grid
     
-    def transform_input(self, input_grid):
-        unique_colors, counts = np.unique(input_grid, return_counts=True)
+    def transform_input(self, grid: np.ndarray, taskvars: dict) -> np.ndarray:
+        """Transform input by extracting only the minor colors in their bounding box."""
+        unique_colors, counts = np.unique(grid, return_counts=True)
         
         # Find the dominant color (most frequent)
         background_color = unique_colors[np.argmax(counts)]
@@ -248,8 +198,8 @@ class Taska740d043Generator(ARCTaskGenerator):
             return np.zeros((1, 1), dtype=int)
         
         # Create a mask for the positions of the minor colors
-        mask1 = input_grid == minor_colors[0]
-        mask2 = input_grid == minor_colors[1]
+        mask1 = grid == minor_colors[0]
+        mask2 = grid == minor_colors[1]
         
         # Find the bounding box containing both minor colors
         rows_with_minor_colors = np.where(mask1 | mask2)[0]
@@ -272,13 +222,14 @@ class Taska740d043Generator(ARCTaskGenerator):
         # Copy only the minor colors to the output grid
         for i, r in enumerate(range(min_row, max_row + 1)):
             for j, c in enumerate(range(min_col, max_col + 1)):
-                if input_grid[r, c] in minor_colors:
-                    output_grid[i, j] = input_grid[r, c]
+                if grid[r, c] in minor_colors:
+                    output_grid[i, j] = grid[r, c]
         
         return output_grid
     
-    def create_grids(self):
-        # Choose a fixed background color for all grids (this is the only task variable)
+    def create_grids(self) -> tuple[dict, dict]:
+        """Create train and test grids with consistent variables."""
+        # Choose a fixed background color for all grids
         background_color = random.randint(1, 9)
         
         # Store task variables (only background color)
@@ -286,42 +237,21 @@ class Taska740d043Generator(ARCTaskGenerator):
             'background_color': background_color,
         }
         
-        # Helper for reasoning chain formatting
-        def color_fmt(key):
-            color_id = taskvars[key]
-            return f"{self.color_name(color_id)} ({color_id})"
-
-        # Make taskvars available to transform_input
-        self.taskvars = taskvars
-
-        # Replace placeholders in reasoning chains
-        self.input_reasoning_chain = [
-            chain.replace("{color('background_color')}", color_fmt('background_color'))
-            for chain in self.input_reasoning_chain
-        ]
-        self.transformation_reasoning_chain = [
-            chain.replace("{color('background_color')}", color_fmt('background_color'))
-            for chain in self.transformation_reasoning_chain
-        ]
-        
-        # Generate random number of training pairs
-        num_train_pairs = random.randint(3, 5)
-        
-        # Generate different minor color combinations for each grid
-        available_colors = [c for c in range(1, 10) if c != background_color]
-        
         # Ensure we have enough colors for all grids (each grid needs 2 minor colors)
+        available_colors = [c for c in range(1, 10) if c != background_color]
         if len(available_colors) < 2:
             # If not enough colors, adjust background color
             background_color = 1
             available_colors = [c for c in range(2, 10)]
             taskvars['background_color'] = background_color
         
-        train_pairs = []
+        # Generate random number of training pairs
+        num_train_examples = random.randint(3, 5)
+        train_examples = []
         used_minor_color_pairs = set()
         
         # Generate training pairs with different minor color combinations
-        for i in range(num_train_pairs):
+        for i in range(num_train_examples):
             # Find a unique pair of minor colors
             while True:
                 minor_colors = random.sample(available_colors, 2)
@@ -330,14 +260,18 @@ class Taska740d043Generator(ARCTaskGenerator):
                     used_minor_color_pairs.add(minor_color_pair)
                     break
             
-            grid_colors = {
+            gridvars = {
                 "minor_color1": minor_colors[0],
                 "minor_color2": minor_colors[1]
             }
             
-            input_grid = self.create_input(taskvars, grid_colors)
-            output_grid = self.transform_input(input_grid)
-            train_pairs.append(GridPair(input=input_grid, output=output_grid))
+            input_grid = self.create_input(taskvars, gridvars)
+            output_grid = self.transform_input(input_grid, taskvars)
+            
+            train_examples.append({
+                'input': input_grid,
+                'output': output_grid
+            })
         
         # Generate test pair with another unique minor color combination
         while True:
@@ -346,13 +280,20 @@ class Taska740d043Generator(ARCTaskGenerator):
             if minor_color_pair not in used_minor_color_pairs:
                 break
         
-        test_grid_colors = {
+        test_gridvars = {
             "minor_color1": minor_colors[0],
             "minor_color2": minor_colors[1]
         }
         
-        test_input = self.create_input(taskvars, test_grid_colors)
-        test_output = self.transform_input(test_input)
-        test_pairs = [GridPair(input=test_input, output=test_output)]
+        test_input = self.create_input(taskvars, test_gridvars)
+        test_output = self.transform_input(test_input, taskvars)
         
-        return taskvars, TrainTestData(train=train_pairs, test=test_pairs)
+        test_examples = [{
+            'input': test_input,
+            'output': test_output
+        }]
+        
+        return taskvars, {
+            'train': train_examples,
+            'test': test_examples
+        }

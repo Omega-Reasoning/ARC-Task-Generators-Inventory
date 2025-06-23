@@ -26,68 +26,8 @@ class Taskb0c4d837Generator(ARCTaskGenerator):
         
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
     
-    def color_name(self, color: int) -> str:
-        color_map = {
-            0: "black",
-            1: "blue", 
-            2: "red",
-            3: "green",
-            4: "yellow",
-            5: "gray",
-            6: "magenta",
-            7: "orange",
-            8: "cyan",
-            9: "brown"
-        }
-        return color_map.get(color, f"color_{color}")
-    
-    def create_grids(self):
-        # Generate colors ensuring they're different
-        available_colors = list(range(1, 10))
-        random.shuffle(available_colors)
-        
-        tank_color = available_colors[0]
-        liquid_color = available_colors[1]
-        
-        # Set task variables
-        taskvars = {
-            "tank_color": tank_color,
-            "liquid_color": liquid_color
-        }
-        
-        # Store taskvars as instance variable for access in other methods
-        self.taskvars = taskvars
-        
-        # Helper for reasoning chain formatting
-        def color_fmt(key):
-            color_id = taskvars[key]
-            return f"{self.color_name(color_id)} ({color_id})"
-        
-        # Replace placeholders in reasoning chains
-        self.input_reasoning_chain = [
-            chain.replace("{color('tank_color')}", color_fmt('tank_color'))
-                 .replace("{color('liquid_color')}", color_fmt('liquid_color'))
-            for chain in self.input_reasoning_chain
-        ]
-        self.transformation_reasoning_chain = [
-            chain.replace("{color('tank_color')}", color_fmt('tank_color'))
-                 .replace("{color('liquid_color')}", color_fmt('liquid_color'))
-            for chain in self.transformation_reasoning_chain
-        ]
-        
-        # Generate train/test data
-        num_train_pairs = random.randint(3, 5)
-        train_pairs = [self.create_example(taskvars) for _ in range(num_train_pairs)]
-        test_pairs = [self.create_example(taskvars)]
-        
-        return taskvars, TrainTestData(train=train_pairs, test=test_pairs)
-    
-    def create_example(self, taskvars):
-        input_grid = self.create_input(taskvars)
-        output_grid = self.transform_input(input_grid.copy(), taskvars)
-        return GridPair(input=input_grid, output=output_grid)
-    
-    def create_input(self, taskvars):
+    def create_input(self, taskvars: dict, gridvars: dict) -> np.ndarray:
+        """Create input grid with tank structure and liquid."""
         # Random grid size - make it larger to accommodate more liquid rows
         grid_height = random.randint(8, 15)  # Increased minimum height
         grid_width = random.randint(5, 10)
@@ -127,7 +67,7 @@ class Taskb0c4d837Generator(ARCTaskGenerator):
         
         return grid
     
-    def transform_input(self, input_grid, taskvars):
+    def transform_input(self, grid: np.ndarray, taskvars: dict) -> np.ndarray:
         """Transform input by creating 3x3 grid with liquid level representation"""
         output_grid = np.zeros((3, 3), dtype=np.int32)
         
@@ -136,11 +76,11 @@ class Taskb0c4d837Generator(ARCTaskGenerator):
         liquid_level = 0
         
         # Count from bottom up how many complete rows have liquid
-        height, width = input_grid.shape
+        height, width = grid.shape
         for row in range(height - 2, -1, -1):  # Start from second-to-bottom row going up
             row_has_liquid = False
             for col in range(width):
-                if input_grid[row, col] == liquid_color:
+                if grid[row, col] == liquid_color:
                     row_has_liquid = True
                     break
             
@@ -167,3 +107,48 @@ class Taskb0c4d837Generator(ARCTaskGenerator):
             output_grid[row, col] = liquid_color
         
         return output_grid
+    
+    def create_grids(self) -> tuple[dict, dict]:
+        """Create train and test grids with consistent variables."""
+        # Generate colors ensuring they're different
+        available_colors = list(range(1, 10))
+        random.shuffle(available_colors)
+        
+        tank_color = available_colors[0]
+        liquid_color = available_colors[1]
+        
+        # Store task variables
+        taskvars = {
+            "tank_color": tank_color,
+            "liquid_color": liquid_color
+        }
+        
+        # Generate 3-5 training examples
+        num_train_examples = random.randint(3, 5)
+        train_examples = []
+        
+        for _ in range(num_train_examples):
+            gridvars = {}  # No grid-specific variables needed
+            
+            input_grid = self.create_input(taskvars, gridvars)
+            output_grid = self.transform_input(input_grid, taskvars)
+            
+            train_examples.append({
+                'input': input_grid,
+                'output': output_grid
+            })
+        
+        # Create test example
+        test_gridvars = {}
+        test_input = self.create_input(taskvars, test_gridvars)
+        test_output = self.transform_input(test_input, taskvars)
+        
+        test_examples = [{
+            'input': test_input,
+            'output': test_output
+        }]
+        
+        return taskvars, {
+            'train': train_examples,
+            'test': test_examples
+        }

@@ -5,7 +5,7 @@ import random
 class Taskac0a08a4Generator(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
-            "Input grids are {vars['input_grid_size']} x {vars['input_grid_size']} fixed size.",
+            "Input grids are 3 x 3 fixed size.",
             "Each grid contains between 2 and 6 colored cells, and each colored cell has a unique color.",
             "The positions of the colored cells within the input grid determine their placement in the output grid."
         ]
@@ -19,7 +19,8 @@ class Taskac0a08a4Generator(ARCTaskGenerator):
         
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
     
-    def create_input(self, taskvars):
+    def create_input(self, taskvars: dict, gridvars: dict) -> np.ndarray:
+        """Create input grid with randomly placed colored cells."""
         input_size = taskvars["input_size"]
         n_objects = taskvars["num_colors"]
         colors = random.sample(range(1, 10), n_objects)  # Select unique colors
@@ -36,7 +37,8 @@ class Taskac0a08a4Generator(ARCTaskGenerator):
             
         return grid
     
-    def transform_input(self, input_grid, taskvars):
+    def transform_input(self, grid: np.ndarray, taskvars: dict) -> np.ndarray:
+        """Transform input by expanding each colored cell to n×n blocks."""
         input_size = taskvars["input_size"]
         num_colors = taskvars["num_colors"]
         block_size = num_colors  # Block size equals number of colors
@@ -46,7 +48,7 @@ class Taskac0a08a4Generator(ARCTaskGenerator):
 
         for r in range(input_size):
             for c in range(input_size):
-                color = input_grid[r, c]
+                color = grid[r, c]  # Fixed: use 'grid' instead of 'input_grid'
                 if color > 0:
                     row_start = r * block_size
                     col_start = c * block_size
@@ -54,35 +56,44 @@ class Taskac0a08a4Generator(ARCTaskGenerator):
 
         return output_grid
     
-    def create_grids(self):
-        num_train_pairs = random.randint(3, 5)
-        train_pairs = []
-
+    def create_grids(self) -> tuple[dict, dict]:
+        """Create train and test grids with consistent variables."""
         # Set input grid size and number of colors
         input_size = 3  # Always 3x3
         num_colors = random.randint(2, 6)  # 2 to 6 colors (minimum 2)
         
         taskvars = {
             "input_size": input_size,
-            "input_grid_size": input_size,  # <-- integer for logic
+            "input_grid_size": input_size,
             "num_colors": num_colors
         }
-
-        # Replace grid_size placeholders in reasoning chains
-        self.input_reasoning_chain = [
-            chain.replace("{vars['input_grid_size']} x {vars['input_grid_size']}", f"{taskvars['input_grid_size']} x {taskvars['input_grid_size']}")
-            for chain in self.input_reasoning_chain
-        ]
         
-        # Create train and test data
-        for _ in range(num_train_pairs):
-            input_grid = self.create_input(taskvars)
-            output_grid = self.transform_input(input_grid.copy(), taskvars)
-            train_pairs.append(GridPair(input=input_grid, output=output_grid))
+        # Create 3-5 training examples
+        num_train_examples = random.randint(3, 5)
+        train_examples = []
         
-        # Create test pair
-        test_input = self.create_input(taskvars)
-        test_output = self.transform_input(test_input.copy(), taskvars)
-        test_pairs = [GridPair(input=test_input, output=test_output)]
+        for _ in range(num_train_examples):
+            gridvars = {}  # No grid-specific variables needed
+            
+            input_grid = self.create_input(taskvars, gridvars)
+            output_grid = self.transform_input(input_grid, taskvars)
+            
+            train_examples.append({
+                'input': input_grid,
+                'output': output_grid
+            })
         
-        return taskvars, TrainTestData(train=train_pairs, test=test_pairs)
+        # Create test example
+        test_gridvars = {}
+        test_input = self.create_input(taskvars, test_gridvars)
+        test_output = self.transform_input(test_input, taskvars)
+        
+        test_examples = [{
+            'input': test_input,
+            'output': test_output
+        }]
+        
+        return taskvars, {
+            'train': train_examples,
+            'test': test_examples
+        }

@@ -23,11 +23,10 @@ class Taska87f7484Generator(ARCTaskGenerator):
             "Return that different 3x3 pattern as the output."
         ]
         
-        taskvars_definitions = {}
-        
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
     
-    def create_input(self):
+    def create_input(self, taskvars: dict[str, any], gridvars: dict[str, any]) -> np.ndarray:
+        """Create input grid with repeating 3x3 patterns where one is different."""
         # Decide if horizontal (3 rows) or vertical (3 columns)
         is_horizontal = random.choice([True, False])
         
@@ -66,6 +65,10 @@ class Taska87f7484Generator(ARCTaskGenerator):
         # Create the full grid
         grid = np.zeros((grid_height, grid_width), dtype=int)
         
+        # Store the unique pattern with its color for later use
+        self.unique_pattern_output = unique_pattern.copy()
+        self.unique_pattern_output[self.unique_pattern_output != 0] = pattern_colors[unique_position]
+        
         for i in range(num_patterns):
             color = pattern_colors[i]
             
@@ -83,15 +86,49 @@ class Taska87f7484Generator(ARCTaskGenerator):
             else:
                 grid[i*3:(i+1)*3, 0:3] = pattern
                 
-        # Store metadata for transformation
-        self.unique_pattern = unique_pattern.copy()
-        self.unique_pattern[self.unique_pattern != 0] = pattern_colors[unique_position]
-        self.is_horizontal = is_horizontal
-        self.unique_position = unique_position
-        self.pattern_colors = pattern_colors
-        
         return grid
     
+    def transform_input(self, input_grid: np.ndarray, taskvars: dict[str, any]) -> np.ndarray:
+        """Extract the unique 3x3 pattern."""
+        return self.unique_pattern_output
+    
+    def create_grids(self) -> tuple[dict[str, any], TrainTestData]:
+        """Create train and test grids with consistent variables."""
+        # No task variables needed for this task
+        taskvars = {}
+        
+        # Generate 3-5 training examples
+        num_train_examples = random.randint(3, 5)
+        train_examples = []
+        
+        # Create training examples
+        for i in range(num_train_examples):
+            gridvars = {}  # No grid variables needed
+            
+            input_grid = self.create_input(taskvars, gridvars)
+            output_grid = self.transform_input(input_grid, taskvars)
+            
+            train_examples.append({
+                'input': input_grid,
+                'output': output_grid
+            })
+        
+        # Create test example
+        test_gridvars = {}
+        test_input = self.create_input(taskvars, test_gridvars)
+        test_output = self.transform_input(test_input, taskvars)
+        
+        test_examples = [{
+            'input': test_input,
+            'output': test_output
+        }]
+        
+        return taskvars, {
+            'train': train_examples,
+            'test': test_examples
+        }
+    
+    # Helper methods for pattern creation
     def _create_base_pattern(self):
         """Create a base 3x3 pattern that fills most of the space"""
         pattern_types = [
@@ -166,10 +203,10 @@ class Taska87f7484Generator(ARCTaskGenerator):
             # Anti-diagonal plus adjacent cells
             for i in range(3):
                 pattern[i, 2-i] = 1
-                if i > 0:
-                    pattern[i, 2-i+1] = 1 if 2-i+1 < 3 else None
-                if i < 2:
-                    pattern[i, 2-i-1] = 1 if 2-i-1 >= 0 else None
+                if i > 0 and 2-i+1 < 3:
+                    pattern[i, 2-i+1] = 1
+                if i < 2 and 2-i-1 >= 0:
+                    pattern[i, 2-i-1] = 1
         
         return pattern
     
@@ -179,28 +216,23 @@ class Taska87f7484Generator(ARCTaskGenerator):
         shape_type = random.choice(['L', 'T', 'plus', 'corners', 'center_cross'])
         
         if shape_type == 'L':
-            # L-shape filling more space
-            pattern[0, 0] = pattern[1, 0] = pattern[2, 0] = 1  # Left column
-            pattern[2, 1] = pattern[2, 2] = 1  # Bottom row
+            pattern[0, 0] = pattern[1, 0] = pattern[2, 0] = 1
+            pattern[2, 1] = pattern[2, 2] = 1
         elif shape_type == 'T':
-            # T-shape
-            pattern[0, :] = 1  # Top row
-            pattern[1, 1] = pattern[2, 1] = 1  # Middle column
+            pattern[0, :] = 1
+            pattern[1, 1] = pattern[2, 1] = 1
         elif shape_type == 'plus':
-            # Plus/cross shape
-            pattern[1, :] = 1  # Middle row
-            pattern[:, 1] = 1  # Middle column
+            pattern[1, :] = 1
+            pattern[:, 1] = 1
         elif shape_type == 'corners':
-            # Fill all four corners and some adjacent
-            pattern[0, 0] = pattern[0, 2] = 1  # Top corners
-            pattern[2, 0] = pattern[2, 2] = 1  # Bottom corners
-            pattern[1, 0] = pattern[1, 2] = 1  # Middle sides
-            pattern[0, 1] = pattern[2, 1] = 1  # Top/bottom middle
+            pattern[0, 0] = pattern[0, 2] = 1
+            pattern[2, 0] = pattern[2, 2] = 1
+            pattern[1, 0] = pattern[1, 2] = 1
+            pattern[0, 1] = pattern[2, 1] = 1
         elif shape_type == 'center_cross':
-            # Center point with all adjacent cells
-            pattern[1, 1] = 1  # Center
-            pattern[0, 1] = pattern[2, 1] = 1  # Top and bottom
-            pattern[1, 0] = pattern[1, 2] = 1  # Left and right
+            pattern[1, 1] = 1
+            pattern[0, 1] = pattern[2, 1] = 1
+            pattern[1, 0] = pattern[1, 2] = 1
         
         return pattern
     
@@ -218,11 +250,9 @@ class Taska87f7484Generator(ARCTaskGenerator):
             for col in cols_to_fill:
                 pattern[:, col] = 1
         elif stripe_type == 'alternating_h':
-            # Alternating horizontal stripes with more density
             pattern[0, :] = 1
             pattern[2, :] = 1
         elif stripe_type == 'alternating_v':
-            # Alternating vertical stripes with more density
             pattern[:, 0] = 1
             pattern[:, 2] = 1
         
@@ -246,9 +276,8 @@ class Taska87f7484Generator(ARCTaskGenerator):
             pattern[2, 2] = pattern[2, 1] = pattern[1, 2] = 1
             pattern[1, 1] = pattern[2, 0] = pattern[0, 2] = 1
         elif corner_type == 'opposite_corners':
-            # Fill two opposite corners with surrounding areas
-            pattern[0, 0] = pattern[0, 1] = pattern[1, 0] = 1  # Top-left area
-            pattern[2, 2] = pattern[2, 1] = pattern[1, 2] = 1  # Bottom-right area
+            pattern[0, 0] = pattern[0, 1] = pattern[1, 0] = 1
+            pattern[2, 2] = pattern[2, 1] = pattern[1, 2] = 1
         
         return pattern
     
@@ -265,35 +294,10 @@ class Taska87f7484Generator(ARCTaskGenerator):
     
     def _create_different_full_pattern(self, base_pattern):
         """Create completely different full pattern"""
-        # Keep creating until we get a different pattern
         new_pattern = self._create_base_pattern()
         attempts = 0
         while np.array_equal(new_pattern, base_pattern) and attempts < 10:
             new_pattern = self._create_base_pattern()
             attempts += 1
         return new_pattern
-    
-    def transform_input(self, input_grid):
-        """Extract the unique 3x3 pattern"""
-        return self.unique_pattern
-    
-    
-    def create_grids(self):
-        gridvars = {}
-        
-        # Generate training pairs
-        train_pairs = []
-        num_train = random.randint(3, 5)
-        
-        for _ in range(num_train):
-            input_grid = self.create_input()
-            output_grid = self.transform_input(input_grid)
-            train_pairs.append(GridPair(input=input_grid, output=output_grid))
-        
-        # Generate test pair  
-        test_input = self.create_input()
-        test_output = self.transform_input(test_input)
-        test_pairs = [GridPair(input=test_input, output=test_output)]
-        
-        return gridvars, TrainTestData(train=train_pairs, test=test_pairs)
 

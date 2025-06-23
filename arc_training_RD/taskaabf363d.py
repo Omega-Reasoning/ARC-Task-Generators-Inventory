@@ -19,9 +19,9 @@ class Taskaabf363dGenerator(ARCTaskGenerator):
         
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
 
-    def create_input(self, taskvars):
-        # Generate a grid of size MxM (between 5 and 20)
-        grid_size = taskvars['grid_size']
+    def create_input(self, taskvars: dict, gridvars: dict) -> np.ndarray:
+        """Create input grid with a pattern object and a single colored cell."""
+        grid_size = gridvars['grid_size']
         grid = np.zeros((grid_size, grid_size), dtype=int)
         
         # Randomly select 2 different colors for each grid
@@ -59,19 +59,20 @@ class Taskaabf363dGenerator(ARCTaskGenerator):
             
         return grid
 
-    def transform_input(self, input_grid, taskvars):
+    def transform_input(self, grid: np.ndarray, taskvars: dict) -> np.ndarray:
+        """Transform input by removing single cell and changing pattern color."""
         # Copy the input grid
-        output_grid = input_grid.copy()
+        output_grid = grid.copy()  # Fixed: use 'grid' instead of 'input_grid'
         
         # Get all objects from the grid
-        objects = find_connected_objects(input_grid, diagonal_connectivity=True, background=0)
+        objects = find_connected_objects(grid, diagonal_connectivity=True, background=0)  # Fixed: use 'grid'
         
         # Find and store the color of the single-cell object
         single_cell_color = None
         for obj in objects.objects:
             if len(obj.cells) == 1:
                 r, c = next(iter(obj.cells))[:2]
-                single_cell_color = input_grid[r, c]
+                single_cell_color = grid[r, c]  # Fixed: use 'grid'
                 # Remove the single cell from output grid
                 output_grid[r, c] = 0
                 break  # Assume only one single-cell object
@@ -93,32 +94,40 @@ class Taskaabf363dGenerator(ARCTaskGenerator):
 
         return output_grid
 
-    def create_grids(self):
-        num_train_pairs = random.randint(3, 5)
-        train_pairs = []
-
-        # Choose a random grid size
-        grid_size = random.randint(5, 20)
-
-        taskvars = {
-            'grid_size': grid_size,  # <-- integer for logic
+    def create_grids(self) -> tuple[dict, dict]:
+        """Create train and test grids with consistent variables."""
+        # No task-level variables needed for this task
+        taskvars = {}
+        
+        # Create 3-5 training examples
+        num_train_examples = random.randint(3, 5)
+        train_examples = []
+        
+        # Generate different grid sizes
+        grid_sizes = [random.randint(5, 20) for _ in range(num_train_examples + 1)]
+        
+        for i in range(num_train_examples):
+            gridvars = {'grid_size': grid_sizes[i]}
+            
+            input_grid = self.create_input(taskvars, gridvars)
+            output_grid = self.transform_input(input_grid, taskvars)
+            
+            train_examples.append({
+                'input': input_grid,
+                'output': output_grid
+            })
+        
+        # Create test example
+        test_gridvars = {'grid_size': grid_sizes[-1]}
+        test_input = self.create_input(taskvars, test_gridvars)
+        test_output = self.transform_input(test_input, taskvars)
+        
+        test_examples = [{
+            'input': test_input,
+            'output': test_output
+        }]
+        
+        return taskvars, {
+            'train': train_examples,
+            'test': test_examples
         }
-
-        # Replace grid_size placeholders in reasoning chains
-        self.input_reasoning_chain = [
-            chain.replace("{vars['grid_size']} x {vars['grid_size']}", f"{taskvars['grid_size']} x {taskvars['grid_size']}")
-            for chain in self.input_reasoning_chain
-        ]
-        
-        # Create train and test data
-        for _ in range(num_train_pairs):
-            input_grid = self.create_input(taskvars)
-            output_grid = self.transform_input(input_grid.copy(), taskvars)
-            train_pairs.append(GridPair(input=input_grid, output=output_grid))
-        
-        # Create test pair
-        test_input = self.create_input(taskvars)
-        test_output = self.transform_input(test_input.copy(), taskvars)
-        test_pairs = [GridPair(input=test_input, output=test_output)]
-        
-        return taskvars, TrainTestData(train=train_pairs, test=test_pairs)

@@ -25,26 +25,17 @@ class Taskae3edfdcGenerator(ARCTaskGenerator):
             "The main cell remains unchanged. Each scattered cell is attached once, directly forming a \"plus\" pattern around the main cell. Do not create a series or chain of scattered cells."
         ]
         
-        taskvars_definitions = {
-            "grid_size": "Size of the square grid (same for all grids)",
-            "main_cell1": "Color of the first main cell",
-            "main_cell2": "Color of the second main cell", 
-            "scattered_main_1": "Color of scattered cells associated with main_cell1",
-            "scattered_main_2": "Color of scattered cells associated with main_cell2"
-        }
-        
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
     
-    def create_input(self):
-        # Use consistent grid size from gridvars
-        grid_size = self.grid_size
-        grid = np.zeros((grid_size, grid_size), dtype=int)
+    def create_input(self, taskvars: dict, gridvars: dict) -> np.ndarray:
+        """Create input grid with main cells and their associated scattered cells."""
+        grid_size = gridvars['grid_size']
+        main_cell1_color = taskvars['main_cell1']
+        main_cell2_color = taskvars['main_cell2']
+        scattered_color1 = taskvars['scattered_main_1']
+        scattered_color2 = taskvars['scattered_main_2']
         
-        # Get colors from gridvars
-        main_cell1_color = self.main_cell1_color
-        main_cell2_color = self.main_cell2_color
-        scattered_color1 = self.scattered_color1
-        scattered_color2 = self.scattered_color2
+        grid = np.zeros((grid_size, grid_size), dtype=int)
         
         # Place main cells ensuring they don't conflict
         def place_main_cells():
@@ -71,12 +62,6 @@ class Taskae3edfdcGenerator(ARCTaskGenerator):
         grid[main_pos1[0], main_pos1[1]] = main_cell1_color
         grid[main_pos2[0], main_pos2[1]] = main_cell2_color
         
-        # Store main positions and colors for transformation
-        self.main_positions = [main_pos1, main_pos2]
-        self.main_colors = [main_cell1_color, main_cell2_color]
-        self.scattered_colors = [scattered_color1, scattered_color2]
-        self.scattered_positions = [[], []]
-        
         # Place scattered cells for each main cell
         for main_idx, (main_pos, scattered_color) in enumerate(zip(main_positions, [scattered_color1, scattered_color2])):
             num_scattered = random.randint(1, 4)
@@ -89,7 +74,6 @@ class Taskae3edfdcGenerator(ARCTaskGenerator):
                 
                 for pos in selected_positions:
                     grid[pos[0], pos[1]] = scattered_color
-                    self.scattered_positions[main_idx].append(pos)
         
         return grid
     
@@ -136,26 +120,51 @@ class Taskae3edfdcGenerator(ARCTaskGenerator):
                         return False
         return True
     
-    def transform_input(self, input_grid):
+    def transform_input(self, grid: np.ndarray, taskvars: dict) -> np.ndarray:
         """Transform input by attaching scattered cells adjacent to their main cells"""
-        output_grid = input_grid.copy()
-        grid_size = self.grid_size
+        output_grid = grid.copy()
+        grid_size = grid.shape[0]
+        
+        # Get colors from taskvars
+        main_cell1_color = taskvars['main_cell1']
+        main_cell2_color = taskvars['main_cell2']
+        scattered_color1 = taskvars['scattered_main_1']
+        scattered_color2 = taskvars['scattered_main_2']
+        
+        # Find main cells and their positions
+        main_positions = []
+        main_colors = [main_cell1_color, main_cell2_color]
+        scattered_colors = [scattered_color1, scattered_color2]
+        
+        for main_color in main_colors:
+            for r in range(grid_size):
+                for c in range(grid_size):
+                    if grid[r, c] == main_color:
+                        main_positions.append((r, c))
+                        break
+                else:
+                    continue
+                break
         
         # Process each main cell and its scattered cells
         for main_idx, (main_pos, main_color, scattered_color) in enumerate(
-            zip(self.main_positions, self.main_colors, self.scattered_colors)):
+            zip(main_positions, main_colors, scattered_colors)):
             
             main_r, main_c = main_pos
-            scattered_positions = self.scattered_positions[main_idx]
+            
+            # Find all scattered cells of this color
+            scattered_positions = []
+            for r in range(grid_size):
+                for c in range(grid_size):
+                    if grid[r, c] == scattered_color:
+                        scattered_positions.append((r, c))
             
             # Remove scattered cells from their original positions
-            for scat_pos in scattered_positions:
-                output_grid[scat_pos[0], scat_pos[1]] = 0
+            for scat_r, scat_c in scattered_positions:
+                output_grid[scat_r, scat_c] = 0
             
             # Attach scattered cells adjacent to main cell
-            for scat_pos in scattered_positions:
-                scat_r, scat_c = scat_pos
-                
+            for scat_r, scat_c in scattered_positions:
                 # Determine direction from main to scattered cell
                 dr = scat_r - main_r
                 dc = scat_c - main_c
@@ -179,41 +188,47 @@ class Taskae3edfdcGenerator(ARCTaskGenerator):
         
         return output_grid
     
-    def create_grids(self):
-        gridvars = {}
-        
+    def create_grids(self) -> tuple[dict, dict]:
+        """Create train and test grids with consistent variables."""
         # Set consistent grid size and colors for all grids
         grid_size = random.randint(8, 15)  # Ensure enough space for scattered cells
         available_colors = list(range(1, 10))
         random.shuffle(available_colors)
         
-        # Store in gridvars and as instance variables
-        gridvars["grid_size"] = grid_size
-        gridvars["main_cell1"] = available_colors[0]
-        gridvars["main_cell2"] = available_colors[1]
-        gridvars["scattered_main_1"] = available_colors[2]
-        gridvars["scattered_main_2"] = available_colors[3]
+        # Store task variables
+        taskvars = {
+            "main_cell1": available_colors[0],
+            "main_cell2": available_colors[1],
+            "scattered_main_1": available_colors[2],
+            "scattered_main_2": available_colors[3]
+        }
         
-        # Store as instance variables for use in create_input and transform_input
-        self.grid_size = grid_size
-        self.main_cell1_color = available_colors[0]
-        self.main_cell2_color = available_colors[1] 
-        self.scattered_color1 = available_colors[2]
-        self.scattered_color2 = available_colors[3]
+        # Generate 3-5 training examples
+        num_train_examples = random.randint(3, 5)
+        train_examples = []
         
-        # Generate training pairs
-        train_pairs = []
-        num_train = random.randint(3, 5)
+        for _ in range(num_train_examples):
+            gridvars = {'grid_size': grid_size}
+            
+            input_grid = self.create_input(taskvars, gridvars)
+            output_grid = self.transform_input(input_grid, taskvars)
+            
+            train_examples.append({
+                'input': input_grid,
+                'output': output_grid
+            })
         
-        for _ in range(num_train):
-            input_grid = self.create_input()
-            output_grid = self.transform_input(input_grid)
-            train_pairs.append(GridPair(input=input_grid, output=output_grid))
+        # Create test example
+        test_gridvars = {'grid_size': grid_size}
+        test_input = self.create_input(taskvars, test_gridvars)
+        test_output = self.transform_input(test_input, taskvars)
         
-        # Generate test pair  
-        test_input = self.create_input()
-        test_output = self.transform_input(test_input)
-        test_pairs = [GridPair(input=test_input, output=test_output)]
+        test_examples = [{
+            'input': test_input,
+            'output': test_output
+        }]
         
-        return gridvars, TrainTestData(train=train_pairs, test=test_pairs)
-
+        return taskvars, {
+            'train': train_examples,
+            'test': test_examples
+        }

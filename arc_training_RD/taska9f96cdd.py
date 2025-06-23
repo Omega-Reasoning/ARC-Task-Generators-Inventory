@@ -20,22 +20,8 @@ class Taska9f96cddGenerator(ARCTaskGenerator):
         
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
     
-    def color_name(self, color: int) -> str:
-        color_map = {
-            0: "black",
-            1: "blue",
-            2: "red",
-            3: "green",
-            4: "yellow",
-            5: "gray",
-            6: "magenta",
-            7: "orange",
-            8: "cyan",
-            9: "brown"
-        }
-        return color_map.get(color, f"color_{color}")
-    
-    def create_grids(self):
+    def create_grids(self) -> tuple[dict[str, any], TrainTestData]:
+        """Create train and test grids with consistent variables."""
         # Define color mapping
         main_color = random.randint(1, 9)
         
@@ -55,43 +41,36 @@ class Taska9f96cddGenerator(ARCTaskGenerator):
             "object_color4": object_colors[3]   # Bottom-right diagonal
         }
         
-        # Store taskvars as instance variable for access in transform_input
-        self.taskvars = taskvars
+        # Generate 3-5 training examples
+        num_train_examples = random.randint(3, 5)
+        train_examples = []
         
-        # Helper for reasoning chain formatting
-        def color_fmt(key):
-            color_id = taskvars[key]
-            return f"{self.color_name(color_id)} ({color_id})"
-
-        # Replace placeholders in reasoning chains
-        self.input_reasoning_chain = [
-            chain.replace("{color('main_color')}", color_fmt('main_color'))
-                 .replace("{vars['grid_rows']}", str(taskvars['grid_rows']))
-                 .replace("{vars['grid_cols']}", str(taskvars['grid_cols']))
-            for chain in self.input_reasoning_chain
-        ]
-        self.transformation_reasoning_chain = [
-            chain.replace("{color('main_color')}", color_fmt('main_color'))
-                 .replace("{color('object_color1')}", color_fmt('object_color1'))
-                 .replace("{color('object_color2')}", color_fmt('object_color2'))
-                 .replace("{color('object_color3')}", color_fmt('object_color3'))
-                 .replace("{color('object_color4')}", color_fmt('object_color4'))
-            for chain in self.transformation_reasoning_chain
-        ]
+        # Create training examples
+        for i in range(num_train_examples):
+            input_grid = self.create_input(taskvars, {})
+            output_grid = self.transform_input(input_grid, taskvars)
+            
+            train_examples.append({
+                'input': input_grid,
+                'output': output_grid
+            })
         
-        # Generate train/test data
-        num_train_pairs = random.randint(3, 5)
-        train_pairs = [self.create_example(taskvars) for _ in range(num_train_pairs)]
-        test_pairs = [self.create_example(taskvars)]
+        # Create test example
+        test_input = self.create_input(taskvars, {})
+        test_output = self.transform_input(test_input, taskvars)
         
-        return taskvars, TrainTestData(train=train_pairs, test=test_pairs)
+        test_examples = [{
+            'input': test_input,
+            'output': test_output
+        }]
+        
+        return taskvars, {
+            'train': train_examples,
+            'test': test_examples
+        }
     
-    def create_example(self, taskvars):
-        input_grid = self.create_input(taskvars)
-        output_grid = self.transform_input(input_grid.copy(), taskvars)
-        return GridPair(input=input_grid, output=output_grid)
-    
-    def create_input(self, taskvars):
+    def create_input(self, taskvars: dict[str, any], gridvars: dict[str, any]) -> np.ndarray:
+        """Create input grid with a single main cell."""
         # Use fixed grid size from task variables
         rows = taskvars['grid_rows']
         cols = taskvars['grid_cols']
@@ -106,7 +85,8 @@ class Taska9f96cddGenerator(ARCTaskGenerator):
         
         return grid
     
-    def transform_input(self, grid, taskvars):
+    def transform_input(self, grid: np.ndarray, taskvars: dict[str, any]) -> np.ndarray:
+        """Transform input by placing diagonal colors around the main cell."""
         # Find the main cell
         main_objects = find_connected_objects(grid, background=0)
         main_cell = None

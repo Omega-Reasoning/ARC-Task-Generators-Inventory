@@ -1,14 +1,14 @@
 from arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
 import numpy as np
 import random
-from typing import Dict, List, Tuple  # Add Tuple to the imports
+from typing import Dict, List, Tuple
 from transformation_library import GridObject, find_connected_objects
 from input_library import create_object, enforce_object_height, enforce_object_width, retry
 
 class Taska5313dffGenerator(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
-            "The input grid is a square grid with dimension {vars['rows']} X {vars['rows']}.",
+            "The input grid is a square grid with various dimensions.",
             "The objects which are 4-way connected are either square or rectangle.",
             "The object must be in red color.",
             "If the object is a square, then it must contain one cell of color red exactly in the center.",
@@ -25,14 +25,14 @@ class Taska5313dffGenerator(ARCTaskGenerator):
         
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
 
-    def create_input(self) -> np.ndarray:
-        # Randomly choose grid size between 5x5 and 15x15
-        rows = random.choice([5, 7, 9, 11, 13, 15])
+    def create_input(self, taskvars: dict, gridvars: dict) -> np.ndarray:
+        """Create input grid with red squares or rectangles."""
+        rows = gridvars['grid_size']
         
         # Create empty grid
         grid = np.zeros((rows, rows), dtype=int)
         
-        # Define red color (1) and blue color (2)
+        # Define red color
         red = 1
         
         # Randomly decide if we'll create a square or rectangle
@@ -45,23 +45,18 @@ class Taska5313dffGenerator(ARCTaskGenerator):
                 size = rows
             
             # Create square object
-            def create_square():
-                square = np.zeros((size, size), dtype=int)
-                
-                # Fill the border with red
-                square[0, :] = red
-                square[-1, :] = red
-                square[:, 0] = red
-                square[:, -1] = red
-                
-                # Add center cell if size is odd
-                if size % 2 == 1:
-                    center = size // 2
-                    square[center, center] = red
-                
-                return square
+            square = np.zeros((size, size), dtype=int)
             
-            square = create_square()
+            # Fill the border with red
+            square[0, :] = red
+            square[-1, :] = red
+            square[:, 0] = red
+            square[:, -1] = red
+            
+            # Add center cell if size is odd
+            if size % 2 == 1:
+                center = size // 2
+                square[center, center] = red
             
             # Randomly position the square in the grid
             max_row = rows - size
@@ -87,18 +82,13 @@ class Taska5313dffGenerator(ARCTaskGenerator):
                 width = random.randint(2, rows-1)
             
             # Create rectangle object
-            def create_rectangle():
-                rect = np.zeros((height, width), dtype=int)
-                
-                # Fill the border with red
-                rect[0, :] = red
-                rect[-1, :] = red
-                rect[:, 0] = red
-                rect[:, -1] = red
-                
-                return rect
+            rect = np.zeros((height, width), dtype=int)
             
-            rectangle = create_rectangle()
+            # Fill the border with red
+            rect[0, :] = red
+            rect[-1, :] = red
+            rect[:, 0] = red
+            rect[:, -1] = red
             
             # Randomly position the rectangle in the grid
             max_row = rows - height
@@ -111,7 +101,7 @@ class Taska5313dffGenerator(ARCTaskGenerator):
                 start_col = 0
             
             # Place the rectangle in the grid
-            grid[start_row:start_row+height, start_col:start_col+width] = rectangle
+            grid[start_row:start_row+height, start_col:start_col+width] = rect
         
         # Sometimes add extended lines (50% chance)
         if random.random() < 0.5:
@@ -144,8 +134,9 @@ class Taska5313dffGenerator(ARCTaskGenerator):
         
         return grid
 
-    def transform_input(self, input_grid: np.ndarray) -> np.ndarray:
-        output_grid = input_grid.copy()
+    def transform_input(self, grid: np.ndarray, taskvars: dict) -> np.ndarray:
+        """Transform input by changing enclosed red border cells to blue."""
+        output_grid = grid.copy()
         rows = output_grid.shape[0]
         red = 1
         blue = 2
@@ -184,24 +175,40 @@ class Taska5313dffGenerator(ARCTaskGenerator):
         
         return output_grid
 
-    def create_grids(self) -> Tuple[Dict, TrainTestData]:
-        # Create 3-6 train pairs (randomly chosen)
-        num_train = random.randint(3, 6)
-        train_pairs = []
-        
-        for _ in range(num_train):
-            input_grid = self.create_input()
-            output_grid = self.transform_input(input_grid)
-            train_pairs.append(GridPair(input=input_grid, output=output_grid))  # Use keyword arguments
-        
-        # Create one test pair
-        test_input = self.create_input()
-        test_output = self.transform_input(test_input)
-        test_examples = [GridPair(input=test_input, output=test_output)]  # Use keyword arguments
-        
-        # The taskvars are just the grid size which varies per grid
-        # So we don't need to return any specific vars
+    def create_grids(self) -> tuple[dict, dict]:
+        """Create train and test grids with consistent variables."""
+        # No task-level variables needed for this task
         taskvars = {}
         
-        return taskvars, TrainTestData(train=train_pairs, test=test_examples)  # Use keyword arguments
-
+        # Create 3-6 train examples (randomly chosen)
+        num_train_examples = random.randint(3, 6)
+        train_examples = []
+        
+        # Generate different grid sizes
+        grid_sizes = [random.choice([5, 7, 9, 11, 13, 15]) for _ in range(num_train_examples + 1)]
+        
+        for i in range(num_train_examples):
+            gridvars = {'grid_size': grid_sizes[i]}
+            
+            input_grid = self.create_input(taskvars, gridvars)
+            output_grid = self.transform_input(input_grid, taskvars)
+            
+            train_examples.append({
+                'input': input_grid,
+                'output': output_grid
+            })
+        
+        # Create test example
+        test_gridvars = {'grid_size': grid_sizes[-1]}
+        test_input = self.create_input(taskvars, test_gridvars)
+        test_output = self.transform_input(test_input, taskvars)
+        
+        test_examples = [{
+            'input': test_input,
+            'output': test_output
+        }]
+        
+        return taskvars, {
+            'train': train_examples,
+            'test': test_examples
+        }

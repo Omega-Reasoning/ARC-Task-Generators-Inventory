@@ -1,9 +1,7 @@
 from arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
 import numpy as np
 import random
-from typing import Dict, List, Any, Tuple
-from input_library import create_object, random_cell_coloring, retry
-from transformation_library import find_connected_objects, GridObject
+from input_library import retry
 
 class Taska699fb00Generator(ARCTaskGenerator):
     def __init__(self):
@@ -21,26 +19,12 @@ class Taska699fb00Generator(ARCTaskGenerator):
         
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
     
-    def color_name(self, color: int) -> str:
-        color_map = {
-            0: "black",
-            1: "blue",
-            2: "red",
-            3: "green",
-            4: "yellow",
-            5: "gray",
-            6: "magenta",
-            7: "orange",
-            8: "cyan",
-            9: "brown"
-        }
-        return color_map.get(color, f"color_{color}")
-    
-    def create_input(self, taskvars, grid_size):
-        # Get variables from taskvars
+    def create_input(self, taskvars: dict, gridvars: dict) -> np.ndarray:
+        """Create input grid with alternating horizontal patterns."""
         object_color = taskvars['object_color']
+        grid_size = gridvars['grid_size']
         
-        # Create an empty grid with the specified size
+        # Create an empty grid
         grid = np.zeros((grid_size, grid_size), dtype=int)
         
         # Determine number of alternating pattern segments to create
@@ -133,10 +117,10 @@ class Taska699fb00Generator(ARCTaskGenerator):
         
         return grid
     
-    def transform_input(self, grid):
-        # Get the fill color from taskvars
-        fill_color = self.taskvars['fill_color']
-        object_color = self.taskvars['object_color']
+    def transform_input(self, grid: np.ndarray, taskvars: dict) -> np.ndarray:
+        """Transform input by filling alternating gaps with fill color."""
+        fill_color = taskvars['fill_color']
+        object_color = taskvars['object_color']
         
         # Create a copy of the input grid
         output_grid = grid.copy()
@@ -158,57 +142,50 @@ class Taska699fb00Generator(ARCTaskGenerator):
         
         return output_grid
     
-    def create_grids(self):
+    def create_grids(self) -> tuple[dict, dict]:
+        """Create train and test grids with consistent variables."""
         # Generate random colors ensuring they're different
         object_color = random.randint(1, 9)
         fill_color = random.choice([c for c in range(1, 10) if c != object_color])
         
-        # Store task variables (no grid_size)
+        # Store task variables
         taskvars = {
             'object_color': object_color,
             'fill_color': fill_color,
         }
         
-        # Helper for reasoning chain formatting
-        def color_fmt(key):
-            color_id = taskvars[key]
-            return f"{self.color_name(color_id)} ({color_id})"
-
-        # Make taskvars available to transform_input
-        self.taskvars = taskvars
-
-        # Replace placeholders in reasoning chains
-        self.input_reasoning_chain = [
-            chain.replace("{color('object_color')}", color_fmt('object_color'))
-            for chain in self.input_reasoning_chain
-        ]
-        self.transformation_reasoning_chain = [
-            chain.replace("{color('fill_color')}", color_fmt('fill_color'))
-            for chain in self.transformation_reasoning_chain
-        ]
-        
-        # Generate 3-5 training pairs with different sizes
-        num_train_pairs = random.randint(3, 5)
+        # Generate 3-5 training examples
+        num_train_examples = random.randint(3, 5)
+        train_examples = []
         
         # Generate unique grid sizes for all grids (training + test)
         min_size = 8  # Minimum size to accommodate patterns
         max_size = 20
-        all_sizes = random.sample(range(min_size, max_size + 1), num_train_pairs + 1)
+        all_sizes = [random.randint(min_size, max_size) for _ in range(num_train_examples + 1)]
         
-        train_pairs = []
+        # Create training examples
+        for i in range(num_train_examples):
+            gridvars = {'grid_size': all_sizes[i]}
+            
+            input_grid = self.create_input(taskvars, gridvars)
+            output_grid = self.transform_input(input_grid, taskvars)
+            
+            train_examples.append({
+                'input': input_grid,
+                'output': output_grid
+            })
         
-        for i in range(num_train_pairs):
-            grid_size = all_sizes[i]
-            input_grid = self.create_input(taskvars, grid_size)
-            output_grid = self.transform_input(input_grid)
-            train_pairs.append(GridPair(input=input_grid, output=output_grid))
+        # Create test example
+        test_gridvars = {'grid_size': all_sizes[-1]}
+        test_input = self.create_input(taskvars, test_gridvars)
+        test_output = self.transform_input(test_input, taskvars)
         
-        # Generate test pair with remaining size
-        test_grid_size = all_sizes[-1]
-        test_input = self.create_input(taskvars, test_grid_size)
-        test_output = self.transform_input(test_input)
+        test_examples = [{
+            'input': test_input,
+            'output': test_output
+        }]
         
-        # Create the TrainTestData object
-        data = TrainTestData(train=train_pairs, test=[GridPair(input=test_input, output=test_output)])
-        
-        return taskvars, data
+        return taskvars, {
+            'train': train_examples,
+            'test': test_examples
+        }

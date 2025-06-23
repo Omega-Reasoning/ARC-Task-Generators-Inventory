@@ -18,28 +18,13 @@ class Taskaedd82e4Generator(ARCTaskGenerator):
         ]
         
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
-    
-    def color_name(self, color: int) -> str:
-        color_map = {
-            0: "black",
-            1: "blue",
-            2: "red",
-            3: "green",
-            4: "yellow",
-            5: "gray",
-            6: "magenta",
-            7: "orange",
-            8: "cyan",
-            9: "brown"
-        }
-        return color_map.get(color, f"color_{color}")
 
-    def create_input(self, taskvars, grid_size=None, num_patterns=2, scatter_density=0.02):
+    def create_input(self, taskvars: dict, gridvars: dict) -> np.ndarray:
         """Create a square grid with patterns and scattered cells all in one color"""
         pattern_color = taskvars['pattern_color']
-        
-        if grid_size is None:
-            grid_size = random.randint(5, 20)
+        grid_size = gridvars['grid_size']
+        num_patterns = gridvars.get('num_patterns', 2)
+        scatter_density = gridvars.get('scatter_density', 0.02)
             
         max_attempts = 10
         for attempt in range(max_attempts):
@@ -52,7 +37,7 @@ class Taskaedd82e4Generator(ARCTaskGenerator):
                 pattern = create_object(
                     height=pattern_size,
                     width=pattern_size,
-                    color_palette=pattern_color,  # Use pattern_color for patterns
+                    color_palette=pattern_color,
                     contiguity=Contiguity.EIGHT,
                     background=0
                 )
@@ -72,7 +57,7 @@ class Taskaedd82e4Generator(ARCTaskGenerator):
             # Add scattered cells with same color
             random_cell_coloring(
                 grid=grid,
-                color_palette=pattern_color,  # Use pattern_color for scattered cells
+                color_palette=pattern_color,
                 density=scatter_density,
                 background=0,
                 overwrite=False
@@ -149,15 +134,15 @@ class Taskaedd82e4Generator(ARCTaskGenerator):
         
         return grid
     
-    def transform_input(self, input_grid, taskvars):
+    def transform_input(self, grid: np.ndarray, taskvars: dict) -> np.ndarray:
         """Transform input grid by changing only scattered cells color"""
         pattern_color = taskvars['pattern_color']
         cell_color = taskvars['cell_color']
         
-        output_grid = input_grid.copy()  # Copy to preserve patterns
+        output_grid = grid.copy()  # Copy to preserve patterns
         
         # Find all connected objects in the input grid
-        all_objects = find_connected_objects(input_grid, diagonal_connectivity=True, background=0)
+        all_objects = find_connected_objects(grid, diagonal_connectivity=True, background=0)
         
         # Change color of only scattered cells
         for obj in all_objects:
@@ -167,67 +152,56 @@ class Taskaedd82e4Generator(ARCTaskGenerator):
         
         return output_grid
     
-    def create_grids(self):
-        num_train_pairs = random.randint(3, 5)
-        train_pairs = []
-        
+    def create_grids(self) -> tuple[dict, dict]:
+        """Create train and test grids with consistent variables."""
         # Generate two distinct colors
         pattern_color = random.randint(1, 9)
         cell_color = random.choice([c for c in range(1, 10) if c != pattern_color])
         
+        # Store task variables
         taskvars = {
             'pattern_color': pattern_color,
             'cell_color': cell_color,
-            'grid_size': None  # Will be set for test case
         }
         
-        # Helper for reasoning chain formatting
-        def color_fmt(key):
-            color_id = taskvars[key]
-            return f"{self.color_name(color_id)} ({color_id})"
-
-        # Replace {color('pattern_color')} etc. in reasoning chains
-        self.input_reasoning_chain = [
-            chain.replace("{color('pattern_color')}", color_fmt('pattern_color'))
-                 .replace("{color('cell_color')}", color_fmt('cell_color'))
-            for chain in self.input_reasoning_chain
-        ]
+        # Generate 3-5 training examples
+        num_train_examples = random.randint(3, 5)
+        train_examples = []
         
-        self.transformation_reasoning_chain = [
-            chain.replace("{color('pattern_color')}", color_fmt('pattern_color'))
-                 .replace("{color('cell_color')}", color_fmt('cell_color'))
-            for chain in self.transformation_reasoning_chain
-        ]
+        # Generate grid sizes
+        grid_sizes = [random.randint(5, 20) for _ in range(num_train_examples + 1)]
         
-        # Generate training pairs
-        for _ in range(num_train_pairs):
-            grid_size = random.randint(5, 20)
-            input_grid = self.create_input(
-                taskvars=taskvars,
-                grid_size=grid_size,
-                num_patterns=random.randint(1, 3),
-                scatter_density=0.02
-            )
+        # Create training examples
+        for i in range(num_train_examples):
+            gridvars = {
+                'grid_size': grid_sizes[i],
+                'num_patterns': random.randint(1, 3),
+                'scatter_density': 0.02
+            }
             
-            output_grid = self.transform_input(
-                input_grid=input_grid,
-                taskvars=taskvars
-            )
+            input_grid = self.create_input(taskvars, gridvars)
+            output_grid = self.transform_input(input_grid, taskvars)
             
-            train_pairs.append(GridPair(input=input_grid, output=output_grid))
+            train_examples.append({
+                'input': input_grid,
+                'output': output_grid
+            })
         
-        # Generate test example
-        test_grid_size = random.randint(5, 20)
-        test_input = self.create_input(
-            taskvars=taskvars,
-            grid_size=test_grid_size,
-            num_patterns=random.randint(1, 3),
-            scatter_density=0.02
-        )
+        # Create test example
+        test_gridvars = {
+            'grid_size': grid_sizes[-1],
+            'num_patterns': random.randint(1, 3),
+            'scatter_density': 0.02
+        }
+        test_input = self.create_input(taskvars, test_gridvars)
         test_output = self.transform_input(test_input, taskvars)
-        test_pairs = [GridPair(input=test_input, output=test_output)]
         
-        # Update taskvars with final grid size for output
-        taskvars['grid_size'] = f"{test_grid_size}x{test_grid_size}"
+        test_examples = [{
+            'input': test_input,
+            'output': test_output
+        }]
         
-        return taskvars, TrainTestData(train=train_pairs, test=test_pairs)
+        return taskvars, {
+            'train': train_examples,
+            'test': test_examples
+        }

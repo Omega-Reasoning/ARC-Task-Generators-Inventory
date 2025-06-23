@@ -8,30 +8,24 @@ class Taska78176bbGenerator(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
             "Input grids can have different sizes.",
-            "The input grid has a diagonal line of REDcolored cells running from the top-left to bottom-right (or another consistent diagonal).",
-            "A region is of GRAY color,overlapping the diagonal line .",
+            "The input grid has a diagonal line of {color('diagonal_color')} colored cells running from the top-left to bottom-right (or another consistent diagonal).",
+            "A region is of {color('region_color')} color,overlapping the diagonal line .",
             "The overlapping region can be of shape inverted right-angle, with its right angle at the top-left or it can grow downward and to the right forming a staircase-like shape or it just overlaps the diagonal line(but may not be centered on it)."
         ]
         
         transformation_reasoning_chain = [
-            "It copies the original diagonal line of REDcolor.",
+            "It copies the original diagonal line of {color('diagonal_color')}color.",
             "The overlapping regions disappear and are filled with empty (0) cells.",
             "For each diagonal cell under the right-angle triangle, copy it one row below in the same column."
         ]
         
-        taskvars_definitions = {
-            'grid_size': 'Size of the grid (between 5 and 20)',
-            'diagonal_color': 'Color of the diagonal line (between 1 and 9)',
-            'region_color': 'Color of the overlapping region (between 1 and 9, different from diagonal_color)'
-        }
-        
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
     
-    def create_input(self, gridvars):
-        # Extract variables
+    def create_input(self, taskvars: dict, gridvars: dict) -> np.ndarray:
+        """Create input grid with diagonal line and overlapping region."""
         grid_size = gridvars['grid_size']
-        diagonal_color = gridvars['diagonal_color']
-        region_color = gridvars['region_color']
+        diagonal_color = taskvars['diagonal_color']
+        region_color = taskvars['region_color']
         
         # Create empty grid
         grid = np.zeros((grid_size, grid_size), dtype=int)
@@ -78,49 +72,48 @@ class Taska78176bbGenerator(ARCTaskGenerator):
                     if 0 <= r < grid_size and 0 <= c < grid_size:
                         grid[r, c] = region_color
         
-        # Store metadata about the overlapping region
-        gridvars['region_info'] = {
-            'type': region_type,
-            'start_row': start_row,
-            'start_col': start_col,
-            'size': region_size
-        }
-        
         return grid
     
-    def transform_input(self, input_grid):
+    def transform_input(self, grid: np.ndarray, taskvars: dict) -> np.ndarray:
+        """Transform input by copying diagonal and shifting covered diagonal cells down."""
         # Create a copy of the input grid for the output
-        output_grid = np.zeros_like(input_grid)
+        output_grid = np.zeros_like(grid)
         
-        # Identify colors
-        unique_colors = set(np.unique(input_grid)) - {0}
+        # Get colors from taskvars
+        diagonal_color = taskvars['diagonal_color']
+        region_color = taskvars['region_color']
+        
+        # Identify unique colors in the input
+        unique_colors = set(np.unique(grid)) - {0}
         if len(unique_colors) != 2:
             # Fallback if we don't have exactly two colors
-            return input_grid
+            return grid
         
         # Find the diagonal cells
-        grid_size = input_grid.shape[0]
-        diagonal_cells = [(i, i) for i in range(grid_size) if input_grid[i, i] != 0]
+        grid_size = grid.shape[0]
+        diagonal_cells = [(i, i) for i in range(grid_size) if grid[i, i] != 0]
         
         # Determine which color is the diagonal color (the one that appears most on the diagonal)
         color_counts = {}
         for r, c in diagonal_cells:
-            color = input_grid[r, c]
+            color = grid[r, c]
             color_counts[color] = color_counts.get(color, 0) + 1
         
-        diagonal_color = max(color_counts.items(), key=lambda x: x[1])[0]
-        region_color = (unique_colors - {diagonal_color}).pop()
+        if color_counts:
+            actual_diagonal_color = max(color_counts.items(), key=lambda x: x[1])[0]
+        else:
+            actual_diagonal_color = diagonal_color
         
         # 1. Copy the original diagonal line
         for i in range(grid_size):
-            if input_grid[i, i] == diagonal_color:
-                output_grid[i, i] = diagonal_color
+            if grid[i, i] == actual_diagonal_color:
+                output_grid[i, i] = actual_diagonal_color
         
         # 2. Identify overlapping cells (diagonal cells that have the region color)
         overlapping_cells = []
         for r in range(grid_size):
             for c in range(grid_size):
-                if input_grid[r, c] == region_color and input_grid[r, r] == diagonal_color and r <= c:
+                if grid[r, c] == region_color and grid[r, r] == actual_diagonal_color and r <= c:
                     # This is a cell in the region that covers a diagonal cell
                     overlapping_cells.append((r, c))
         
@@ -135,55 +128,53 @@ class Taska78176bbGenerator(ARCTaskGenerator):
             
             if is_under_region and r + 1 < grid_size:
                 # Copy this diagonal cell one row below
-                output_grid[r + 1, c] = diagonal_color
+                output_grid[r + 1, c] = actual_diagonal_color
         
         return output_grid
     
-    def create_grids(self):
-        # Initialize task variables
-        grid_size = random.randint(5, 20)
-        
+    def create_grids(self) -> tuple[dict, dict]:
+        """Create train and test grids with consistent variables."""
         # Choose colors between 1-9
         diagonal_color = random.randint(1, 9)
         region_color = random.randint(1, 9)
         while region_color == diagonal_color:
             region_color = random.randint(1, 9)
         
-        gridvars = {
-            'grid_size': grid_size,
+        # Store task variables
+        taskvars = {
             'diagonal_color': diagonal_color,
             'region_color': region_color
         }
         
-        # Create 3-5 training pairs
-        num_train = random.randint(3, 5)
-        train_pairs = []
+        # Create 3-5 training examples
+        num_train_examples = random.randint(3, 5)
+        train_examples = []
         
-        for _ in range(num_train):
-            # Generate input grid
-            input_grid = self.create_input(gridvars)
-            # Generate output grid
-            output_grid = self.transform_input(input_grid)
-            # Add to train pairs
-            train_pairs.append(GridPair(input=input_grid, output=output_grid))
+        # Generate different grid sizes for each example
+        grid_sizes = [random.randint(5, 20) for _ in range(num_train_examples + 1)]
         
-        # Create test pair
-        test_input = self.create_input(gridvars)
-        test_output = self.transform_input(test_input)
-        test_examples = [GridPair(input=test_input, output=test_output)]
+        for i in range(num_train_examples):
+            gridvars = {'grid_size': grid_sizes[i]}
+            
+            input_grid = self.create_input(taskvars, gridvars)
+            output_grid = self.transform_input(input_grid, taskvars)
+            
+            train_examples.append({
+                'input': input_grid,
+                'output': output_grid
+            })
         
-        # Create taskvars for template substitution
-        taskvars = {
-            'grid_size': str(grid_size),
-            'diagonal_color': str(diagonal_color),
-            'region_color': str(region_color)
+        # Create test example
+        test_gridvars = {'grid_size': grid_sizes[-1]}
+        test_input = self.create_input(taskvars, test_gridvars)
+        test_output = self.transform_input(test_input, taskvars)
+        
+        test_examples = [{
+            'input': test_input,
+            'output': test_output
+        }]
+        
+        return taskvars, {
+            'train': train_examples,
+            'test': test_examples
         }
-        
-        return taskvars, TrainTestData(train=train_pairs, test=test_examples)
-
-
-# Test code
-if __name__ == "__main__":
-    generator = DiagonalWithOverlapGenerator()
-    taskvars, task_data = generator.create_grids()
-    ARCTaskGenerator.visualize_train_test_data(task_data)

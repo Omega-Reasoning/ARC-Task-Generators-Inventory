@@ -7,49 +7,34 @@ from input_library import Contiguity, create_object, retry
 class Taskb6afb2daGenerator(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
-            "Input grids are square grids and can have size {vars['grid_size']} x {vars['grid_size']}.",
-            "The grid consists of exactly square or rectangular blocks of {color('object_color')}.",
+            "Input grids are square grids and can have varying sizes.",
+            "The grid consists of exactly square or rectangular blocks of gray (5) color.",
             "The blocks are usually greater than or equal to 4x4 for a square block and 4x5 or 5x4 for a rectangular block.",
             "They are spaced uniformly.",
             "There surely exists at least one square block and one rectangular block in each grid."
         ]
         
         transformation_reasoning_chain = [
-            "The output grid is copied from the input grid.",
+            "The output grid is transformed from the input grid.",
             "The blocks are split into two parts such as the outermost cells being one part and the inner cells being the other part.",
             "For each block outermost cells form contribute to form boundaries in specific colors, based on their position:",
-            "If the boundary forming cells are in 4-way connection to inner block, then fill it with {color('bound_color2')}",
-            "If the boundary forming cells are corner cells of the boundary then fill it with {color('bound_color1')}.",
-            "And for the inner cells, fill it with {color('fill_color')}."
+            "If the boundary forming cells are corner cells of the boundary then fill it with {color('fill_color')}.",
+            "If the boundary forming cells are in 4-way connection to inner block, then fill it with blue (1) color",
+            "And for the inner cells, fill it with {color('bound_color2')}."
         ]
         
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
     
-    def color_name(self, color: int) -> str:
-        color_map = {
-            0: "black",
-            1: "blue",
-            2: "red",
-            3: "green",
-            4: "yellow",
-            5: "gray",
-            6: "magenta",
-            7: "orange",
-            8: "cyan",
-            9: "brown"
-        }
-        return color_map.get(color, f"color_{color}")
-    
-    def create_input(self, taskvars):
-        object_color = taskvars['object_color']
-        grid_size = taskvars['grid_size']
+    def create_input(self, taskvars: dict, gridvars: dict) -> np.ndarray:
+        """Create input grid with gray square and rectangular blocks only."""
+        grid_size = gridvars['grid_size']
         grid = np.zeros((grid_size, grid_size), dtype=int)
+        
+        # Use gray color (5) for all input blocks - NO OTHER COLORS
+        gray_color = 5
         
         # Determine number of blocks to place
         num_blocks = random.randint(2, 4)
-        
-        # Create blocks with specified properties
-        blocks = []
         
         # Ensure at least one square and one rectangular block
         block_types = ['square'] + ['rectangle'] + ['random'] * (num_blocks - 2)
@@ -97,29 +82,35 @@ class Taskb6afb2daGenerator(ARCTaskGenerator):
                     valid = False
                 
                 if valid:
-                    # Place the block
-                    grid[top:top+height, left:left+width] = object_color
+                    # Place the block in gray color ONLY
+                    grid[top:top+height, left:left+width] = gray_color
                     occupied[top:top+height, left:left+width] = True
-                    blocks.append((top, left, height, width))
                     break
-            
-            # If we couldn't place a block after many attempts, just continue
-            # This could lead to fewer blocks than requested
         
         return grid
     
-    def transform_input(self, grid, taskvars):
-        object_color = taskvars['object_color']
-        fill_color = taskvars['fill_color']
-        bound_color1 = taskvars['bound_color1']
-        bound_color2 = taskvars['bound_color2']
+    def transform_input(self, grid: np.ndarray, taskvars: dict) -> np.ndarray:
+        """Transform input by coloring block boundaries and interiors with different colors."""
+        # Start with a copy of the input grid
+        output_grid = grid.copy()
         
-        # Find blocks in the grid
+        gray_color = 5  # Input blocks are always gray
+        
+        # Based on the expected output pattern:
+        # Corners: fill_color (8)
+        # Edges: blue (1) - FIXED COLOR
+        # Interior: bound_color2 (4)
+        
+        corner_color = taskvars['fill_color']      # Corners get fill_color
+        edge_color = 1                             # Edges get blue (1) - FIXED
+        interior_color = taskvars['bound_color2']  # Interior gets bound_color2
+        
+        # Find gray blocks in the input grid
         blocks = find_connected_objects(grid, diagonal_connectivity=False, background=0, monochromatic=True)
         
-        # Process each block
+        # Process each gray block and transform it in the output
         for block in blocks:
-            if not block.has_color(object_color):
+            if not block.has_color(gray_color):
                 continue
                 
             # Convert block to array format
@@ -135,7 +126,7 @@ class Taskb6afb2daGenerator(ARCTaskGenerator):
                 inner_mask[1:-1, 1:-1] = True
             
             # Create masks for different types of boundary cells
-            boundary_mask = (block_array == object_color) & ~inner_mask
+            boundary_mask = (block_array == gray_color) & ~inner_mask
             
             # Corner cells are at the corners of the block
             corner_mask = np.zeros_like(block_array, dtype=bool)
@@ -151,69 +142,65 @@ class Taskb6afb2daGenerator(ARCTaskGenerator):
             # 4-way connected boundary cells are the rest of the boundary
             edge_mask = boundary_mask & ~corner_mask
             
-            # Apply colors based on masks
+            # Apply transformation colors ONLY in the output grid
             for r in range(height):
                 for c in range(width):
-                    if inner_mask[r, c]:
-                        grid[r + r_start, c + c_start] = fill_color
-                    elif corner_mask[r, c]:
-                        grid[r + r_start, c + c_start] = bound_color1
-                    elif edge_mask[r, c]:
-                        grid[r + r_start, c + c_start] = bound_color2
+                    if block_array[r, c] == gray_color:  # Only transform gray cells
+                        if corner_mask[r, c]:
+                            output_grid[r + r_start, c + c_start] = corner_color
+                        elif edge_mask[r, c]:
+                            output_grid[r + r_start, c + c_start] = edge_color
+                        elif inner_mask[r, c]:
+                            output_grid[r + r_start, c + c_start] = interior_color
         
-        return grid
+        return output_grid
     
-    def create_grids(self):
-        num_train_pairs = random.randint(3, 5)
-        train_pairs = []
-
-        # Randomly select colors ensuring they are all different
-        available_colors = list(range(1, 10))
+    def create_grids(self) -> tuple[dict, dict]:
+        """Create train and test grids with consistent variables."""
+        # Randomly select colors ensuring they are all different (excluding gray=5 and blue=1 which are fixed)
+        available_colors = [c for c in range(1, 10) if c not in [1, 5]]  # Exclude blue (1) and gray (5)
         random.shuffle(available_colors)
 
-        # Choose a random grid size
-        grid_size = random.randint(12, 20)
-
+        # Store task variables - edge color is always blue (1), so not included
         taskvars = {
-            'object_color': available_colors[0],  # Original block color (int)
-            'fill_color': available_colors[1],    # Inner cells (int)
-            'bound_color1': available_colors[2],  # Corner cells (int)
-            'bound_color2': available_colors[3],  # 4-way connected boundary cells (int)
-            'grid_size': grid_size,               # <-- integer for logic
+            'object_color': available_colors[0],   # Not used in transform but kept for compatibility
+            'fill_color': available_colors[1],     # Corners  
+            'bound_color1': available_colors[2],   # Not used in current pattern
+            'bound_color2': available_colors[3],   # Interior
         }
-
-        # Helper for reasoning chain formatting
-        def color_fmt(key):
-            color_id = taskvars[key]
-            return f"{self.color_name(color_id)} ({color_id})"
-
-        # Replace color and grid_size placeholders in reasoning chains
-        self.input_reasoning_chain = [
-            chain.replace("{color('object_color')}", color_fmt('object_color'))
-                 .replace("{color('fill_color')}", color_fmt('fill_color'))
-                 .replace("{color('bound_color1')}", color_fmt('bound_color1'))
-                 .replace("{color('bound_color2')}", color_fmt('bound_color2'))
-                 .replace("{vars['grid_size']} x {vars['grid_size']}", f"{taskvars['grid_size']} x {taskvars['grid_size']}")
-            for chain in self.input_reasoning_chain
-        ]
-
-        self.transformation_reasoning_chain = [
-            chain.replace("{color('object_color')}", color_fmt('object_color'))
-                 .replace("{color('fill_color')}", color_fmt('fill_color'))
-                 .replace("{color('bound_color1')}", color_fmt('bound_color1'))
-                 .replace("{color('bound_color2')}", color_fmt('bound_color2'))
-            for chain in self.transformation_reasoning_chain
-        ]
         
-        # Create train and test data
-        for _ in range(num_train_pairs):
-            input_grid = self.create_input(taskvars)
-            output_grid = self.transform_input(input_grid.copy(), taskvars)
-            train_pairs.append(GridPair(input=input_grid, output=output_grid))
+        # Generate 3-5 training examples
+        num_train_examples = random.randint(3, 5)
+        train_examples = []
         
-        # Create test pair
-        test_input = self.create_input(taskvars)
-        test_output = self.transform_input(test_input.copy(), taskvars)
-        test_pairs = [GridPair(input=test_input, output=test_output)]
+        # Generate different grid sizes for each example
+        grid_sizes = [random.randint(12, 20) for _ in range(num_train_examples + 1)]
         
-        return taskvars, TrainTestData(train=train_pairs, test=test_pairs)
+        for i in range(num_train_examples):
+            gridvars = {'grid_size': grid_sizes[i]}
+            
+            # Input grid: ONLY gray blocks
+            input_grid = self.create_input(taskvars, gridvars)
+            
+            # Output grid: Transformed with colors
+            output_grid = self.transform_input(input_grid, taskvars)
+            
+            train_examples.append({
+                'input': input_grid,
+                'output': output_grid
+            })
+        
+        # Create test example
+        test_gridvars = {'grid_size': grid_sizes[-1]}
+        test_input = self.create_input(taskvars, test_gridvars)
+        test_output = self.transform_input(test_input, taskvars)
+        
+        test_examples = [{
+            'input': test_input,
+            'output': test_output
+        }]
+        
+        return taskvars, {
+            'train': train_examples,
+            'test': test_examples
+        }
