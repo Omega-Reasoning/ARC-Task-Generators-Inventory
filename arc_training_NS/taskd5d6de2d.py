@@ -4,7 +4,7 @@ from input_library import retry
 import numpy as np
 import random
 from typing import Dict, Any, Tuple, List
-from scipy.ndimage import binary_fill_holes
+
 
 class Taskd5d6de2d(ARCTaskGenerator):
     def __init__(self):
@@ -128,6 +128,7 @@ class Taskd5d6de2d(ARCTaskGenerator):
         return retry(generate_grid_with_rectangles, has_fillable_cells, max_attempts=50)
 
     def transform_input(self, grid: np.ndarray, taskvars: Dict[str, Any]) -> np.ndarray:
+        from scipy.ndimage import binary_fill_holes
         border_color = taskvars['border_color']
         internal_color = taskvars['internal_color']
         

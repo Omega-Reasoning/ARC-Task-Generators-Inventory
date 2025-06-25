@@ -149,7 +149,7 @@ class Taske9614598(ARCTaskGenerator):
     def create_grids(self) -> Tuple[Dict[str, Any], TrainTestData]:
         # Generate task variables
         taskvars = {
-            'n': random.randint(9, 15),  # Grid size that allows proper spacing
+            'n': random.randint(9, 30),  # Grid size that allows proper spacing
             'color_1': random.randint(1, 9),
             'cross_color': random.randint(1, 9)
         }
