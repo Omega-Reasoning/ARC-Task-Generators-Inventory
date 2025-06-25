@@ -7,8 +7,8 @@ from input_library import Contiguity, create_object, retry
 class Taskb6afb2daGenerator(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
-            "Input grids are square grids and can have varying sizes.",
-            "The grid consists of exactly square or rectangular blocks of gray (5) color.",
+            "Input grid is of size {vars['n']} x {vars['n']} and are square grids.",
+            "The grid consists of exactly square or rectangular blocks of {color('input_color')} color.",
             "The blocks are usually greater than or equal to 4x4 for a square block and 4x5 or 5x4 for a rectangular block.",
             "They are spaced uniformly.",
             "There surely exists at least one square block and one rectangular block in each grid."
@@ -26,12 +26,12 @@ class Taskb6afb2daGenerator(ARCTaskGenerator):
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
     
     def create_input(self, taskvars: dict, gridvars: dict) -> np.ndarray:
-        """Create input grid with gray square and rectangular blocks only."""
-        grid_size = gridvars['grid_size']
+        """Create input grid with square and rectangular blocks."""
+        grid_size = taskvars['n']  # Use task variable instead of gridvars
         grid = np.zeros((grid_size, grid_size), dtype=int)
         
-        # Use gray color (5) for all input blocks - NO OTHER COLORS
-        gray_color = 5
+        # Use input_color for all input blocks
+        input_color = taskvars['input_color']
         
         # Determine number of blocks to place
         num_blocks = random.randint(2, 4)
@@ -82,8 +82,8 @@ class Taskb6afb2daGenerator(ARCTaskGenerator):
                     valid = False
                 
                 if valid:
-                    # Place the block in gray color ONLY
-                    grid[top:top+height, left:left+width] = gray_color
+                    # Place the block in input_color
+                    grid[top:top+height, left:left+width] = input_color
                     occupied[top:top+height, left:left+width] = True
                     break
         
@@ -94,23 +94,23 @@ class Taskb6afb2daGenerator(ARCTaskGenerator):
         # Start with a copy of the input grid
         output_grid = grid.copy()
         
-        gray_color = 5  # Input blocks are always gray
+        input_color = taskvars['input_color']  # Use task variable
         
         # Based on the expected output pattern:
-        # Corners: fill_color (8)
+        # Corners: fill_color
         # Edges: blue (1) - FIXED COLOR
-        # Interior: bound_color2 (4)
+        # Interior: bound_color2
         
         corner_color = taskvars['fill_color']      # Corners get fill_color
         edge_color = 1                             # Edges get blue (1) - FIXED
         interior_color = taskvars['bound_color2']  # Interior gets bound_color2
         
-        # Find gray blocks in the input grid
+        # Find blocks in the input grid
         blocks = find_connected_objects(grid, diagonal_connectivity=False, background=0, monochromatic=True)
         
-        # Process each gray block and transform it in the output
+        # Process each block and transform it in the output
         for block in blocks:
-            if not block.has_color(gray_color):
+            if not block.has_color(input_color):
                 continue
                 
             # Convert block to array format
@@ -126,7 +126,7 @@ class Taskb6afb2daGenerator(ARCTaskGenerator):
                 inner_mask[1:-1, 1:-1] = True
             
             # Create masks for different types of boundary cells
-            boundary_mask = (block_array == gray_color) & ~inner_mask
+            boundary_mask = (block_array == input_color) & ~inner_mask
             
             # Corner cells are at the corners of the block
             corner_mask = np.zeros_like(block_array, dtype=bool)
@@ -145,7 +145,7 @@ class Taskb6afb2daGenerator(ARCTaskGenerator):
             # Apply transformation colors ONLY in the output grid
             for r in range(height):
                 for c in range(width):
-                    if block_array[r, c] == gray_color:  # Only transform gray cells
+                    if block_array[r, c] == input_color:  # Only transform input_color cells
                         if corner_mask[r, c]:
                             output_grid[r + r_start, c + c_start] = corner_color
                         elif edge_mask[r, c]:
@@ -157,30 +157,30 @@ class Taskb6afb2daGenerator(ARCTaskGenerator):
     
     def create_grids(self) -> tuple[dict, dict]:
         """Create train and test grids with consistent variables."""
-        # Randomly select colors ensuring they are all different (excluding gray=5 and blue=1 which are fixed)
-        available_colors = [c for c in range(1, 10) if c not in [1, 5]]  # Exclude blue (1) and gray (5)
+        # Randomly select colors ensuring they are all different (excluding blue=1 which is fixed)
+        available_colors = [c for c in range(1, 10) if c != 1]  # Exclude blue (1) as it's fixed for edges
         random.shuffle(available_colors)
+
+        # Generate grid size
+        grid_size = random.randint(12, 20)
 
         # Store task variables - edge color is always blue (1), so not included
         taskvars = {
-            'object_color': available_colors[0],   # Not used in transform but kept for compatibility
-            'fill_color': available_colors[1],     # Corners  
-            'bound_color1': available_colors[2],   # Not used in current pattern
-            'bound_color2': available_colors[3],   # Interior
+            'n': grid_size,                        # Grid size
+            'input_color': available_colors[0],    # Color of input blocks
+            'object_color': available_colors[1],   # Not used in transform but kept for compatibility
+            'fill_color': available_colors[2],     # Corners  
+            'bound_color1': available_colors[3],   # Not used in current pattern
+            'bound_color2': available_colors[4],   # Interior
         }
         
         # Generate 3-5 training examples
         num_train_examples = random.randint(3, 5)
         train_examples = []
         
-        # Generate different grid sizes for each example
-        grid_sizes = [random.randint(12, 20) for _ in range(num_train_examples + 1)]
-        
         for i in range(num_train_examples):
-            gridvars = {'grid_size': grid_sizes[i]}
-            
-            # Input grid: ONLY gray blocks
-            input_grid = self.create_input(taskvars, gridvars)
+            # Input grid: blocks in input_color
+            input_grid = self.create_input(taskvars, {})
             
             # Output grid: Transformed with colors
             output_grid = self.transform_input(input_grid, taskvars)
@@ -191,8 +191,7 @@ class Taskb6afb2daGenerator(ARCTaskGenerator):
             })
         
         # Create test example
-        test_gridvars = {'grid_size': grid_sizes[-1]}
-        test_input = self.create_input(taskvars, test_gridvars)
+        test_input = self.create_input(taskvars, {})
         test_output = self.transform_input(test_input, taskvars)
         
         test_examples = [{

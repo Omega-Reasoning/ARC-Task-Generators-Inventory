@@ -12,16 +12,17 @@ class Taskb0c4d837Generator(ARCTaskGenerator):
             "Each grid depicts a tank-like open structure.",
             "The tank structure is outlined in a specific {color('tank_color')}.",
             "The tank contains a uniformly filled liquid using a specific {color('liquid_color')} color.",
-            "The liquid level may fill part or all of the tank, but its filled evenly (i.e., full rows from the bottom up)."
+            "The liquid level may fill part of the tank, but its filled evenly (i.e., full rows from the bottom up).",
+            "There is always at least one unfilled row in the tank."
         ]
         
         transformation_reasoning_chain = [
             "The output is a 3x3 grid.",
-            "Determine the liquid level in the input tank by counting the number of rows filled with {color('liquid_color')} color.",
-            "Then, in the 3x3 output grid, shade cells in an alternating pattern using the {color('liquid_color')} color, corresponding to the liquid level identified.",
+            "Determine the number of unfilled rows in the input tank by counting the empty rows above the liquid level.",
+            "Then, in the 3x3 output grid, shade cells in an alternating pattern using the {color('liquid_color')} color, corresponding to the number of unfilled rows identified.",
             "The pattern alternates: first row left-to-right, second row right-to-left, third row left-to-right.",
             "All other cells remain empty or uncolored.",
-            "For example: If 5 rows are filled in the input, shade the first 5 cells following the alternating pattern: (0,0), (0,1), (0,2), (1,2), (1,1) of the 3x3 output grid with {color('liquid_color')} color."
+            "For example: If 5 unfilled rows exist in the input, shade the first 5 cells following the alternating pattern: (0,0), (0,1), (0,2), (1,2), (1,1) of the 3x3 output grid with {color('liquid_color')} color."
         ]
         
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
@@ -29,8 +30,8 @@ class Taskb0c4d837Generator(ARCTaskGenerator):
     def create_input(self, taskvars: dict, gridvars: dict) -> np.ndarray:
         """Create input grid with tank structure and liquid."""
         # Random grid size - make it larger to accommodate more liquid rows
-        grid_height = random.randint(8, 15)  # Increased minimum height
-        grid_width = random.randint(5, 10)
+        grid_height = random.randint(10, 15)  # Increased minimum height
+        grid_width = random.randint(8, 12)    # Increased minimum width to ensure tank fits
         
         grid = np.zeros((grid_height, grid_width), dtype=np.int32)
         
@@ -39,45 +40,77 @@ class Taskb0c4d837Generator(ARCTaskGenerator):
         liquid_color = taskvars['liquid_color']
         
         # Create tank structure (open at top, closed at bottom and sides)
-        tank_width = random.randint(3, min(grid_width - 2, 6))
-        tank_height = random.randint(6, min(grid_height - 1, 10))  # Increased minimum tank height
+        # Ensure tank width is valid: minimum 5, maximum based on grid width
+        max_tank_width = min(grid_width - 2, 8)  # Leave at least 1 cell on each side
+        min_tank_width = 5  # Minimum 5 width (3 inside + 2 walls)
         
-        # Position tank in grid
-        start_col = random.randint(1, grid_width - tank_width - 1)
-        start_row = grid_height - tank_height
+        # Ensure we have a valid range
+        if max_tank_width < min_tank_width:
+            max_tank_width = min_tank_width
+        
+        tank_width = random.randint(min_tank_width, max_tank_width)
+        
+        # Tank height calculation
+        max_tank_height = min(grid_height - 1, 12)
+        min_tank_height = 8
+        
+        if max_tank_height < min_tank_height:
+            max_tank_height = min_tank_height
+        
+        tank_height = random.randint(min_tank_height, max_tank_height)
+        
+        # Position tank in grid - ensure it fits
+        max_start_col = grid_width - tank_width
+        if max_start_col < 0:
+            max_start_col = 0
+        
+        start_col = random.randint(0, max_start_col) if max_start_col > 0 else 0
+        start_row = max(0, grid_height - tank_height)
         
         # Draw tank outline
         # Bottom row
-        for c in range(start_col, start_col + tank_width):
-            grid[grid_height - 1, c] = tank_color
+        for c in range(start_col, min(start_col + tank_width, grid_width)):
+            if grid_height - 1 >= 0:
+                grid[grid_height - 1, c] = tank_color
         
         # Left and right walls
         for r in range(start_row, grid_height - 1):
-            grid[r, start_col] = tank_color
-            grid[r, start_col + tank_width - 1] = tank_color
+            if start_col < grid_width:
+                grid[r, start_col] = tank_color
+            if start_col + tank_width - 1 < grid_width:
+                grid[r, start_col + tank_width - 1] = tank_color
         
-        # Fill with liquid from bottom up - NOW ALLOW 1-6 ROWS
-        max_possible_liquid_rows = min(tank_height - 1, 6)  # Allow up to 6 rows
-        liquid_level = random.randint(1, max_possible_liquid_rows)
+        # Calculate liquid level ensuring at least one unfilled row
+        tank_interior_height = tank_height - 1  # Exclude bottom row
+        max_liquid_rows = max(1, tank_interior_height - 1)  # Ensure at least 1 unfilled row
         
+        # Fill with liquid from bottom up - ensure at least 1 unfilled row
+        liquid_level = random.randint(1, max_liquid_rows)
+        
+        # Fill liquid rows
         for level in range(liquid_level):
             row = grid_height - 2 - level  # Start from second-to-bottom row
-            for c in range(start_col + 1, start_col + tank_width - 1):
-                grid[row, c] = liquid_color
+            if row >= 0:
+                for c in range(start_col + 1, min(start_col + tank_width - 1, grid_width)):
+                    if c >= 0:
+                        grid[row, c] = liquid_color
         
         return grid
     
     def transform_input(self, grid: np.ndarray, taskvars: dict) -> np.ndarray:
-        """Transform input by creating 3x3 grid with liquid level representation"""
+        """Transform input by creating 3x3 grid with unfilled rows representation"""
         output_grid = np.zeros((3, 3), dtype=np.int32)
         
-        # Count liquid level in input grid
+        # Count unfilled rows in input grid
         liquid_color = taskvars['liquid_color']
-        liquid_level = 0
+        tank_color = taskvars['tank_color']
         
-        # Count from bottom up how many complete rows have liquid
+        # Find the tank boundaries
         height, width = grid.shape
-        for row in range(height - 2, -1, -1):  # Start from second-to-bottom row going up
+        
+        # Find top of liquid (highest row with liquid)
+        top_liquid_row = None
+        for row in range(height):
             row_has_liquid = False
             for col in range(width):
                 if grid[row, col] == liquid_color:
@@ -85,9 +118,47 @@ class Taskb0c4d837Generator(ARCTaskGenerator):
                     break
             
             if row_has_liquid:
-                liquid_level += 1
-            else:
-                break  # Stop when we hit a row without liquid
+                top_liquid_row = row
+                break
+        
+        # Find the top of tank (first row with tank walls)
+        top_tank_row = None
+        for row in range(height):
+            row_has_tank = False
+            for col in range(width):
+                if grid[row, col] == tank_color:
+                    row_has_tank = True
+                    break
+            
+            if row_has_tank:
+                top_tank_row = row
+                break
+        
+        # Count unfilled rows
+        unfilled_rows = 0
+        if top_liquid_row is not None and top_tank_row is not None:
+            # Count rows between top of tank and top of liquid
+            unfilled_rows = top_liquid_row - top_tank_row
+        elif top_tank_row is not None:
+            # If no liquid found, count all interior rows as unfilled
+            # Find bottom of tank
+            bottom_tank_row = None
+            for row in range(height - 1, -1, -1):
+                row_has_tank = False
+                for col in range(width):
+                    if grid[row, col] == tank_color:
+                        row_has_tank = True
+                        break
+                
+                if row_has_tank:
+                    bottom_tank_row = row
+                    break
+            
+            if bottom_tank_row is not None:
+                unfilled_rows = max(1, bottom_tank_row - top_tank_row - 1)  # Exclude top and bottom tank walls
+        
+        # Ensure we have at least 1 unfilled row (as guaranteed by input generation)
+        unfilled_rows = max(1, unfilled_rows)
         
         # Create alternating/zigzag fill pattern
         # Row 0: left-to-right (0,0), (0,1), (0,2)
@@ -99,8 +170,8 @@ class Taskb0c4d837Generator(ARCTaskGenerator):
             (2, 0), (2, 1), (2, 2)   # Row 2: left to right
         ]
         
-        # Fill cells based on liquid level using zigzag pattern
-        cells_to_fill = min(liquid_level, 9)  # Cap at 9 since output is 3x3
+        # Fill cells based on unfilled rows using zigzag pattern
+        cells_to_fill = min(unfilled_rows, 9)  # Cap at 9 since output is 3x3
         
         for i in range(cells_to_fill):
             row, col = zigzag_order[i]

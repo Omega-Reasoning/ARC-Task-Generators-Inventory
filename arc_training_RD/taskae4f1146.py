@@ -5,152 +5,201 @@ import random
 class Taskae4f1146Generator(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
-            "Input grids are 9x9 fixed size.",
+            "Input grids are squares and are of size {vars['rows']} x {vars['cols']}.",
             "The grid consists of exactly 4 sub-grids of 3x3 spread across the main grid with proper spacing between them, these sub-grids may or may not have patterns within them. These patterns can be just single cells or scattered cells, or an actual pattern.",
             "These sub-grids consist of two colors namely {color('base_color')} color which contributes to the base color of the sub-grid and {color('pattern_color')} color which contributes to the formation of patterns within the sub-grid."
         ]
         
         transformation_reasoning_chain = [
             "The output grid is 3x3 fixed size.",
-            "The output grid is formed by identifying that one sub-grid from the input grid which has the maximum patterns."
+            "The output grid is formed by identifying that one sub-grid from the input grid which has the maximum number of {color('target_color')} colored cells.",
+            "Count the number of {color('target_color')} cells in each 3x3 sub-grid and select the sub-grid with the highest count."
         ]
         
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
     
+    def check_spacing(self, pos1, pos2, min_gap=1):
+        """Check if two 3x3 sub-grids have proper spacing (at least min_gap cells apart)."""
+        r1, c1 = pos1
+        r2, c2 = pos2
+        
+        # Calculate the boundaries of each 3x3 sub-grid
+        # Sub-grid 1: (r1, c1) to (r1+2, c1+2)
+        # Sub-grid 2: (r2, c2) to (r2+2, c2+2)
+        
+        # Check if they overlap or are too close
+        # Horizontal separation
+        if r1 + 3 + min_gap > r2 and r2 + 3 + min_gap > r1:
+            # They overlap in rows, check column separation
+            if c1 + 3 + min_gap > c2 and c2 + 3 + min_gap > c1:
+                return False  # Too close or overlapping
+        
+        return True
+    
+    def find_valid_positions(self, rows, cols, num_subgrids=4, min_gap=1):
+        """Find valid positions for sub-grids with proper spacing."""
+        # Generate all possible positions for 3x3 sub-grids
+        all_positions = []
+        for r in range(rows - 2):
+            for c in range(cols - 2):
+                all_positions.append((r, c))
+        
+        # Try to find a valid combination of positions
+        max_attempts = 1000
+        
+        for attempt in range(max_attempts):
+            if len(all_positions) < num_subgrids:
+                break
+                
+            # Randomly select positions
+            candidate_positions = random.sample(all_positions, num_subgrids)
+            
+            # Check if all pairs have proper spacing
+            valid_combination = True
+            for i in range(len(candidate_positions)):
+                for j in range(i + 1, len(candidate_positions)):
+                    if not self.check_spacing(candidate_positions[i], candidate_positions[j], min_gap):
+                        valid_combination = False
+                        break
+                if not valid_combination:
+                    break
+            
+            if valid_combination:
+                return candidate_positions
+        
+        # If we can't find 4 positions with proper spacing, try with fewer sub-grids
+        for num_try in range(num_subgrids - 1, 1, -1):
+            for attempt in range(max_attempts):
+                if len(all_positions) < num_try:
+                    break
+                    
+                candidate_positions = random.sample(all_positions, num_try)
+                
+                valid_combination = True
+                for i in range(len(candidate_positions)):
+                    for j in range(i + 1, len(candidate_positions)):
+                        if not self.check_spacing(candidate_positions[i], candidate_positions[j], min_gap):
+                            valid_combination = False
+                            break
+                    if not valid_combination:
+                        break
+                
+                if valid_combination:
+                    return candidate_positions
+        
+        # Last resort: place sub-grids in corners if grid is large enough
+        if rows >= 8 and cols >= 8:
+            return [(0, 0), (0, cols-3), (rows-3, 0), (rows-3, cols-3)]
+        elif rows >= 6 and cols >= 6:
+            return [(0, 0), (0, cols-3), (rows-3, 0)]
+        else:
+            return [(0, 0), (rows-3, cols-3)]
+    
     def create_input(self, taskvars: dict, gridvars: dict) -> np.ndarray:
-        """Create a 9x9 input grid with exactly 4 sub-grids (3x3 each) placed with proper spacing."""
-        # Create a 9x9 grid filled with zeros
-        grid = np.zeros((9, 9), dtype=int)
+        """Create a variable-sized input grid with exactly 4 sub-grids (3x3 each) placed with proper spacing."""
+        # Get grid dimensions from taskvars
+        rows = taskvars['rows']
+        cols = taskvars['cols']
+        
+        # Create a grid filled with zeros
+        grid = np.zeros((rows, cols), dtype=int)
         
         # Get colors from taskvars
         base_color = taskvars['base_color']
         pattern_color = taskvars['pattern_color']
+        target_color = taskvars['target_color']
         
-        # Define valid positions for 3x3 sub-grids with spacing
-        # Positions that ensure at least 1 cell spacing between sub-grids
-        valid_positions = [
-            (0, 0),   # top-left corner
-            (0, 6),   # top-right corner  
-            (6, 0),   # bottom-left corner
-            (6, 6),   # bottom-right corner
-            (0, 3),   # top-center
-            (3, 0),   # middle-left
-            (3, 6),   # middle-right
-            (6, 3),   # bottom-center
-        ]
+        # Find valid positions with proper spacing
+        selected_positions = self.find_valid_positions(rows, cols, num_subgrids=4, min_gap=1)
         
-        # Function to check if two positions have proper spacing
-        def has_proper_spacing(pos1, pos2):
-            r1, c1 = pos1
-            r2, c2 = pos2
-            # Check if sub-grids don't overlap and have at least some spacing
-            # Two 3x3 grids need at least 1 cell gap between them
-            return (abs(r1 - r2) >= 4 or abs(c1 - c2) >= 4 or 
-                    (abs(r1 - r2) >= 3 and abs(c1 - c2) >= 3))
+        if not selected_positions:
+            # If no valid positions found, return empty grid (shouldn't happen with proper grid sizing)
+            return grid
         
-        # Select exactly 4 positions with proper spacing
-        selected_positions = []
-        max_attempts = 100
-        
-        for attempt in range(max_attempts):
-            # Try to select 4 positions
-            candidate_positions = random.sample(valid_positions, min(4, len(valid_positions)))
-            
-            # Check if all pairs have proper spacing
-            valid_selection = True
-            for i in range(len(candidate_positions)):
-                for j in range(i + 1, len(candidate_positions)):
-                    if not has_proper_spacing(candidate_positions[i], candidate_positions[j]):
-                        valid_selection = False
-                        break
-                if not valid_selection:
-                    break
-            
-            if valid_selection:
-                selected_positions = candidate_positions
-                break
-        
-        # If we couldn't find 4 positions with proper spacing, use the 4 corners
-        if len(selected_positions) != 4:
-            selected_positions = [(0, 0), (0, 6), (6, 0), (6, 6)]
+        # Generate different target color counts for each sub-grid to ensure uniqueness
+        num_subgrids = len(selected_positions)
+        target_counts = list(range(1, num_subgrids + 1))  # 1, 2, 3, 4 (or fewer)
+        random.shuffle(target_counts)  # Randomize which sub-grid gets which count
         
         # Create sub-grids at selected positions
-        for start_i, start_j in selected_positions:
+        for idx, (start_i, start_j) in enumerate(selected_positions):
+            desired_target_count = target_counts[idx]
+            
             # Fill the 3x3 subgrid with base_color first
             for i in range(3):
                 for j in range(3):
-                    grid[start_i + i, start_j + j] = base_color
+                    if start_i + i < rows and start_j + j < cols:  # Boundary check
+                        grid[start_i + i, start_j + j] = base_color
             
-            # Randomly decide density of pattern cells in this sub-grid
-            pattern_density = random.uniform(0.1, 0.8)
-            
-            # Apply patterns to this 3x3 sub-grid
-            for i in range(3):
-                for j in range(3):
-                    if random.random() < pattern_density:
+            # Now place the exact number of target_color cells
+            if target_color == pattern_color:
+                # We want specific number of pattern_color cells
+                subgrid_positions = []
+                for i in range(3):
+                    for j in range(3):
+                        if start_i + i < rows and start_j + j < cols:
+                            subgrid_positions.append((i, j))
+                
+                selected_cells = random.sample(subgrid_positions, min(desired_target_count, len(subgrid_positions)))
+                
+                for i, j in selected_cells:
+                    grid[start_i + i, start_j + j] = pattern_color
+                    
+            elif target_color == base_color:
+                # We want specific number of base_color cells
+                # Fill some positions with pattern_color, leaving desired_target_count as base_color
+                subgrid_positions = []
+                for i in range(3):
+                    for j in range(3):
+                        if start_i + i < rows and start_j + j < cols:
+                            subgrid_positions.append((i, j))
+                
+                total_cells = len(subgrid_positions)
+                pattern_cells_count = max(0, total_cells - desired_target_count)
+                
+                if pattern_cells_count > 0:
+                    pattern_positions = random.sample(subgrid_positions, pattern_cells_count)
+                    
+                    for i, j in pattern_positions:
                         grid[start_i + i, start_j + j] = pattern_color
+                # The remaining cells already have base_color
         
         return grid
     
     def transform_input(self, grid: np.ndarray, taskvars: dict) -> np.ndarray:
-        """Extract the 3x3 sub-grid with the maximum number of pattern cells."""
+        """Extract the 3x3 sub-grid with the maximum number of target_color cells."""
         base_color = taskvars['base_color']
         pattern_color = taskvars['pattern_color']
+        target_color = taskvars['target_color']
+        rows = taskvars['rows']
+        cols = taskvars['cols']
         
-        # All possible 3x3 starting positions in a 9x9 grid
-        possible_positions = []
-        for r in range(7):  # 0 to 6
-            for c in range(7):  # 0 to 6
-                possible_positions.append((r, c))
+        # Find all possible 3x3 sub-grids that contain our colors
+        max_count = -1
+        best_subgrid = None
         
-        # Find all valid sub-grids (those that contain our colors)
-        valid_subgrids = []
+        for start_r in range(rows - 2):
+            for start_c in range(cols - 2):
+                subgrid = grid[start_r:start_r+3, start_c:start_c+3]
+                
+                # Check if this subgrid contains our colors (indicating it's one of our placed sub-grids)
+                has_base = np.any(subgrid == base_color)
+                has_pattern = np.any(subgrid == pattern_color)
+                
+                if has_base or has_pattern:  # This is likely one of our sub-grids
+                    # Count target_color cells in this sub-grid
+                    target_count = np.sum(subgrid == target_color)
+                    
+                    if target_count > max_count:
+                        max_count = target_count
+                        best_subgrid = subgrid.copy()
         
-        for start_r, start_c in possible_positions:
-            subgrid = grid[start_r:start_r+3, start_c:start_c+3]
-            
-            # Check if this subgrid contains our colors and is likely a placed sub-grid
-            has_base = np.any(subgrid == base_color)
-            has_zeros = np.any(subgrid == 0)
-            
-            # A valid sub-grid should have base color and minimal zeros
-            # (since we fill the entire 3x3 area with base color first)
-            if has_base and np.sum(subgrid == 0) <= 1:  # Allow minimal zeros due to edge effects
-                pattern_count = np.sum(subgrid == pattern_color)
-                valid_subgrids.append({
-                    'position': (start_r, start_c),
-                    'pattern_count': pattern_count,
-                    'subgrid': subgrid.copy()
-                })
+        # Return the sub-grid with maximum target_color count
+        if best_subgrid is not None:
+            return best_subgrid
         
-        # Remove overlapping detections - keep only non-overlapping sub-grids
-        filtered_subgrids = []
-        for current in valid_subgrids:
-            curr_r, curr_c = current['position']
-            is_unique = True
-            
-            for existing in filtered_subgrids:
-                exist_r, exist_c = existing['position']
-                # Check if they overlap significantly
-                if abs(curr_r - exist_r) < 3 and abs(curr_c - exist_c) < 3:
-                    # They overlap, keep the one with more patterns
-                    if current['pattern_count'] > existing['pattern_count']:
-                        filtered_subgrids.remove(existing)
-                    else:
-                        is_unique = False
-                    break
-            
-            if is_unique:
-                filtered_subgrids.append(current)
-        
-        # Find the sub-grid with maximum patterns
-        if filtered_subgrids:
-            max_subgrid_info = max(filtered_subgrids, key=lambda x: x['pattern_count'])
-            return max_subgrid_info['subgrid']
-        
-        # Fallback: if no valid sub-grid found, create a default one
+        # Fallback: if no valid sub-grid found (shouldn't happen)
         default_grid = np.full((3, 3), base_color, dtype=int)
-        default_grid[0, 0] = pattern_color  # Add at least one pattern
         return default_grid
 
     def create_grids(self) -> tuple[dict, dict]:
@@ -159,17 +208,32 @@ class Taskae4f1146Generator(ARCTaskGenerator):
         available_colors = list(range(1, 10))
         random.shuffle(available_colors)
 
+        # Generate variable grid size (must be large enough to fit 4 sub-grids with spacing)
+        # For 4 sub-grids of 3x3 with at least 1 cell spacing, we need minimum dimensions
+        # Best case: 2x2 arrangement: (3+1+3) x (3+1+3) = 7x7 minimum
+        # More realistic: 9x9 to 15x15 for better spacing
+        min_size = 9  # Increased to ensure better spacing
+        max_size = 15  # Reasonable maximum
+        
+        rows = random.randint(min_size, max_size)
+        cols = random.randint(min_size, max_size)
+
+        # Randomly choose which color to target (base_color or pattern_color)
+        target_color = random.choice([available_colors[0], available_colors[1]])
+
         # Store task variables
         taskvars = {
+            'rows': rows,
+            'cols': cols,
             'base_color': available_colors[0],
             'pattern_color': available_colors[1],
+            'target_color': target_color,  # This determines what we're counting
         }
         
         # Generate 3-5 training examples
         num_train_examples = random.randint(3, 5)
         train_examples = []
         
-        # All grids are 9x9 for this task
         for _ in range(num_train_examples):
             gridvars = {}  # No grid-specific variables needed
             

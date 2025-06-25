@@ -7,178 +7,386 @@ from input_library import create_object, Contiguity, random_cell_coloring
 class Taskaedd82e4Generator(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
-            "Input grids are square grids of size MxM.",
-            "The grid consists of patterns in {color('pattern_color')} color and scattered single cells in the same color."
+            "Input grids can have varying sizes with rows and columns each within 5.",
+            "The grid consists of multiple patterns in {color('pattern_color')} color and scattered single cells in the same color."
         ]
         
         transformation_reasoning_chain = [
             "The output grid is created by copying the input grid.",
             "The patterns remain in {color('pattern_color')} color",
-            "Only the scattered single cells change to {color('cell_color')} color"
+            "Only the scattered single cells change to {color('cell_color')} color",
+            "Individual cells that are connected diagonally are also identified and colored with {color('cell_color')}",
+            "Within patterns, individual cells that act as diagonal attachments or extensions are also identified and colored with {color('cell_color')}"
         ]
         
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
 
-    def create_input(self, taskvars: dict, gridvars: dict) -> np.ndarray:
-        """Create a square grid with patterns and scattered cells all in one color"""
-        pattern_color = taskvars['pattern_color']
-        grid_size = gridvars['grid_size']
-        num_patterns = gridvars.get('num_patterns', 2)
-        scatter_density = gridvars.get('scatter_density', 0.02)
+    def create_solid_pattern(self, height: int, width: int, pattern_color: int) -> np.ndarray:
+        """Create a solid, obvious pattern with strong orthogonal connectivity."""
+        pattern = np.zeros((height, width), dtype=int)
+        
+        # Create different types of substantial patterns
+        pattern_type = random.choice(['solid_rect', 'L_shape', 'T_shape', 'plus', 'thick_line', 'corner', 'zigzag'])
+        
+        if pattern_type == 'solid_rect':
+            # Solid rectangle - always fill completely
+            pattern[:, :] = pattern_color
             
-        max_attempts = 10
+        elif pattern_type == 'L_shape':
+            # L-shaped pattern
+            if height >= 2 and width >= 2:
+                pattern[0, :] = pattern_color  # Top row
+                pattern[:, 0] = pattern_color  # Left column
+            else:
+                pattern[:, :] = pattern_color
+                
+        elif pattern_type == 'T_shape':
+            # T-shaped pattern
+            if height >= 2 and width >= 3:
+                pattern[0, :] = pattern_color  # Top horizontal bar
+                mid_col = width // 2
+                pattern[:, mid_col] = pattern_color  # Vertical stem
+            elif height >= 3 and width >= 2:
+                # Rotated T
+                pattern[:, 0] = pattern_color  # Left vertical bar
+                mid_row = height // 2
+                pattern[mid_row, :] = pattern_color  # Horizontal stem
+            else:
+                pattern[:, :] = pattern_color
+                
+        elif pattern_type == 'plus':
+            # Plus/cross pattern
+            if height >= 3 and width >= 3:
+                mid_row = height // 2
+                mid_col = width // 2
+                pattern[mid_row, :] = pattern_color  # Horizontal line
+                pattern[:, mid_col] = pattern_color  # Vertical line
+            else:
+                pattern[:, :] = pattern_color
+                
+        elif pattern_type == 'thick_line':
+            # Thick line pattern
+            if width > height:
+                # Horizontal thick line
+                for r in range(min(2, height)):
+                    pattern[r, :] = pattern_color
+            else:
+                # Vertical thick line
+                for c in range(min(2, width)):
+                    pattern[:, c] = pattern_color
+                    
+        elif pattern_type == 'corner':
+            # Corner pattern (reverse L)
+            if height >= 2 and width >= 2:
+                pattern[-1, :] = pattern_color  # Bottom row
+                pattern[:, -1] = pattern_color  # Right column
+            else:
+                pattern[:, :] = pattern_color
+                
+        else:  # zigzag
+            # Zigzag pattern
+            if height >= 2 and width >= 3:
+                pattern[0, 0] = pattern_color
+                pattern[0, 1] = pattern_color
+                pattern[1, 1] = pattern_color
+                pattern[1, 2] = pattern_color
+                if width > 3:
+                    pattern[0, 3] = pattern_color
+            else:
+                pattern[:, :] = pattern_color
+        
+        return pattern
+
+    def create_input(self, taskvars: dict, gridvars: dict) -> np.ndarray:
+        """Create a grid with multiple obvious solid patterns and scattered cells"""
+        pattern_color = taskvars['pattern_color']
+        grid_height = gridvars['grid_height']
+        grid_width = gridvars['grid_width']
+        num_patterns = gridvars.get('num_patterns', 2)  # Default to 2 patterns
+            
+        max_attempts = 25
         for attempt in range(max_attempts):
             # Initialize empty grid
-            grid = np.zeros((grid_size, grid_size), dtype=int)
+            grid = np.zeros((grid_height, grid_width), dtype=int)
             
-            # Create a few pattern objects
-            for _ in range(num_patterns):
-                pattern_size = random.randint(2, min(4, grid_size // 2))
-                pattern = create_object(
-                    height=pattern_size,
-                    width=pattern_size,
-                    color_palette=pattern_color,
-                    contiguity=Contiguity.EIGHT,
-                    background=0
-                )
+            # Keep track of occupied areas to avoid overlaps
+            occupied = np.zeros_like(grid, dtype=bool)
+            patterns_placed = 0
+            
+            # Create multiple patterns
+            for pattern_idx in range(num_patterns):
+                # Pattern sizes - make them reasonable for the grid
+                max_pattern_height = min(3, grid_height - 1)
+                max_pattern_width = min(3, grid_width - 1)
                 
-                # Find a random position to place the pattern
-                max_pos = grid_size - pattern_size
-                if max_pos <= 0:
-                    continue  # Skip if pattern doesn't fit
+                # Ensure patterns are at least 2x2 to be substantial
+                pattern_height = random.randint(2, max_pattern_height)
+                pattern_width = random.randint(2, max_pattern_width)
+                
+                # Create the pattern
+                pattern = self.create_solid_pattern(pattern_height, pattern_width, pattern_color)
+                
+                # Try to place the pattern
+                max_placement_attempts = 40
+                placed = False
+                
+                for placement_attempt in range(max_placement_attempts):
+                    # Calculate valid placement positions
+                    max_pos_r = grid_height - pattern_height
+                    max_pos_c = grid_width - pattern_width
                     
-                pos_r = random.randint(0, max_pos)
-                pos_c = random.randint(0, max_pos)
+                    if max_pos_r < 0 or max_pos_c < 0:
+                        break  # Pattern too big
+                    
+                    pos_r = random.randint(0, max_pos_r)
+                    pos_c = random.randint(0, max_pos_c)
+                    
+                    # Check for overlap with existing patterns (with 1-cell margin)
+                    check_r_start = max(0, pos_r - 1)
+                    check_r_end = min(grid_height, pos_r + pattern_height + 1)
+                    check_c_start = max(0, pos_c - 1)
+                    check_c_end = min(grid_width, pos_c + pattern_width + 1)
+                    
+                    if not np.any(occupied[check_r_start:check_r_end, check_c_start:check_c_end]):
+                        # Place the pattern
+                        for r in range(pattern_height):
+                            for c in range(pattern_width):
+                                if pattern[r, c] == pattern_color:
+                                    grid[pos_r + r, pos_c + c] = pattern_color
+                                    occupied[pos_r + r, pos_c + c] = True
+                        placed = True
+                        patterns_placed += 1
+                        break
                 
-                # Place the pattern on the grid
-                pattern_obj = GridObject.from_array(pattern, offset=(pos_r, pos_c))
-                pattern_obj.paste(grid)
+                if not placed and patterns_placed == 0:
+                    # Force place at least one pattern
+                    # Find the largest empty space
+                    best_pos = None
+                    best_size = 0
+                    
+                    for r in range(grid_height - 1):
+                        for c in range(grid_width - 1):
+                            if not occupied[r, c]:
+                                # Try different sizes
+                                for h in range(2, min(4, grid_height - r + 1)):
+                                    for w in range(2, min(4, grid_width - c + 1)):
+                                        if not np.any(occupied[r:r+h, c:c+w]):
+                                            size = h * w
+                                            if size > best_size:
+                                                best_size = size
+                                                best_pos = (r, c, h, w)
+                    
+                    if best_pos:
+                        r, c, h, w = best_pos
+                        grid[r:r+h, c:c+w] = pattern_color
+                        occupied[r:r+h, c:c+w] = True
+                        patterns_placed += 1
             
-            # Add scattered cells with same color
-            random_cell_coloring(
-                grid=grid,
-                color_palette=pattern_color,
-                density=scatter_density,
-                background=0,
-                overwrite=False
-            )
+            # Add diagonal extensions occasionally
+            if random.random() < 0.3:
+                # Find positions diagonally adjacent to patterns
+                extension_positions = []
+                for r in range(grid_height):
+                    for c in range(grid_width):
+                        if grid[r, c] == 0:
+                            has_diagonal = False
+                            has_orthogonal = False
+                            for dr in [-1, 0, 1]:
+                                for dc in [-1, 0, 1]:
+                                    if dr == 0 and dc == 0:
+                                        continue
+                                    nr, nc = r + dr, c + dc
+                                    if (0 <= nr < grid_height and 0 <= nc < grid_width and 
+                                        grid[nr, nc] == pattern_color):
+                                        if abs(dr) + abs(dc) == 1:
+                                            has_orthogonal = True
+                                        else:
+                                            has_diagonal = True
+                            
+                            if has_diagonal and not has_orthogonal:
+                                extension_positions.append((r, c))
+                
+                # Add 1-2 diagonal extensions
+                if extension_positions:
+                    num_extensions = min(2, len(extension_positions))
+                    selected = random.sample(extension_positions, num_extensions)
+                    for r, c in selected:
+                        grid[r, c] = pattern_color
             
-            # Check if we have at least one individual cell
+            # Add scattered individual cells
+            individual_cells_added = 0
+            target_individual_cells = random.randint(2, 4)  # 2-4 scattered cells
+            
+            # Find empty positions
+            empty_positions = [(r, c) for r in range(grid_height) for c in range(grid_width) if grid[r, c] == 0]
+            
+            # Add individual cells with some spacing
+            attempts = 0
+            while individual_cells_added < target_individual_cells and attempts < 50 and empty_positions:
+                attempts += 1
+                r, c = random.choice(empty_positions)
+                empty_positions.remove((r, c))
+                
+                # Check if it's reasonably isolated
+                too_close = False
+                min_distance = 1  # Allow closer placement for small grids
+                
+                for dr in range(-min_distance, min_distance + 1):
+                    for dc in range(-min_distance, min_distance + 1):
+                        if dr == 0 and dc == 0:
+                            continue
+                        nr, nc = r + dr, c + dc
+                        if (0 <= nr < grid_height and 0 <= nc < grid_width and 
+                            grid[nr, nc] == pattern_color):
+                            too_close = True
+                            break
+                    if too_close:
+                        break
+                
+                if not too_close or individual_cells_added == 0:  # Force at least one
+                    grid[r, c] = pattern_color
+                    individual_cells_added += 1
+            
+            # Verify we have both patterns and individual cells
             all_objects = find_connected_objects(grid, diagonal_connectivity=True, background=0)
             individual_cells = [obj for obj in all_objects if len(obj) == 1]
+            patterns = [obj for obj in all_objects if len(obj) >= 3]
             
-            if len(individual_cells) > 0:
+            print(f"Attempt {attempt}: {len(patterns)} patterns, {len(individual_cells)} individual cells")
+            
+            if len(individual_cells) > 0 and len(patterns) > 0:
                 return grid
-            
-            # If no individual cells, force add at least one
-            # Find empty positions that are not adjacent to existing colored cells
-            empty_positions = []
-            for r in range(grid_size):
-                for c in range(grid_size):
-                    if grid[r, c] == 0:
-                        # Check if this position is isolated (not adjacent to any colored cell)
-                        is_isolated = True
-                        for dr in [-1, 0, 1]:
-                            for dc in [-1, 0, 1]:
-                                if dr == 0 and dc == 0:
-                                    continue
-                                nr, nc = r + dr, c + dc
-                                if (0 <= nr < grid_size and 0 <= nc < grid_size and 
-                                    grid[nr, nc] != 0):
-                                    is_isolated = False
-                                    break
-                            if not is_isolated:
-                                break
-                        if is_isolated:
-                            empty_positions.append((r, c))
-            
-            # Place at least one individual cell
-            if empty_positions:
-                num_individual = random.randint(1, min(3, len(empty_positions)))
-                selected_positions = random.sample(empty_positions, num_individual)
-                for r, c in selected_positions:
-                    grid[r, c] = pattern_color
-                return grid
-            
-            # If we can't find isolated positions, try with less restrictive placement
-            empty_positions = [(r, c) for r in range(grid_size) for c in range(grid_size) if grid[r, c] == 0]
-            if empty_positions:
-                # Just place individual cells in empty positions
-                num_individual = random.randint(1, min(3, len(empty_positions)))
-                selected_positions = random.sample(empty_positions, num_individual)
-                for r, c in selected_positions:
-                    grid[r, c] = pattern_color
-                
-                # Verify we actually created individual cells
-                all_objects = find_connected_objects(grid, diagonal_connectivity=True, background=0)
-                individual_cells = [obj for obj in all_objects if len(obj) == 1]
-                if len(individual_cells) > 0:
-                    return grid
         
-        # If all attempts failed, create a simple grid with guaranteed individual cells
-        grid = np.zeros((grid_size, grid_size), dtype=int)
+        # Enhanced fallback
+        grid = np.zeros((grid_height, grid_width), dtype=int)
         
-        # Place a simple 2x2 pattern in the center
-        center = grid_size // 2
-        if center > 0 and center < grid_size - 1:
-            grid[center:center+2, center:center+2] = pattern_color
+        # Create 2 simple patterns
+        if grid_height >= 3 and grid_width >= 4:
+            # First pattern: L-shape in top-left
+            grid[0, 0:2] = pattern_color
+            grid[1, 0] = pattern_color
+            
+            # Second pattern: small block in bottom-right
+            grid[-2:, -2:] = pattern_color
+            
+        elif grid_height >= 2 and grid_width >= 3:
+            # Two small patterns
+            grid[0, 0:2] = pattern_color  # Top line
+            grid[-1, -2:] = pattern_color  # Bottom line
+            
+        else:
+            # Minimal patterns
+            grid[0, 0] = pattern_color
+            if grid.size > 1:
+                grid[-1, -1] = pattern_color
         
-        # Place individual cells in corners
-        corners = [(1, 1), (1, grid_size-2), (grid_size-2, 1), (grid_size-2, grid_size-2)]
-        valid_corners = [(r, c) for r, c in corners if 0 <= r < grid_size and 0 <= c < grid_size]
-        if valid_corners:
-            num_corners = random.randint(1, min(2, len(valid_corners)))
-            selected_corners = random.sample(valid_corners, num_corners)
-            for r, c in selected_corners:
+        # Add individual cells
+        empty_positions = [(r, c) for r in range(grid_height) for c in range(grid_width) if grid[r, c] == 0]
+        if empty_positions:
+            num_individual = min(2, len(empty_positions))
+            selected = random.sample(empty_positions, num_individual)
+            for r, c in selected:
                 grid[r, c] = pattern_color
         
         return grid
     
+    def is_individual_cell_group(self, obj: GridObject, grid: np.ndarray) -> bool:
+        """Check if an object is an individual cell group."""
+        if len(obj) == 1:
+            return True
+        
+        if len(obj) > 2:
+            return False
+            
+        # Check if cells are only connected diagonally
+        cells = list(obj.cells)
+        for i, (r1, c1, _) in enumerate(cells):
+            for j, (r2, c2, _) in enumerate(cells):
+                if i >= j:
+                    continue
+                if abs(r1 - r2) + abs(c1 - c2) == 1:
+                    return False
+        
+        return True
+    
+    def find_diagonal_attachments_in_object(self, obj: GridObject, grid: np.ndarray) -> set:
+        """Find cells within an object that are only diagonally connected."""
+        if len(obj) <= 3:
+            return set()
+        
+        diagonal_attachments = set()
+        cells = list(obj.cells)
+        
+        for r, c, color in cells:
+            orthogonal_connections = 0
+            diagonal_connections = 0
+            
+            for dr in [-1, 0, 1]:
+                for dc in [-1, 0, 1]:
+                    if dr == 0 and dc == 0:
+                        continue
+                    nr, nc = r + dr, c + dc
+                    
+                    if (nr, nc, color) in obj.cells:
+                        if abs(dr) + abs(dc) == 1:
+                            orthogonal_connections += 1
+                        else:
+                            diagonal_connections += 1
+            
+            if orthogonal_connections == 0 and diagonal_connections > 0:
+                diagonal_attachments.add((r, c))
+        
+        return diagonal_attachments
+    
     def transform_input(self, grid: np.ndarray, taskvars: dict) -> np.ndarray:
-        """Transform input grid by changing only scattered cells color"""
+        """Transform input grid."""
         pattern_color = taskvars['pattern_color']
         cell_color = taskvars['cell_color']
         
-        output_grid = grid.copy()  # Copy to preserve patterns
-        
-        # Find all connected objects in the input grid
+        output_grid = grid.copy()
         all_objects = find_connected_objects(grid, diagonal_connectivity=True, background=0)
         
-        # Change color of only scattered cells
         for obj in all_objects:
-            if len(obj) == 1:  # Scattered cell
-                r, c, _ = next(iter(obj.cells))
-                output_grid[r, c] = cell_color
+            if self.is_individual_cell_group(obj, grid):
+                for r, c, _ in obj.cells:
+                    output_grid[r, c] = cell_color
+            else:
+                diagonal_attachments = self.find_diagonal_attachments_in_object(obj, grid)
+                for r, c in diagonal_attachments:
+                    output_grid[r, c] = cell_color
         
         return output_grid
     
     def create_grids(self) -> tuple[dict, dict]:
         """Create train and test grids with consistent variables."""
-        # Generate two distinct colors
         pattern_color = random.randint(1, 9)
         cell_color = random.choice([c for c in range(1, 10) if c != pattern_color])
         
-        # Store task variables
         taskvars = {
             'pattern_color': pattern_color,
             'cell_color': cell_color,
         }
         
-        # Generate 3-5 training examples
         num_train_examples = random.randint(3, 5)
         train_examples = []
         
-        # Generate grid sizes
-        grid_sizes = [random.randint(5, 20) for _ in range(num_train_examples + 1)]
+        # Create more diverse grid dimensions
+        grid_dimensions = []
+        for _ in range(num_train_examples + 1):
+            # Allow full range from 3 to 5 for both dimensions
+            height = random.randint(3, 5)
+            width = random.randint(3, 5)
+            grid_dimensions.append((height, width))
         
-        # Create training examples
         for i in range(num_train_examples):
+            height, width = grid_dimensions[i]
             gridvars = {
-                'grid_size': grid_sizes[i],
-                'num_patterns': random.randint(1, 3),
-                'scatter_density': 0.02
+                'grid_height': height,
+                'grid_width': width,
+                'num_patterns': 2,  # Always try for 2 patterns
             }
             
+            print(f"Creating training grid {i+1}: {height}x{width}")
             input_grid = self.create_input(taskvars, gridvars)
             output_grid = self.transform_input(input_grid, taskvars)
             
@@ -187,11 +395,12 @@ class Taskaedd82e4Generator(ARCTaskGenerator):
                 'output': output_grid
             })
         
-        # Create test example
+        # Test example
+        test_height, test_width = grid_dimensions[-1]
         test_gridvars = {
-            'grid_size': grid_sizes[-1],
-            'num_patterns': random.randint(1, 3),
-            'scatter_density': 0.02
+            'grid_height': test_height,
+            'grid_width': test_width,
+            'num_patterns': 2,
         }
         test_input = self.create_input(taskvars, test_gridvars)
         test_output = self.transform_input(test_input, taskvars)
