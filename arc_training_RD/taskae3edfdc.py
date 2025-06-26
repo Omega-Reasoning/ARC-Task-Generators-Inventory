@@ -270,20 +270,21 @@ class Taskae3edfdcGenerator(ARCTaskGenerator):
         scattered_color1 = taskvars['scattered_main_1']
         scattered_color2 = taskvars['scattered_main_2']
         
-        # Find main cells and their positions
+        # Find main cells and their positions - FIXED
         main_positions = []
         main_colors = [main_cell1_color, main_cell2_color]
         scattered_colors = [scattered_color1, scattered_color2]
         
         for main_color in main_colors:
+            found = False
             for r in range(grid_size):
                 for c in range(grid_size):
                     if grid[r, c] == main_color:
                         main_positions.append((r, c))
+                        found = True
                         break
-                else:
-                    continue
-                break
+                if found:
+                    break
         
         # Process each main cell and its scattered cells
         for main_pos, main_color, scattered_color in zip(main_positions, main_colors, scattered_colors):
@@ -301,13 +302,6 @@ class Taskae3edfdcGenerator(ARCTaskGenerator):
                 output_grid[scat_r, scat_c] = 0
             
             # Attach scattered cells adjacent to main cell in proper directions
-            direction_mapping = {
-                'right': (0, 1),
-                'left': (0, -1),
-                'down': (1, 0),
-                'up': (-1, 0)
-            }
-            
             directions_used = set()
             
             for scat_r, scat_c in scattered_positions:

@@ -5,7 +5,7 @@ import random
 class Taskae4f1146Generator(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
-            "Input grids are squares and are of size {vars['rows']} x {vars['cols']}.",
+            "Input grids are squares and are of size {vars['grid_size']} x {vars['grid_size']}.",
             "The grid consists of exactly 4 sub-grids of 3x3 spread across the main grid with proper spacing between them, these sub-grids may or may not have patterns within them. These patterns can be just single cells or scattered cells, or an actual pattern.",
             "These sub-grids consist of two colors namely {color('base_color')} color which contributes to the base color of the sub-grid and {color('pattern_color')} color which contributes to the formation of patterns within the sub-grid."
         ]
@@ -13,7 +13,7 @@ class Taskae4f1146Generator(ARCTaskGenerator):
         transformation_reasoning_chain = [
             "The output grid is 3x3 fixed size.",
             "The output grid is formed by identifying that one sub-grid from the input grid which has the maximum number of {color('target_color')} colored cells.",
-            "Count the number of {color('target_color')} cells in each 3x3 sub-grid and select the sub-grid with the highest count."
+            "The output grid is constructed by identifying the 3x3 sub-grid that contains the highest number of {color('target_color')} cells."
         ]
         
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
@@ -36,12 +36,12 @@ class Taskae4f1146Generator(ARCTaskGenerator):
         
         return True
     
-    def find_valid_positions(self, rows, cols, num_subgrids=4, min_gap=1):
+    def find_valid_positions(self, grid_size, num_subgrids=4, min_gap=1):
         """Find valid positions for sub-grids with proper spacing."""
         # Generate all possible positions for 3x3 sub-grids
         all_positions = []
-        for r in range(rows - 2):
-            for c in range(cols - 2):
+        for r in range(grid_size - 2):
+            for c in range(grid_size - 2):
                 all_positions.append((r, c))
         
         # Try to find a valid combination of positions
@@ -88,21 +88,20 @@ class Taskae4f1146Generator(ARCTaskGenerator):
                     return candidate_positions
         
         # Last resort: place sub-grids in corners if grid is large enough
-        if rows >= 8 and cols >= 8:
-            return [(0, 0), (0, cols-3), (rows-3, 0), (rows-3, cols-3)]
-        elif rows >= 6 and cols >= 6:
-            return [(0, 0), (0, cols-3), (rows-3, 0)]
+        if grid_size >= 8:
+            return [(0, 0), (0, grid_size-3), (grid_size-3, 0), (grid_size-3, grid_size-3)]
+        elif grid_size >= 6:
+            return [(0, 0), (0, grid_size-3), (grid_size-3, 0)]
         else:
-            return [(0, 0), (rows-3, cols-3)]
+            return [(0, 0), (grid_size-3, grid_size-3)]
     
     def create_input(self, taskvars: dict, gridvars: dict) -> np.ndarray:
         """Create a variable-sized input grid with exactly 4 sub-grids (3x3 each) placed with proper spacing."""
         # Get grid dimensions from taskvars
-        rows = taskvars['rows']
-        cols = taskvars['cols']
+        grid_size = taskvars['grid_size']
         
         # Create a grid filled with zeros
-        grid = np.zeros((rows, cols), dtype=int)
+        grid = np.zeros((grid_size, grid_size), dtype=int)
         
         # Get colors from taskvars
         base_color = taskvars['base_color']
@@ -110,7 +109,7 @@ class Taskae4f1146Generator(ARCTaskGenerator):
         target_color = taskvars['target_color']
         
         # Find valid positions with proper spacing
-        selected_positions = self.find_valid_positions(rows, cols, num_subgrids=4, min_gap=1)
+        selected_positions = self.find_valid_positions(grid_size, num_subgrids=4, min_gap=1)
         
         if not selected_positions:
             # If no valid positions found, return empty grid (shouldn't happen with proper grid sizing)
@@ -128,7 +127,7 @@ class Taskae4f1146Generator(ARCTaskGenerator):
             # Fill the 3x3 subgrid with base_color first
             for i in range(3):
                 for j in range(3):
-                    if start_i + i < rows and start_j + j < cols:  # Boundary check
+                    if start_i + i < grid_size and start_j + j < grid_size:  # Boundary check
                         grid[start_i + i, start_j + j] = base_color
             
             # Now place the exact number of target_color cells
@@ -137,7 +136,7 @@ class Taskae4f1146Generator(ARCTaskGenerator):
                 subgrid_positions = []
                 for i in range(3):
                     for j in range(3):
-                        if start_i + i < rows and start_j + j < cols:
+                        if start_i + i < grid_size and start_j + j < grid_size:
                             subgrid_positions.append((i, j))
                 
                 selected_cells = random.sample(subgrid_positions, min(desired_target_count, len(subgrid_positions)))
@@ -151,7 +150,7 @@ class Taskae4f1146Generator(ARCTaskGenerator):
                 subgrid_positions = []
                 for i in range(3):
                     for j in range(3):
-                        if start_i + i < rows and start_j + j < cols:
+                        if start_i + i < grid_size and start_j + j < grid_size:
                             subgrid_positions.append((i, j))
                 
                 total_cells = len(subgrid_positions)
@@ -171,15 +170,14 @@ class Taskae4f1146Generator(ARCTaskGenerator):
         base_color = taskvars['base_color']
         pattern_color = taskvars['pattern_color']
         target_color = taskvars['target_color']
-        rows = taskvars['rows']
-        cols = taskvars['cols']
+        grid_size = taskvars['grid_size']
         
         # Find all possible 3x3 sub-grids that contain our colors
         max_count = -1
         best_subgrid = None
         
-        for start_r in range(rows - 2):
-            for start_c in range(cols - 2):
+        for start_r in range(grid_size - 2):
+            for start_c in range(grid_size - 2):
                 subgrid = grid[start_r:start_r+3, start_c:start_c+3]
                 
                 # Check if this subgrid contains our colors (indicating it's one of our placed sub-grids)
@@ -215,16 +213,14 @@ class Taskae4f1146Generator(ARCTaskGenerator):
         min_size = 9  # Increased to ensure better spacing
         max_size = 15  # Reasonable maximum
         
-        rows = random.randint(min_size, max_size)
-        cols = random.randint(min_size, max_size)
+        grid_size = random.randint(min_size, max_size)
 
         # Randomly choose which color to target (base_color or pattern_color)
         target_color = random.choice([available_colors[0], available_colors[1]])
 
         # Store task variables
         taskvars = {
-            'rows': rows,
-            'cols': cols,
+            'grid_size': grid_size,
             'base_color': available_colors[0],
             'pattern_color': available_colors[1],
             'target_color': target_color,  # This determines what we're counting
