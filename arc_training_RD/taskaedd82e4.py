@@ -7,7 +7,7 @@ from input_library import create_object, Contiguity, random_cell_coloring
 class Taskaedd82e4Generator(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
-            "Input grids can have varying sizes with rows and columns each within 5.",
+            "Input grids have varying sizes.",
             "The grid consists of multiple patterns in {color('pattern_color')} color and scattered single cells in the same color."
         ]
         
@@ -115,9 +115,9 @@ class Taskaedd82e4Generator(ARCTaskGenerator):
             
             # Create multiple patterns
             for pattern_idx in range(num_patterns):
-                # Pattern sizes - make them reasonable for the grid
-                max_pattern_height = min(3, grid_height - 1)
-                max_pattern_width = min(3, grid_width - 1)
+                # Pattern sizes - scale with grid size
+                max_pattern_height = min(max(3, grid_height // 4), grid_height - 1)
+                max_pattern_width = min(max(3, grid_width // 4), grid_width - 1)
                 
                 # Ensure patterns are at least 2x2 to be substantial
                 pattern_height = random.randint(2, max_pattern_height)
@@ -168,8 +168,10 @@ class Taskaedd82e4Generator(ARCTaskGenerator):
                         for c in range(grid_width - 1):
                             if not occupied[r, c]:
                                 # Try different sizes
-                                for h in range(2, min(4, grid_height - r + 1)):
-                                    for w in range(2, min(4, grid_width - c + 1)):
+                                max_h = min(max(4, grid_height // 3), grid_height - r)
+                                max_w = min(max(4, grid_width // 3), grid_width - c)
+                                for h in range(2, max_h + 1):
+                                    for w in range(2, max_w + 1):
                                         if not np.any(occupied[r:r+h, c:c+w]):
                                             size = h * w
                                             if size > best_size:
@@ -213,9 +215,9 @@ class Taskaedd82e4Generator(ARCTaskGenerator):
                     for r, c in selected:
                         grid[r, c] = pattern_color
             
-            # Add scattered individual cells
+            # Add scattered individual cells - scale with grid size
             individual_cells_added = 0
-            target_individual_cells = random.randint(2, 4)  # 2-4 scattered cells
+            target_individual_cells = max(2, min(6, (grid_height * grid_width) // 15))  # Scale with grid area
             
             # Find empty positions
             empty_positions = [(r, c) for r in range(grid_height) for c in range(grid_width) if grid[r, c] == 0]
@@ -227,9 +229,9 @@ class Taskaedd82e4Generator(ARCTaskGenerator):
                 r, c = random.choice(empty_positions)
                 empty_positions.remove((r, c))
                 
-                # Check if it's reasonably isolated
+                # Check if it's reasonably isolated - scale spacing with grid size
                 too_close = False
-                min_distance = 1  # Allow closer placement for small grids
+                min_distance = max(1, min(2, grid_height // 8))  # Scale with grid size
                 
                 for dr in range(-min_distance, min_distance + 1):
                     for dc in range(-min_distance, min_distance + 1):
@@ -260,14 +262,19 @@ class Taskaedd82e4Generator(ARCTaskGenerator):
         # Enhanced fallback
         grid = np.zeros((grid_height, grid_width), dtype=int)
         
-        # Create 2 simple patterns
-        if grid_height >= 3 and grid_width >= 4:
+        # Create patterns that scale with grid size
+        pattern_size = max(2, min(4, grid_height // 3, grid_width // 3))
+        
+        if grid_height >= pattern_size and grid_width >= pattern_size:
             # First pattern: L-shape in top-left
-            grid[0, 0:2] = pattern_color
-            grid[1, 0] = pattern_color
+            grid[0:pattern_size, 0:2] = pattern_color
+            grid[0:2, 0:pattern_size] = pattern_color
             
-            # Second pattern: small block in bottom-right
-            grid[-2:, -2:] = pattern_color
+            # Second pattern in bottom-right if space allows
+            if grid_height >= pattern_size * 2 and grid_width >= pattern_size * 2:
+                end_r = grid_height - pattern_size
+                end_c = grid_width - pattern_size
+                grid[end_r:end_r+pattern_size, end_c:end_c+pattern_size] = pattern_color
             
         elif grid_height >= 2 and grid_width >= 3:
             # Two small patterns
@@ -280,10 +287,10 @@ class Taskaedd82e4Generator(ARCTaskGenerator):
             if grid.size > 1:
                 grid[-1, -1] = pattern_color
         
-        # Add individual cells
+        # Add individual cells - scale with grid size
         empty_positions = [(r, c) for r in range(grid_height) for c in range(grid_width) if grid[r, c] == 0]
         if empty_positions:
-            num_individual = min(2, len(empty_positions))
+            num_individual = min(max(2, grid_height * grid_width // 20), len(empty_positions))
             selected = random.sample(empty_positions, num_individual)
             for r, c in selected:
                 grid[r, c] = pattern_color
@@ -370,20 +377,22 @@ class Taskaedd82e4Generator(ARCTaskGenerator):
         num_train_examples = random.randint(3, 5)
         train_examples = []
         
-        # Create more diverse grid dimensions
+        # Create more diverse grid dimensions - expanded range
         grid_dimensions = []
         for _ in range(num_train_examples + 1):
-            # Allow full range from 3 to 5 for both dimensions
-            height = random.randint(3, 5)
-            width = random.randint(3, 5)
+            # Allow full range from 5 to 30 for more variety
+            height = random.randint(5, 30)
+            width = random.randint(5, 30)
             grid_dimensions.append((height, width))
         
         for i in range(num_train_examples):
             height, width = grid_dimensions[i]
+            # Scale number of patterns with grid size
+            num_patterns = max(2, min(6, (height * width) // 50))
             gridvars = {
                 'grid_height': height,
                 'grid_width': width,
-                'num_patterns': 2,  # Always try for 2 patterns
+                'num_patterns': num_patterns,
             }
             
             print(f"Creating training grid {i+1}: {height}x{width}")
@@ -397,10 +406,11 @@ class Taskaedd82e4Generator(ARCTaskGenerator):
         
         # Test example
         test_height, test_width = grid_dimensions[-1]
+        test_num_patterns = max(2, min(6, (test_height * test_width) // 50))
         test_gridvars = {
             'grid_height': test_height,
             'grid_width': test_width,
-            'num_patterns': 2,
+            'num_patterns': test_num_patterns,
         }
         test_input = self.create_input(taskvars, test_gridvars)
         test_output = self.transform_input(test_input, taskvars)

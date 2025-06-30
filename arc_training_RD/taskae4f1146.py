@@ -23,16 +23,9 @@ class Taskae4f1146Generator(ARCTaskGenerator):
         r1, c1 = pos1
         r2, c2 = pos2
         
-        # Calculate the boundaries of each 3x3 sub-grid
-        # Sub-grid 1: (r1, c1) to (r1+2, c1+2)
-        # Sub-grid 2: (r2, c2) to (r2+2, c2+2)
-        
         # Check if they overlap or are too close
-        # Horizontal separation
-        if r1 + 3 + min_gap > r2 and r2 + 3 + min_gap > r1:
-            # They overlap in rows, check column separation
-            if c1 + 3 + min_gap > c2 and c2 + 3 + min_gap > c1:
-                return False  # Too close or overlapping
+        if (abs(r1 - r2) < 3 + min_gap) and (abs(c1 - c2) < 3 + min_gap):
+            return False  # Too close or overlapping
         
         return True
     
@@ -67,33 +60,13 @@ class Taskae4f1146Generator(ARCTaskGenerator):
             if valid_combination:
                 return candidate_positions
         
-        # If we can't find 4 positions with proper spacing, try with fewer sub-grids
-        for num_try in range(num_subgrids - 1, 1, -1):
-            for attempt in range(max_attempts):
-                if len(all_positions) < num_try:
-                    break
-                    
-                candidate_positions = random.sample(all_positions, num_try)
-                
-                valid_combination = True
-                for i in range(len(candidate_positions)):
-                    for j in range(i + 1, len(candidate_positions)):
-                        if not self.check_spacing(candidate_positions[i], candidate_positions[j], min_gap):
-                            valid_combination = False
-                            break
-                    if not valid_combination:
-                        break
-                
-                if valid_combination:
-                    return candidate_positions
-        
-        # Last resort: place sub-grids in corners if grid is large enough
+        # Fallback: place sub-grids in corners if grid is large enough
         if grid_size >= 8:
             return [(0, 0), (0, grid_size-3), (grid_size-3, 0), (grid_size-3, grid_size-3)]
         elif grid_size >= 6:
             return [(0, 0), (0, grid_size-3), (grid_size-3, 0)]
         else:
-            return [(0, 0), (grid_size-3, grid_size-3)]
+            return [(0, 0)]
     
     def create_input(self, taskvars: dict, gridvars: dict) -> np.ndarray:
         """Create a variable-sized input grid with exactly 4 sub-grids (3x3 each) placed with proper spacing."""
@@ -115,19 +88,30 @@ class Taskae4f1146Generator(ARCTaskGenerator):
             # If no valid positions found, return empty grid (shouldn't happen with proper grid sizing)
             return grid
         
-        # Generate different target color counts for each sub-grid to ensure uniqueness
+        # Create clear pattern: ensure one sub-grid has significantly more target_color cells
         num_subgrids = len(selected_positions)
-        target_counts = list(range(1, num_subgrids + 1))  # 1, 2, 3, 4 (or fewer)
-        random.shuffle(target_counts)  # Randomize which sub-grid gets which count
+        
+        # Assign target color counts: [1, 2, 3, max] where max is clearly the highest
+        if num_subgrids >= 4:
+            target_counts = [1, 2, 3, 6]  # Last one has clearly the most
+        elif num_subgrids == 3:
+            target_counts = [1, 2, 5]     # Last one has clearly the most  
+        elif num_subgrids == 2:
+            target_counts = [2, 6]        # Last one has clearly the most
+        else:
+            target_counts = [6]           # Only one sub-grid
+        
+        # Shuffle positions but keep counts ordered (so we know which has most)
+        random.shuffle(selected_positions)
         
         # Create sub-grids at selected positions
         for idx, (start_i, start_j) in enumerate(selected_positions):
-            desired_target_count = target_counts[idx]
+            desired_target_count = target_counts[idx] if idx < len(target_counts) else 1
             
             # Fill the 3x3 subgrid with base_color first
             for i in range(3):
                 for j in range(3):
-                    if start_i + i < grid_size and start_j + j < grid_size:  # Boundary check
+                    if start_i + i < grid_size and start_j + j < grid_size:
                         grid[start_i + i, start_j + j] = base_color
             
             # Now place the exact number of target_color cells
@@ -137,12 +121,13 @@ class Taskae4f1146Generator(ARCTaskGenerator):
                 for i in range(3):
                     for j in range(3):
                         if start_i + i < grid_size and start_j + j < grid_size:
-                            subgrid_positions.append((i, j))
+                            subgrid_positions.append((start_i + i, start_j + j))
                 
-                selected_cells = random.sample(subgrid_positions, min(desired_target_count, len(subgrid_positions)))
+                # Select random positions for target color
+                target_positions = random.sample(subgrid_positions, min(desired_target_count, len(subgrid_positions)))
                 
-                for i, j in selected_cells:
-                    grid[start_i + i, start_j + j] = pattern_color
+                for pos_r, pos_c in target_positions:
+                    grid[pos_r, pos_c] = pattern_color
                     
             elif target_color == base_color:
                 # We want specific number of base_color cells
@@ -151,7 +136,7 @@ class Taskae4f1146Generator(ARCTaskGenerator):
                 for i in range(3):
                     for j in range(3):
                         if start_i + i < grid_size and start_j + j < grid_size:
-                            subgrid_positions.append((i, j))
+                            subgrid_positions.append((start_i + i, start_j + j))
                 
                 total_cells = len(subgrid_positions)
                 pattern_cells_count = max(0, total_cells - desired_target_count)
@@ -159,46 +144,45 @@ class Taskae4f1146Generator(ARCTaskGenerator):
                 if pattern_cells_count > 0:
                     pattern_positions = random.sample(subgrid_positions, pattern_cells_count)
                     
-                    for i, j in pattern_positions:
-                        grid[start_i + i, start_j + j] = pattern_color
+                    for pos_r, pos_c in pattern_positions:
+                        grid[pos_r, pos_c] = pattern_color
                 # The remaining cells already have base_color
         
         return grid
     
-    def transform_input(self, grid: np.ndarray, taskvars: dict) -> np.ndarray:
+    def transform_input(self, grid):
         """Extract the 3x3 sub-grid with the maximum number of target_color cells."""
-        base_color = taskvars['base_color']
-        pattern_color = taskvars['pattern_color']
-        target_color = taskvars['target_color']
-        grid_size = taskvars['grid_size']
+        # Find all non-zero colors in the grid
+        unique_colors = np.unique(grid[grid != 0])
         
-        # Find all possible 3x3 sub-grids that contain our colors
-        max_count = -1
+        if len(unique_colors) == 0:
+            return np.zeros((3, 3), dtype=int)
+        
+        # For each possible color, find the sub-grid with maximum count
         best_subgrid = None
+        max_count = -1
         
-        for start_r in range(grid_size - 2):
-            for start_c in range(grid_size - 2):
-                subgrid = grid[start_r:start_r+3, start_c:start_c+3]
-                
-                # Check if this subgrid contains our colors (indicating it's one of our placed sub-grids)
-                has_base = np.any(subgrid == base_color)
-                has_pattern = np.any(subgrid == pattern_color)
-                
-                if has_base or has_pattern:  # This is likely one of our sub-grids
-                    # Count target_color cells in this sub-grid
-                    target_count = np.sum(subgrid == target_color)
+        for target_color in unique_colors:
+            # Find all possible 3x3 sub-grids
+            for start_r in range(grid.shape[0] - 2):
+                for start_c in range(grid.shape[1] - 2):
+                    subgrid = grid[start_r:start_r+3, start_c:start_c+3]
                     
-                    if target_count > max_count:
-                        max_count = target_count
-                        best_subgrid = subgrid.copy()
+                    # Only consider sub-grids that have some colored cells (not all zeros)
+                    if np.any(subgrid != 0):
+                        # Count target_color cells in this sub-grid
+                        target_count = np.sum(subgrid == target_color)
+                        
+                        if target_count > max_count:
+                            max_count = target_count
+                            best_subgrid = subgrid.copy()
         
         # Return the sub-grid with maximum target_color count
         if best_subgrid is not None:
             return best_subgrid
         
-        # Fallback: if no valid sub-grid found (shouldn't happen)
-        default_grid = np.full((3, 3), base_color, dtype=int)
-        return default_grid
+        # Last fallback: return empty 3x3 grid
+        return np.zeros((3, 3), dtype=int)
 
     def create_grids(self) -> tuple[dict, dict]:
         """Create train and test grids with consistent variables."""
@@ -207,44 +191,45 @@ class Taskae4f1146Generator(ARCTaskGenerator):
         random.shuffle(available_colors)
 
         # Generate variable grid size (must be large enough to fit 4 sub-grids with spacing)
-        # For 4 sub-grids of 3x3 with at least 1 cell spacing, we need minimum dimensions
-        # Best case: 2x2 arrangement: (3+1+3) x (3+1+3) = 7x7 minimum
-        # More realistic: 9x9 to 15x15 for better spacing
-        min_size = 9  # Increased to ensure better spacing
+        min_size = 10  # Increased to ensure better spacing
         max_size = 15  # Reasonable maximum
         
         grid_size = random.randint(min_size, max_size)
 
-        # Randomly choose which color to target (base_color or pattern_color)
-        target_color = random.choice([available_colors[0], available_colors[1]])
+        # Choose base and pattern colors
+        base_color = available_colors[0]
+        pattern_color = available_colors[1]
+        
+        # Always use pattern_color as target for consistency
+        target_color = pattern_color
 
         # Store task variables
         taskvars = {
             'grid_size': grid_size,
-            'base_color': available_colors[0],
-            'pattern_color': available_colors[1],
-            'target_color': target_color,  # This determines what we're counting
+            'base_color': base_color,
+            'pattern_color': pattern_color,
+            'target_color': target_color,
         }
         
-        # Generate 3-5 training examples
+        # Generate 3-5 training examples with same task variables
         num_train_examples = random.randint(3, 5)
         train_examples = []
         
         for _ in range(num_train_examples):
-            gridvars = {}  # No grid-specific variables needed
+            gridvars = {}
             
             input_grid = self.create_input(taskvars, gridvars)
-            output_grid = self.transform_input(input_grid, taskvars)
+            output_grid = self.transform_input(input_grid)
             
             train_examples.append({
                 'input': input_grid,
                 'output': output_grid
             })
         
-        # Create test example
+        # Create test example with same task variables
         test_gridvars = {}
         test_input = self.create_input(taskvars, test_gridvars)
-        test_output = self.transform_input(test_input, taskvars)
+        test_output = self.transform_input(test_input)
         
         test_examples = [{
             'input': test_input,
