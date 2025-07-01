@@ -150,38 +150,33 @@ class Taskae4f1146Generator(ARCTaskGenerator):
         
         return grid
     
-    def transform_input(self, grid):
+    def transform_input(self, grid, taskvars):
         """Extract the 3x3 sub-grid with the maximum number of target_color cells."""
-        # Find all non-zero colors in the grid
-        unique_colors = np.unique(grid[grid != 0])
+        target_color = taskvars['target_color']
         
-        if len(unique_colors) == 0:
-            return np.zeros((3, 3), dtype=int)
-        
-        # For each possible color, find the sub-grid with maximum count
+        # Find the sub-grid with maximum target_color count
         best_subgrid = None
         max_count = -1
         
-        for target_color in unique_colors:
-            # Find all possible 3x3 sub-grids
-            for start_r in range(grid.shape[0] - 2):
-                for start_c in range(grid.shape[1] - 2):
-                    subgrid = grid[start_r:start_r+3, start_c:start_c+3]
+        # Find all possible 3x3 sub-grids
+        for start_r in range(grid.shape[0] - 2):
+            for start_c in range(grid.shape[1] - 2):
+                subgrid = grid[start_r:start_r+3, start_c:start_c+3]
+                
+                # Only consider sub-grids that have some colored cells (not all zeros)
+                if np.any(subgrid != 0):
+                    # Count target_color cells in this sub-grid
+                    target_count = np.sum(subgrid == target_color)
                     
-                    # Only consider sub-grids that have some colored cells (not all zeros)
-                    if np.any(subgrid != 0):
-                        # Count target_color cells in this sub-grid
-                        target_count = np.sum(subgrid == target_color)
-                        
-                        if target_count > max_count:
-                            max_count = target_count
-                            best_subgrid = subgrid.copy()
+                    if target_count > max_count:
+                        max_count = target_count
+                        best_subgrid = subgrid.copy()
         
         # Return the sub-grid with maximum target_color count
         if best_subgrid is not None:
             return best_subgrid
         
-        # Last fallback: return empty 3x3 grid
+        # Fallback: return empty 3x3 grid
         return np.zeros((3, 3), dtype=int)
 
     def create_grids(self) -> tuple[dict, dict]:
@@ -219,7 +214,7 @@ class Taskae4f1146Generator(ARCTaskGenerator):
             gridvars = {}
             
             input_grid = self.create_input(taskvars, gridvars)
-            output_grid = self.transform_input(input_grid)
+            output_grid = self.transform_input(input_grid, taskvars)
             
             train_examples.append({
                 'input': input_grid,
@@ -229,7 +224,7 @@ class Taskae4f1146Generator(ARCTaskGenerator):
         # Create test example with same task variables
         test_gridvars = {}
         test_input = self.create_input(taskvars, test_gridvars)
-        test_output = self.transform_input(test_input)
+        test_output = self.transform_input(test_input, taskvars)
         
         test_examples = [{
             'input': test_input,
@@ -240,3 +235,11 @@ class Taskae4f1146Generator(ARCTaskGenerator):
             'train': train_examples,
             'test': test_examples
         }
+
+# Test code
+if __name__ == "__main__":
+    generator = Taskae4f1146Generator()
+    taskvars, train_test_data = generator.create_grids()
+    
+    print("Task Variables:", taskvars)
+    ARCTaskGenerator.visualize_train_test_data(train_test_data)

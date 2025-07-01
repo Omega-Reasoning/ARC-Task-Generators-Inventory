@@ -40,14 +40,15 @@ class BlockExtensionTaskGenerator(ARCTaskGenerator):
         gridvars['interior_color'] = interior_color
         
         # Create a block (rectangle or square)
-        block_width = random.randint(3, min(6, grid_size // 2))
-        block_height = random.randint(3, min(6, grid_size // 2))
+        block_width = random.randint(3, min(6, grid_size // 3))
+        block_height = random.randint(3, min(6, grid_size // 3))
         
-        # Position the block randomly but ensure space for pointer
-        max_row = grid_size - block_height - 1
-        max_col = grid_size - block_width - 1
-        block_row = random.randint(1, max(1, max_row))
-        block_col = random.randint(1, max(1, max_col))
+        # Position the block with more space for pointer (leave at least 3 cells gap)
+        min_gap = 3
+        max_row = grid_size - block_height - min_gap - 1
+        max_col = grid_size - block_width - min_gap - 1
+        block_row = random.randint(min_gap, max(min_gap, max_row))
+        block_col = random.randint(min_gap, max(min_gap, max_col))
         
         # Fill the block area
         for r in range(block_row, block_row + block_height):
@@ -61,58 +62,95 @@ class BlockExtensionTaskGenerator(ARCTaskGenerator):
         # Choose alignment direction
         direction = random.choice(['up', 'down', 'left', 'right'])
         
+        # Place pointer with at least min_gap distance from block
         if direction == 'up':
-            # Place pointer above the block
-            pointer_row = random.randint(0, max(0, block_row - 1))
+            # Place pointer above the block with gap
+            pointer_row = random.randint(0, max(0, block_row - min_gap))
             pointer_col = random.randint(block_col, block_col + block_width - 1)
         elif direction == 'down':
-            # Place pointer below the block
-            pointer_row = random.randint(min(grid_size - 1, block_row + block_height), grid_size - 1)
+            # Place pointer below the block with gap
+            pointer_row = random.randint(min(grid_size - 1, block_row + block_height + min_gap - 1), grid_size - 1)
             pointer_col = random.randint(block_col, block_col + block_width - 1)
         elif direction == 'left':
-            # Place pointer to the left of the block
+            # Place pointer to the left of the block with gap
             pointer_row = random.randint(block_row, block_row + block_height - 1)
-            pointer_col = random.randint(0, max(0, block_col - 1))
+            pointer_col = random.randint(0, max(0, block_col - min_gap))
         else:  # right
-            # Place pointer to the right of the block
+            # Place pointer to the right of the block with gap
             pointer_row = random.randint(block_row, block_row + block_height - 1)
-            pointer_col = random.randint(min(grid_size - 1, block_col + block_width), grid_size - 1)
+            pointer_col = random.randint(min(grid_size - 1, block_col + block_width + min_gap - 1), grid_size - 1)
         
         grid[pointer_row, pointer_col] = pointer_color
         
         return grid
     
-    def transform_input(self, input_grid, taskvars, gridvars=None):
+    def transform_input(self, grid, taskvars):
         """Transform input by extending block towards pointer."""
-        output_grid = input_grid.copy()
+        output_grid = grid.copy()
         
-        # Get colors from gridvars (set during create_input)
-        if gridvars is None:
-            # Fallback: use taskvars pointer_color and detect others
-            pointer_color = taskvars['pointer_color']
-            unique_colors = np.unique(input_grid)
-            unique_colors = unique_colors[unique_colors != 0]  # Remove background
-            remaining_colors = [c for c in unique_colors if c != pointer_color]
-            boundary_color = remaining_colors[0] if remaining_colors else 1
-            interior_color = remaining_colors[1] if len(remaining_colors) > 1 else 2
+        # Use taskvars pointer_color and detect others from the grid consistently
+        pointer_color = taskvars['pointer_color']
+        
+        # Find all non-background, non-pointer colors
+        unique_colors = np.unique(grid)
+        unique_colors = unique_colors[unique_colors != 0]  # Remove background
+        block_colors = [c for c in unique_colors if c != pointer_color]
+        
+        if len(block_colors) < 2:
+            return output_grid
+        
+        # Determine which color is boundary vs interior by analyzing the block structure
+        # Boundary color should be on the edges of the block, interior should be inside
+        color1, color2 = block_colors[0], block_colors[1]
+        
+        # Count positions for each color and analyze their structure
+        pos1 = np.where(grid == color1)
+        pos2 = np.where(grid == color2)
+        
+        # Find bounding box of the block
+        all_block_pos = np.where((grid == color1) | (grid == color2))
+        min_row, max_row = min(all_block_pos[0]), max(all_block_pos[0])
+        min_col, max_col = min(all_block_pos[1]), max(all_block_pos[1])
+        
+        # Check which color appears on the edges of the bounding box
+        edge_color1_count = 0
+        edge_color2_count = 0
+        
+        # Check top and bottom edges
+        for c in range(min_col, max_col + 1):
+            if grid[min_row, c] == color1:
+                edge_color1_count += 1
+            elif grid[min_row, c] == color2:
+                edge_color2_count += 1
+            if grid[max_row, c] == color1:
+                edge_color1_count += 1
+            elif grid[max_row, c] == color2:
+                edge_color2_count += 1
+        
+        # Check left and right edges
+        for r in range(min_row, max_row + 1):
+            if grid[r, min_col] == color1:
+                edge_color1_count += 1
+            elif grid[r, min_col] == color2:
+                edge_color2_count += 1
+            if grid[r, max_col] == color1:
+                edge_color1_count += 1
+            elif grid[r, max_col] == color2:
+                edge_color2_count += 1
+        
+        # The color that appears more on edges is the boundary color
+        if edge_color1_count >= edge_color2_count:
+            boundary_color = color1
+            interior_color = color2
         else:
-            pointer_color = gridvars['pointer_color']
-            boundary_color = gridvars['boundary_color']
-            interior_color = gridvars['interior_color']
+            boundary_color = color2
+            interior_color = color1
         
         # Find pointer position
-        pointer_pos = np.where(input_grid == pointer_color)
+        pointer_pos = np.where(grid == pointer_color)
         if len(pointer_pos[0]) == 0:
             return output_grid
         pointer_row, pointer_col = pointer_pos[0][0], pointer_pos[1][0]
-        
-        # Find block boundaries
-        block_positions = np.where((input_grid == boundary_color) | (input_grid == interior_color))
-        if len(block_positions[0]) == 0:
-            return output_grid
-            
-        min_row, max_row = min(block_positions[0]), max(block_positions[0])
-        min_col, max_col = min(block_positions[1]), max(block_positions[1])
         
         # Extend block towards pointer
         if pointer_row < min_row:  # Pointer is above
@@ -186,9 +224,9 @@ class BlockExtensionTaskGenerator(ARCTaskGenerator):
         num_train_examples = random.randint(3, 5)
         train_examples = []
         
-        # Generate grid sizes
-        min_size = 8
-        max_size = 15
+        # Generate grid sizes - larger to accommodate gaps
+        min_size = 10
+        max_size = 18
         all_sizes = [random.randint(min_size, max_size) for _ in range(num_train_examples + 1)]
         
         # Create training examples
@@ -196,7 +234,7 @@ class BlockExtensionTaskGenerator(ARCTaskGenerator):
             gridvars = {'grid_size': all_sizes[i]}
             
             input_grid = self.create_input(taskvars, gridvars)
-            output_grid = self.transform_input(input_grid, taskvars, gridvars)
+            output_grid = self.transform_input(input_grid, taskvars)
             
             train_examples.append({
                 'input': input_grid,
@@ -206,7 +244,7 @@ class BlockExtensionTaskGenerator(ARCTaskGenerator):
         # Create test example
         test_gridvars = {'grid_size': all_sizes[-1]}
         test_input = self.create_input(taskvars, test_gridvars)
-        test_output = self.transform_input(test_input, taskvars, test_gridvars)
+        test_output = self.transform_input(test_input, taskvars)
         
         test_examples = [{
             'input': test_input,
@@ -218,3 +256,10 @@ class BlockExtensionTaskGenerator(ARCTaskGenerator):
             'test': test_examples
         }
 
+# Test code
+if __name__ == "__main__":
+    generator = BlockExtensionTaskGenerator()
+    taskvars, train_test_data = generator.create_grids()
+    
+    print("Task Variables:", taskvars)
+    ARCTaskGenerator.visualize_train_test_data(train_test_data)

@@ -105,57 +105,52 @@ class Taskb0c4d837Generator(ARCTaskGenerator):
         liquid_color = taskvars['liquid_color']
         tank_color = taskvars['tank_color']
         
-        # Find the tank boundaries
         height, width = grid.shape
         
-        # Find top of liquid (highest row with liquid)
-        top_liquid_row = None
+        # Find tank boundaries - left and right walls
+        tank_left = None
+        tank_right = None
+        tank_top = None
+        tank_bottom = None
+        
+        # Find tank boundaries
         for row in range(height):
-            row_has_liquid = False
             for col in range(width):
-                if grid[row, col] == liquid_color:
+                if grid[row, col] == tank_color:
+                    if tank_top is None:
+                        tank_top = row
+                    tank_bottom = row
+                    if tank_left is None or col < tank_left:
+                        tank_left = col
+                    if tank_right is None or col > tank_right:
+                        tank_right = col
+        
+        if tank_left is None or tank_right is None or tank_top is None or tank_bottom is None:
+            return output_grid
+        
+        # Count unfilled rows by examining the tank interior
+        unfilled_rows = 0
+        
+        # Start from the first row inside the tank and count down until we hit liquid
+        for row in range(tank_top, tank_bottom):  # Exclude bottom wall
+            row_has_liquid = False
+            # Check if this row has liquid in the tank interior
+            for col in range(tank_left + 1, tank_right):  # Exclude walls
+                if col < width and grid[row, col] == liquid_color:
                     row_has_liquid = True
                     break
             
             if row_has_liquid:
-                top_liquid_row = row
+                # Found liquid, stop counting unfilled rows
                 break
-        
-        # Find the top of tank (first row with tank walls)
-        top_tank_row = None
-        for row in range(height):
-            row_has_tank = False
-            for col in range(width):
-                if grid[row, col] == tank_color:
-                    row_has_tank = True
-                    break
-            
-            if row_has_tank:
-                top_tank_row = row
-                break
-        
-        # Count unfilled rows
-        unfilled_rows = 0
-        if top_liquid_row is not None and top_tank_row is not None:
-            # Count rows between top of tank and top of liquid
-            unfilled_rows = top_liquid_row - top_tank_row
-        elif top_tank_row is not None:
-            # If no liquid found, count all interior rows as unfilled
-            # Find bottom of tank
-            bottom_tank_row = None
-            for row in range(height - 1, -1, -1):
-                row_has_tank = False
-                for col in range(width):
-                    if grid[row, col] == tank_color:
-                        row_has_tank = True
-                        break
+            else:
+                # This row is unfilled (empty inside the tank)
+                # Check if this row is actually inside the tank (has walls on sides)
+                has_left_wall = tank_left < width and grid[row, tank_left] == tank_color
+                has_right_wall = tank_right < width and grid[row, tank_right] == tank_color
                 
-                if row_has_tank:
-                    bottom_tank_row = row
-                    break
-            
-            if bottom_tank_row is not None:
-                unfilled_rows = max(1, bottom_tank_row - top_tank_row - 1)  # Exclude top and bottom tank walls
+                if has_left_wall and has_right_wall:
+                    unfilled_rows += 1
         
         # Ensure we have at least 1 unfilled row (as guaranteed by input generation)
         unfilled_rows = max(1, unfilled_rows)
@@ -223,3 +218,11 @@ class Taskb0c4d837Generator(ARCTaskGenerator):
             'train': train_examples,
             'test': test_examples
         }
+
+# Test code
+if __name__ == "__main__":
+    generator = Taskb0c4d837Generator()
+    taskvars, train_test_data = generator.create_grids()
+    
+    print("Task Variables:", taskvars)
+    ARCTaskGenerator.visualize_train_test_data(train_test_data)
