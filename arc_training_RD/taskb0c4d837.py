@@ -22,7 +22,7 @@ class Taskb0c4d837Generator(ARCTaskGenerator):
             "Then, in the 3x3 output grid, shade cells in an alternating pattern using the {color('liquid_color')} color, corresponding to the number of unfilled rows identified.",
             "The pattern alternates: first row left-to-right, second row right-to-left, third row left-to-right.",
             "All other cells remain empty or uncolored.",
-            "For example: If 5 unfilled rows exist in the input, shade the first 5 cells following the alternating pattern: (0,0), (0,1), (0,2), (1,2), (1,1) of the 3x3 output grid with {color('liquid_color')} color."
+            "For example, If 5 unfilled rows exist in the input, shade the first 5 cells following the alternating pattern: (0,0), (0,1), (0,2), (1,2), (1,1) of the 3x3 output grid with {color('liquid_color')} color."
         ]
         
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)

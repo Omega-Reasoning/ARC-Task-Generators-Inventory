@@ -4,7 +4,7 @@ from input_library import create_object, retry, random_cell_coloring
 import numpy as np
 import random
 
-class BlockExtensionTaskGenerator(ARCTaskGenerator):
+class Taskb548a754Generator(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
             "The input grids vary in size, typically squares or near-square rectangles.",
@@ -255,11 +255,3 @@ class BlockExtensionTaskGenerator(ARCTaskGenerator):
             'train': train_examples,
             'test': test_examples
         }
-
-# Test code
-if __name__ == "__main__":
-    generator = BlockExtensionTaskGenerator()
-    taskvars, train_test_data = generator.create_grids()
-    
-    print("Task Variables:", taskvars)
-    ARCTaskGenerator.visualize_train_test_data(train_test_data)

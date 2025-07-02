@@ -1,94 +1,99 @@
 from arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
-from transformation_library import find_connected_objects, GridObject, GridObjects
-from input_library import Contiguity, create_object, retry
+from transformation_library import find_connected_objects, GridObjects, GridObject
+from input_library import retry, random_cell_coloring
 import numpy as np
 import random
 
-class Tasktaskbeb8660cGenerator(ARCTaskGenerator):
+class Taskbeb8660cGenerator(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
-            "Input grids can vary in size, with width limited to 9 columns (Why only 9? Because we have only 9 colors available).",
-            "Each row contains exactly one horizontal line of colored blocks.",
-            "The number of colored blocks in each row forms a sequence from 1 to N, where N is the grid width.",
-            "The rows are randomly scattered throughout the grid - not arranged in any particular order.",
-            "The last row is always completely filled with colored blocks of the same color across all grids.",
-            "Each row has a unique color (1-9) and a unique length within each grid.",
-            "The colored blocks in each row can be positioned anywhere horizontally within that row."
+            "The input grids contain horizontal blocks of various colors and widths.",
+            "Each horizontal block is a solid rectangle spanning different widths.",
+            "The blocks are placed randomly in the input grid with gaps between them.",
+            "All blocks have the same height (1 row) but different widths."
         ]
         
         transformation_reasoning_chain = [
-            "The output grid maintains the same size as the input grid.",
-            "Arrange all rows by their block length in ascending order (1 to N blocks).",
-            "All rows are right-aligned to form a perfect staircase pattern.",
-            "Each row keeps its original color while being repositioned.",
-            "Empty rows are placed at the top of the grid.",
-            "The final pattern shows a perfect staircase from 1 block at top to N blocks at bottom.",
-            "The bottom row remains completely filled with the consistent color used across all grids."
+            "The output grid arranges all horizontal blocks in a right-aligned staircase pattern.",
+            "Blocks are sorted by width in ascending order (shortest to longest).",
+            "Each block is placed in consecutive rows, right-aligned to the right edge of the grid.",
+            "The staircase pattern ends at the last row of the grid.",
+            "The last (bottom) row contains the longest block and uses color {color('last_row_color')}."
         ]
-        
-        taskvars_definitions = {}
         
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
     
-    def create_input(self, taskvars, gridvars):
-        # Get the consistent last row color from taskvars
-        last_row_color = taskvars['last_row_color']
+    def create_input(self, taskvars):
+        # Grid size
+        height = random.randint(8, 12)
+        width = random.randint(10, 15)
         
-        # First determine the grid width (this will be the length of the bottom row)
-        cols = random.randint(4, 9)  # Limit to 9 for available colors
+        grid = np.zeros((height, width), dtype=int)
         
-        # Determine how many different block lengths we'll have (1 to cols)
-        # We need exactly cols different lengths: 1, 2, 3, ..., cols
-        num_blocks = cols
+        # Create 3-6 horizontal blocks with different widths and colors
+        num_blocks = random.randint(3, 6)
         
-        # Ensure we have enough rows (at least num_blocks, but can have more empty rows)
-        min_rows = num_blocks
-        rows = random.randint(min_rows, min_rows + 4)  # Add some extra empty rows
+        # Generate unique widths for each block
+        min_width = 2
+        max_width = min(width - 1, 8)
         
-        # Create empty grid
-        grid = np.zeros((rows, cols), dtype=int)
+        # Create a list of possible widths and sample from it
+        possible_widths = list(range(min_width, max_width + 1))
+        if len(possible_widths) < num_blocks:
+            num_blocks = len(possible_widths)
         
-        # Generate unique colors for each length, excluding the last row color
-        available_colors = [c for c in range(1, 10) if c != last_row_color]
-        colors = random.sample(available_colors, num_blocks - 1)  # Need one less since last row color is fixed
+        block_widths = random.sample(possible_widths, num_blocks)
         
-        # Add the fixed last row color to the colors list
-        colors.append(last_row_color)
+        # Generate colors (excluding 0 which is background)
+        available_colors = list(range(1, 10))
+        block_colors = random.sample(available_colors, num_blocks)
         
-        # Create lengths from 1 to cols (cols is the width of the bottom row)
-        lengths = list(range(1, cols + 1))
+        # Ensure the longest block gets the last_row_color
+        longest_width_idx = block_widths.index(max(block_widths))
+        block_colors[longest_width_idx] = taskvars['last_row_color']
         
-        # The last row must always be completely filled with the consistent color
-        grid[rows - 1, :] = last_row_color  # Fill entire last row
+        # Place blocks randomly in the grid
+        placed_blocks = []
         
-        # For the remaining blocks (lengths 1 to cols-1), randomly assign to other rows
-        remaining_lengths = lengths[:-1]  # All lengths except the last one (cols)
-        remaining_colors = colors[:-1]    # All colors except the last one
-        
-        # Shuffle the remaining colors to randomize assignment
-        random.shuffle(remaining_colors)
-        
-        # Select random rows for the remaining blocks (exclude the last row)
-        available_rows = list(range(rows - 1))  # All rows except the last one
-        selected_rows = random.sample(available_rows, len(remaining_lengths))
-        
-        # Place the remaining blocks in selected rows
-        for row_idx, length, color in zip(selected_rows, remaining_lengths, remaining_colors):
-            # Randomly position the horizontal block within this row
-            if length <= cols:
-                start_col = random.randint(0, cols - length)
-                # Place the horizontal block
-                grid[row_idx, start_col:start_col + length] = color
+        for width, color in zip(block_widths, block_colors):
+            # Try to place the block
+            max_attempts = 50
+            placed = False
+            
+            for _ in range(max_attempts):
+                # Random position
+                row = random.randint(0, height - 1)
+                col = random.randint(0, width - width)  # Ensure block fits
+                
+                # Check if position is free
+                if np.all(grid[row, col:col + width] == 0):
+                    # Place the block
+                    grid[row, col:col + width] = color
+                    placed_blocks.append((width, color, row, col))
+                    placed = True
+                    break
+            
+            # If we couldn't place the block, try a simpler placement
+            if not placed:
+                for row in range(height):
+                    for col in range(width - width + 1):
+                        if np.all(grid[row, col:col + width] == 0):
+                            grid[row, col:col + width] = color
+                            placed_blocks.append((width, color, row, col))
+                            placed = True
+                            break
+                    if placed:
+                        break
         
         return grid
     
-    def transform_input(self, input_grid, taskvars):
+    def transform_input(self, grid, taskvars):
         # Create output grid of same size
-        output_grid = np.zeros_like(input_grid)
-        rows, cols = input_grid.shape
+        output_grid = np.zeros_like(grid)
+        rows, cols = grid.shape
         
         # Find all horizontal blocks
-        objects = find_connected_objects(input_grid, diagonal_connectivity=False, background=0)
+        objects = find_connected_objects(grid, diagonal_connectivity=False, background=0)
         
         if len(objects.objects) == 0:
             return output_grid
@@ -112,29 +117,28 @@ class Tasktaskbeb8660cGenerator(ARCTaskGenerator):
             output_grid[row_position, col_position:col_position + width] = color
         
         return output_grid
-        
+    
     def create_grids(self):
-        # Choose a consistent color for the last row across all grids
+        # Generate task variables
         last_row_color = random.randint(1, 9)
         
-        # Set up taskvars with the consistent last row color
         taskvars = {
             'last_row_color': last_row_color
         }
         
-        # Randomize number of train examples
-        num_train = random.randint(3, 5)
+        # Generate 3-5 training examples
+        num_train_examples = random.randint(3, 5)
+        train_examples = []
         
-        # Create train pairs - all will use the same last_row_color
-        train_pairs = []
-        for _ in range(num_train):
-            input_grid = self.create_input(taskvars, {})
+        for _ in range(num_train_examples):
+            input_grid = self.create_input(taskvars)
             output_grid = self.transform_input(input_grid, taskvars)
-            train_pairs.append(GridPair(input=input_grid, output=output_grid))
+            train_examples.append(GridPair(input=input_grid, output=output_grid))
         
-        # Create one test example - also uses the same last_row_color
-        test_input = self.create_input(taskvars, {})
+        # Generate test example
+        test_input = self.create_input(taskvars)
         test_output = self.transform_input(test_input, taskvars)
-        test_pairs = [GridPair(input=test_input, output=test_output)]
+        test_examples = [GridPair(input=test_input, output=test_output)]
         
-        return taskvars, TrainTestData(train=train_pairs, test=test_pairs)
+        return taskvars, TrainTestData(train=train_examples, test=test_examples)
+

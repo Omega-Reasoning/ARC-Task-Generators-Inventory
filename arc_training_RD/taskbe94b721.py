@@ -4,10 +4,10 @@ import random
 from transformation_library import find_connected_objects, GridObject, GridObjects
 from input_library import create_object, retry, Contiguity, random_cell_coloring
 
-class Tasktaskbe94b721Generator(ARCTaskGenerator):
+class Taskbe94b721Generator(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
-            "Input grids can be of different sizes.",
+            "Input grids are of size {vars['grid_rows']} x {vars['grid_cols']}.",
             "The grid consists of multiple patterns of different sizes. No two patterns share the same size.",
             "Each pattern is of a different color and color range between 1-9."
         ]
@@ -18,21 +18,17 @@ class Tasktaskbe94b721Generator(ARCTaskGenerator):
             "The output grid size is exactly the bounding box of the largest pattern."
         ]
         
-        # No task variables needed for this task
-        taskvars_definitions = {}
-        
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
     
     def create_input(self, taskvars, gridvars):
-        # Generate random grid size (between 8x8 and 20x20)
-        height = random.randint(8, 20)
-        width = random.randint(8, 20)
+        # Use the grid size from gridvars (set once in create_grids)
+        height = gridvars['grid_rows']
+        width = gridvars['grid_cols']
         
         # Start with an empty grid
         grid = np.zeros((height, width), dtype=int)
         
         # Generate a random number of patterns (between 3 and 5)
-        # Reduced from 6 to 5 to decrease the chance of running out of unique sizes
         num_patterns = random.randint(3, 5)
         
         # Generate different colors for patterns (1-9)
@@ -154,9 +150,9 @@ class Tasktaskbe94b721Generator(ARCTaskGenerator):
         
         return grid
     
-    def transform_input(self, input_grid, taskvars):
+    def transform_input(self, grid, taskvars):
         # Find all connected objects in the input grid
-        objects = find_connected_objects(input_grid, diagonal_connectivity=True, background=0, monochromatic=True)
+        objects = find_connected_objects(grid, diagonal_connectivity=True, background=0, monochromatic=True)
         
         # Sort objects by size (largest first)
         sorted_objects = objects.sort_by_size(reverse=True)
@@ -177,21 +173,39 @@ class Tasktaskbe94b721Generator(ARCTaskGenerator):
         return pattern_array
     
     def create_grids(self):
-        # Empty taskvars since no task variables are needed
-        taskvars = {}
+        # Generate a single grid size that will be used for all grids
+        # Make it non-square by ensuring height != width
+        height = random.randint(10, 18)
+        width = random.randint(12, 20)
+        
+        # Ensure it's not square
+        while height == width:
+            width = random.randint(12, 20)
+        
+        # Task variables including grid dimensions
+        taskvars = {
+            'grid_rows': height,
+            'grid_cols': width
+        }
+        
+        # Grid variables to pass to create_input
+        gridvars = {
+            'grid_rows': height,
+            'grid_cols': width
+        }
         
         # Number of train pairs (3-5)
         num_train_pairs = random.randint(3, 5)
         
-        # Generate train pairs
+        # Generate train pairs (all with the same grid size)
         train_pairs = []
         for _ in range(num_train_pairs):
-            input_grid = self.create_input(taskvars, {})
+            input_grid = self.create_input(taskvars, gridvars)
             output_grid = self.transform_input(input_grid, taskvars)
             train_pairs.append(GridPair(input=input_grid, output=output_grid))
         
-        # Generate test pair
-        test_input = self.create_input(taskvars, {})
+        # Generate test pair (with the same grid size)
+        test_input = self.create_input(taskvars, gridvars)
         test_output = self.transform_input(test_input, taskvars)
         test_pairs = [GridPair(input=test_input, output=test_output)]
         

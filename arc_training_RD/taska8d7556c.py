@@ -4,7 +4,7 @@ from input_library import random_cell_coloring, retry
 import numpy as np
 import random
 
-class RectangleFillTaskGenerator(ARCTaskGenerator):
+class Taska8d7556cGenerator(ARCTaskGenerator):
     
     def __init__(self):
         # Input reasoning chain

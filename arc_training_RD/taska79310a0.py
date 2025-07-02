@@ -9,11 +9,11 @@ class Taska79310a0Generator(ARCTaskGenerator):
         input_reasoning_chain = [
             "Input grids are squares and can have different sizes.",
             "They contain only one object of {color('object_color')} color and empty (0) cells.",
-            "The object can be one of four types:",
-            "1. Letter \"I\" (1x3 horizontal line) - [1,1,1]",
-            "2. Letter \"T\" (3x2 shape with top bar) - [[1,1,1],[0,1,0]]",
-            "3. Letter \"O\" (2x2 solid square) - [[1,1],[1,1]]",
-            "4. Single cell (1x1) - [1]"
+            "The object can be one of four types.",
+            "Letter \"I\" (1x3 horizontal line) - [1,1,1]",
+            "Letter \"T\" (3x2 shape with top bar) - [[1,1,1],[0,1,0]]",
+            "Letter \"O\" (2x2 solid square) - [[1,1],[1,1]]",
+            "Single cell (1x1) - [1]"
         ]
         
         transformation_reasoning_chain = [

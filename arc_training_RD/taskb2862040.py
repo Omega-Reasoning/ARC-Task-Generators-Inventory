@@ -5,7 +5,7 @@ import numpy as np
 import random
 from scipy.ndimage import binary_fill_holes
 
-class ClosedShapeDetector(ARCTaskGenerator):
+class Taskb2862040Generator(ARCTaskGenerator):
     
     def __init__(self):
         input_reasoning_chain = [
@@ -23,53 +23,6 @@ class ClosedShapeDetector(ARCTaskGenerator):
         
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
     
-    def color_name(self, color: int) -> str:
-        color_map = {
-            0: "black", 1: "blue", 2: "red", 3: "green", 4: "yellow",
-            5: "gray", 6: "magenta", 7: "orange", 8: "cyan", 9: "brown"
-        }
-        return color_map.get(color, f"color_{color}")
-    
-    def create_grids(self):
-        available_colors = list(range(1, 10))
-        random.shuffle(available_colors)
-        
-        input_color = available_colors[0]
-        close_color = available_colors[1]
-        
-        taskvars = {
-            "input_color": input_color,
-            "close_color": close_color
-        }
-        
-        self.taskvars = taskvars
-        
-        def color_fmt(key):
-            color_id = taskvars[key]
-            return f"{self.color_name(color_id)} ({color_id})"
-        
-        self.input_reasoning_chain = [
-            chain.replace("{color('input_color')}", color_fmt('input_color'))
-                 .replace("{color('close_color')}", color_fmt('close_color'))
-            for chain in self.input_reasoning_chain
-        ]
-        self.transformation_reasoning_chain = [
-            chain.replace("{color('input_color')}", color_fmt('input_color'))
-                 .replace("{color('close_color')}", color_fmt('close_color'))
-            for chain in self.transformation_reasoning_chain
-        ]
-        
-        num_train_pairs = random.randint(3, 5)
-        train_pairs = [self.create_example(taskvars) for _ in range(num_train_pairs)]
-        test_pairs = [self.create_example(taskvars)]
-        
-        return taskvars, TrainTestData(train=train_pairs, test=test_pairs)
-    
-    def create_example(self, taskvars):
-        input_grid = self.create_input(taskvars)
-        output_grid = self.transform_input(input_grid.copy(), taskvars)
-        return GridPair(input=input_grid, output=output_grid)
-    
     def create_input(self, taskvars):
         grid_height = random.randint(15, 20)
         grid_width = random.randint(15, 20)
@@ -77,11 +30,11 @@ class ClosedShapeDetector(ARCTaskGenerator):
         grid = np.zeros((grid_height, grid_width), dtype=np.int32)
         input_color = taskvars['input_color']
         
-        # 6 shapes total:
+        # Total shapes: 4-7 (to accommodate variable closed shapes)
         # 1. One line (3 cells) - OPEN
         # 2. One single cell - OPEN  
-        # 3. At least 2 closed shapes - CLOSED
-        # 4. Rest are OPEN shapes
+        # 3. 1-3 closed shapes - CLOSED
+        # 4. Rest are OPEN shapes (1-3 additional)
         
         # Create 1 line (OPEN)
         line = self._create_line(input_color)
@@ -91,13 +44,15 @@ class ClosedShapeDetector(ARCTaskGenerator):
         single = self._create_single_cell(input_color)
         self._place_pattern(grid, single, grid_height, grid_width)
         
-        # Create exactly 2 closed shapes (CLOSED)
-        for _ in range(2):
+        # Create 1-3 closed shapes (CLOSED)
+        num_closed_shapes = random.randint(1, 3)
+        for _ in range(num_closed_shapes):
             closed_shape = self._create_closed_shape(input_color)
             self._place_pattern(grid, closed_shape, grid_height, grid_width)
         
-        # Create 2 more OPEN shapes
-        for _ in range(2):
+        # Create 1-3 more OPEN shapes to fill out the grid
+        num_open_shapes = random.randint(1, 3)
+        for _ in range(num_open_shapes):
             open_shape = self._create_open_shape(input_color)
             self._place_pattern(grid, open_shape, grid_height, grid_width)
         
@@ -118,27 +73,70 @@ class ClosedShapeDetector(ARCTaskGenerator):
         return pattern
     
     def _create_closed_shape(self, color):
-        size = random.randint(4, 6)
+        size = random.randint(4, 7)
         pattern = np.zeros((size, size), dtype=np.int32)
         
-        # Create hollow shape that's definitely closed
+        # Create basic hollow shape that's definitely closed
         pattern[0, :] = color  # Top
         pattern[-1, :] = color  # Bottom
         pattern[:, 0] = color  # Left
         pattern[:, -1] = color  # Right
         
-        # Add some irregularity while keeping it closed
-        for _ in range(random.randint(1, 2)):
+        # Add funny/irregular elements while keeping it closed
+        
+        # 1. Add random line extenders from the boundary
+        for _ in range(random.randint(1, 3)):
             side = random.choice(['top', 'bottom', 'left', 'right'])
             pos = random.randint(1, size-2)
+            extend_length = random.randint(1, 2)
+            
             if side == 'top':
-                pattern[1, pos] = color
+                for i in range(1, min(extend_length + 1, size-1)):
+                    pattern[i, pos] = color
             elif side == 'bottom':
-                pattern[-2, pos] = color
+                for i in range(max(1, size-extend_length-1), size-1):
+                    pattern[i, pos] = color
             elif side == 'left':
-                pattern[pos, 1] = color
+                for i in range(1, min(extend_length + 1, size-1)):
+                    pattern[pos, i] = color
             elif side == 'right':
-                pattern[pos, -2] = color
+                for i in range(max(1, size-extend_length-1), size-1):
+                    pattern[pos, i] = color
+        
+        # 2. Add random single cell extenders (protruding from boundary)
+        for _ in range(random.randint(0, 2)):
+            # Find boundary cells
+            boundary_cells = []
+            for r in range(size):
+                for c in range(size):
+                    if pattern[r, c] == color:
+                        if r == 0 or r == size-1 or c == 0 or c == size-1:
+                            boundary_cells.append((r, c))
+            
+            if boundary_cells:
+                br, bc = random.choice(boundary_cells)
+                directions = [(-1,0), (1,0), (0,-1), (0,1), (-1,-1), (-1,1), (1,-1), (1,1)]
+                for dr, dc in random.sample(directions, len(directions)):
+                    nr, nc = br + dr, bc + dc
+                    if 0 <= nr < size and 0 <= nc < size and pattern[nr, nc] == 0:
+                        pattern[nr, nc] = color
+                        break
+        
+        # 3. Add internal structures that don't break the closure
+        for _ in range(random.randint(0, 2)):
+            if size >= 5:
+                internal_r = random.randint(2, size-3)
+                internal_c = random.randint(2, size-3)
+                pattern[internal_r, internal_c] = color
+                if random.choice([True, False]) and internal_c + 1 < size - 1:
+                    pattern[internal_r, internal_c + 1] = color
+        
+        # 4. Add zigzag or wavy patterns to boundaries
+        if random.choice([True, False]):
+            for c in range(1, size-1):
+                if random.choice([True, False, False]):
+                    if pattern[1][c] == 0:
+                        pattern[1][c] = color
         
         return pattern
     
@@ -146,22 +144,16 @@ class ClosedShapeDetector(ARCTaskGenerator):
         size = random.randint(3, 5)
         pattern = np.zeros((size, size), dtype=np.int32)
         
-        # Create different types of OPEN shapes
         shape_type = random.choice(['L_shape', 'T_shape', 'arc', 'branch', 'random_walk'])
         
         if shape_type == 'L_shape':
-            # L-shaped pattern (clearly open)
-            pattern[:, 0] = color  # Vertical part
-            pattern[-1, :size//2+1] = color  # Horizontal part
-        
+            pattern[:, 0] = color
+            pattern[-1, :size//2+1] = color
         elif shape_type == 'T_shape':
-            # T-shaped pattern (clearly open)
             center = size // 2
-            pattern[0, :] = color  # Top horizontal
-            pattern[:center+1, center] = color  # Vertical part
-        
+            pattern[0, :] = color
+            pattern[:center+1, center] = color
         elif shape_type == 'arc':
-            # Arc pattern (incomplete circle)
             center = size // 2
             for r in range(size):
                 for c in range(size):
@@ -169,16 +161,12 @@ class ClosedShapeDetector(ARCTaskGenerator):
                     angle = np.arctan2(r - center, c - center)
                     if abs(dist - center + 0.5) < 0.8 and -np.pi/2 < angle < np.pi/2:
                         pattern[r, c] = color
-        
         elif shape_type == 'branch':
-            # Branching pattern
             center = size // 2
-            pattern[:, center] = color  # Main line
+            pattern[:, center] = color
             if size >= 3:
-                pattern[center, :center+1] = color  # Branch
-        
+                pattern[center, :center+1] = color
         else:  # random_walk
-            # Random walk (always open)
             r, c = size // 2, size // 2
             pattern[r, c] = color
             
@@ -189,14 +177,6 @@ class ClosedShapeDetector(ARCTaskGenerator):
                 if 0 <= nr < size and 0 <= nc < size:
                     pattern[nr, nc] = color
                     r, c = nr, nc
-        
-        # Double check it's not accidentally closed
-        if self._is_closed_shape(pattern):
-            # Force it to be open by removing a cell
-            cells = np.where(pattern == color)
-            if len(cells[0]) > 2:
-                idx = random.randint(0, len(cells[0]) - 1)
-                pattern[cells[0][idx], cells[1][idx]] = 0
         
         return pattern
     
@@ -213,41 +193,117 @@ class ClosedShapeDetector(ARCTaskGenerator):
                 return True
         return False
     
-    def _is_closed_shape(self, obj_array):
-        if obj_array.size <= 4:
-            return False
-        
-        non_zero_rows = np.any(obj_array != 0, axis=1)
-        non_zero_cols = np.any(obj_array != 0, axis=0)
-        
-        if not np.any(non_zero_rows) or not np.any(non_zero_cols):
-            return False
-        
-        trimmed = obj_array[non_zero_rows][:, non_zero_cols]
-        h, w = trimmed.shape
-        
-        if h < 3 or w < 3:
-            return False
-        
-        binary_mask = (trimmed != 0)
-        filled = binary_fill_holes(binary_mask)
-        holes_filled = np.sum(filled) - np.sum(binary_mask)
-        
-        return holes_filled > 0
-    
-    def transform_input(self, input_grid, taskvars):
+    def transform_input(self, grid, taskvars):
         input_color = taskvars['input_color']
         close_color = taskvars['close_color']
         
-        output_grid = input_grid.copy()
-        objects = find_connected_objects(input_grid, diagonal_connectivity=False)
+        output_grid = grid.copy()
+        objects = find_connected_objects(grid, diagonal_connectivity=False, background=0)
         
+        # Transform closed shapes
         for obj in objects:
             if obj.has_color(input_color):
                 obj_array = obj.to_array()
-                if self._is_closed_shape(obj_array):
+                
+                # Inline closed shape detection to avoid function generation issues
+                is_closed = False
+                
+                if obj_array.size > 4:
+                    # Get the bounding box of non-zero elements
+                    rows_with_data = np.any(obj_array != 0, axis=1)
+                    cols_with_data = np.any(obj_array != 0, axis=0)
+                    
+                    if np.any(rows_with_data) and np.any(cols_with_data):
+                        # Trim to only the area containing the object
+                        trimmed = obj_array[rows_with_data][:, cols_with_data]
+                        h, w = trimmed.shape
+                        
+                        # Need minimum size to potentially be closed
+                        if h >= 3 and w >= 3:
+                            # Create binary mask
+                            binary_mask = (trimmed != 0).astype(bool)
+                            
+                            # Method 1: Use binary_fill_holes
+                            try:
+                                filled = binary_fill_holes(binary_mask)
+                                holes_filled = np.sum(filled) - np.sum(binary_mask)
+                                if holes_filled > 0:
+                                    is_closed = True
+                            except:
+                                pass
+                            
+                            if not is_closed:
+                                # Method 2: Check if shape has boundary structure typical of closed shapes
+                                total_cells = h * w
+                                filled_cells = np.sum(binary_mask)
+                                density = filled_cells / total_cells
+                                
+                                # Check coverage on edges
+                                top_coverage = np.sum(binary_mask[0, :]) / w
+                                bottom_coverage = np.sum(binary_mask[-1, :]) / w
+                                left_coverage = np.sum(binary_mask[:, 0]) / h
+                                right_coverage = np.sum(binary_mask[:, -1]) / h
+                                
+                                edge_coverages = [top_coverage, bottom_coverage, left_coverage, right_coverage]
+                                edges_with_good_coverage = sum(1 for cov in edge_coverages if cov > 0.3)
+                                
+                                if (0.25 <= density <= 0.85 and 
+                                    edges_with_good_coverage >= 3 and 
+                                    filled_cells >= 8):
+                                    is_closed = True
+                            
+                            if not is_closed:
+                                # Method 3: Flood fill from edges to detect internal holes
+                                padded = np.zeros((h + 2, w + 2), dtype=bool)
+                                padded[1:-1, 1:-1] = binary_mask
+                                
+                                # Flood fill from top-left corner (outside the shape)
+                                visited = np.zeros_like(padded, dtype=bool)
+                                stack = [(0, 0)]
+                                
+                                while stack:
+                                    r, c = stack.pop()
+                                    if (0 <= r < h + 2 and 0 <= c < w + 2 and 
+                                        not visited[r, c] and not padded[r, c]):
+                                        visited[r, c] = True
+                                        stack.extend([(r+1, c), (r-1, c), (r, c+1), (r, c-1)])
+                                
+                                # Check if there are unvisited empty cells (holes)
+                                internal_area = visited[1:-1, 1:-1]
+                                holes = ~internal_area & ~binary_mask
+                                
+                                if np.sum(holes) > 0:
+                                    is_closed = True
+                
+                if is_closed:
                     for r, c, _ in obj:
                         output_grid[r, c] = close_color
         
         return output_grid
+
+    def create_grids(self):
+        available_colors = list(range(1, 10))
+        random.shuffle(available_colors)
+        
+        input_color = available_colors[0]
+        close_color = available_colors[1]
+        
+        taskvars = {
+            "input_color": input_color,
+            "close_color": close_color
+        }
+        
+        num_train_pairs = random.randint(3, 5)
+        train_pairs = []
+        
+        for _ in range(num_train_pairs):
+            input_grid = self.create_input(taskvars)
+            output_grid = self.transform_input(input_grid.copy(), taskvars)
+            train_pairs.append(GridPair(input=input_grid, output=output_grid))
+        
+        test_input = self.create_input(taskvars)
+        test_output = self.transform_input(test_input.copy(), taskvars)
+        test_pairs = [GridPair(input=test_input, output=test_output)]
+        
+        return taskvars, TrainTestData(train=train_pairs, test=test_pairs)
 

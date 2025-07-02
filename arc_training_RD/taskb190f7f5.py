@@ -8,20 +8,20 @@ class Taskb190f7f5Generator(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
             "Each input grid has variable size with width being twice the height.",
-            "The grid is conceptually split into two equal halves:",
-            "The left half contains a pattern made up of a single color or a uniform shape.",
+            "The grid is conceptually split into two equal halves.",
+            "The left half contains a pattern made up of a {color('template_color')} color or a uniform shape.",
             "The right half contains a shape that consists of multiple colors arranged meaningfully (e.g., in a T or cross shape).",
-            "These roles may also be interchanged:",
+            "These roles may also be interchanged.",
             "The left half might have the multi-colored pattern while the right half contains the single-color shape.",
-            "The single-color shape uses the same color across all input grids."
+            "The {color('template_color')} color shape uses the same color across all input grids."
         ]
         
         transformation_reasoning_chain = [
-            "The goal is to use:",
-            "The single-color shape as a template or building block.",
+            "The goal is to use the {color('template_color')} color shape as a template and the multi-colored shape as a layout guide.",
+            "The {color('template_color')} color shape as a template or building block.",
             "The multi-colored shape as a layout guide to decide where and how to place copies of the building block.",
             "Create a new output grid that is square with size equal to the square of input height (row² × row²).",
-            "For each colored cell in the multi-colored shape:",
+            "For each colored cell in the multi-colored shape.",
             "Place a copy of the template shape at the corresponding location in the output.",
             "But recolor the copy to match the color of that cell in the multi-colored shape."
         ]
@@ -250,55 +250,39 @@ class Taskb190f7f5Generator(ARCTaskGenerator):
             grid[:half_size, :half_size] = layout_pattern  
             grid[:half_size, half_size:] = template_pattern
             
-        # Store information needed for transformation
-        taskvars['template_on_left'] = template_on_left
-        taskvars['half_size'] = half_size
-        taskvars['input_height'] = input_height
-        taskvars['input_width'] = input_width
-        
         return grid
 
-    def transform_input(self, input_grid, taskvars):
-        """Transform input grid - EXACT REFERENCE LOGIC but with row²×row² output"""
-        template_on_left = taskvars['template_on_left']
-        half_size = taskvars['half_size']
-        input_height = taskvars['input_height']  # This is the row size
+    def transform_input(self, grid, taskvars):
+        """Transform input grid by extracting template and layout, then assembling output"""
+        template_color = taskvars['template_color']
         
-        # Extract the two halves
-        if template_on_left:
-            template_half = input_grid[:half_size, :half_size]
-            layout_half = input_grid[:half_size, half_size:]
+        # Determine grid dimensions from the input
+        input_height, input_width = grid.shape
+        half_size = input_height  # Since height = half_size in our design
+        
+        # Split the grid into two halves
+        left_half = grid[:half_size, :half_size]
+        right_half = grid[:half_size, half_size:]
+        
+        # Determine which half contains the template (single color pattern)
+        left_has_template = np.any(left_half == template_color) and len(np.unique(left_half[left_half != 0])) == 1
+        right_has_template = np.any(right_half == template_color) and len(np.unique(right_half[right_half != 0])) == 1
+        
+        if left_has_template:
+            template_half = left_half
+            layout_half = right_half
         else:
-            template_half = input_grid[:half_size, half_size:]
-            layout_half = input_grid[:half_size, :half_size]
+            template_half = right_half
+            layout_half = left_half
         
-        # Get the template pattern (remove color, keep shape) - KEY STEP FROM REFERENCE
+        # Get the template pattern (remove color, keep shape)
         template_shape = (template_half != 0).astype(int)
         
-        # Calculate layout positions - FOLLOWING REFERENCE LOGIC
-        layout_positions = []
-        for r in range(half_size):
-            for c in range(half_size):
-                if layout_half[r, c] != 0:
-                    layout_positions.append((r, c))
-        
-        if not layout_positions:
-            # Fallback if no positions found
-            layout_positions = [(0, 0)]
-        
-        # Calculate output grid size based on maximum position and template size - FROM REFERENCE
-        max_r = max(pos[0] for pos in layout_positions)
-        max_c = max(pos[1] for pos in layout_positions)
-        
-        # Calculate output grid size based on maximum position and template size - FROM REFERENCE
-        calculated_height = (max_r + 1) * half_size
-        calculated_width = (max_c + 1) * half_size
-        
-        # But we want row² × row² output (square of rows)
-        output_size = input_height * input_height  # row² × row²
+        # Calculate output size - row² × row²
+        output_size = input_height * input_height
         output_grid = np.zeros((output_size, output_size), dtype=int)
         
-        # For each colored cell in the layout pattern - EXACT REFERENCE LOGIC
+        # For each colored cell in the layout pattern
         for r in range(half_size):
             for c in range(half_size):
                 if layout_half[r, c] != 0:
@@ -317,7 +301,7 @@ class Taskb190f7f5Generator(ARCTaskGenerator):
                     template_height = end_r - start_r
                     template_width = end_c - start_c
                     
-                    # Create colored copy of template (or portion that fits) - KEY STEP
+                    # Create colored copy of template (or portion that fits)
                     if template_height > 0 and template_width > 0:
                         colored_template = template_shape[:template_height, :template_width] * cell_color
                         
@@ -341,17 +325,14 @@ class Taskb190f7f5Generator(ARCTaskGenerator):
         attempts = 0
         while len(train_pairs) < num_train_pairs and attempts < 50:
             try:
-                grid_taskvars = taskvars.copy()
-                
-                input_grid = self.create_input(grid_taskvars)
-                output_grid = self.transform_input(input_grid.copy(), grid_taskvars)
+                input_grid = self.create_input(taskvars)
+                output_grid = self.transform_input(input_grid.copy(), taskvars)
                 
                 # Validate the generated grids
-                input_height = grid_taskvars['input_height']
-                input_width = grid_taskvars['input_width']
+                input_height, input_width = input_grid.shape
                 expected_output_size = input_height * input_height  # row² × row²
                 
-                if (input_grid.shape == (input_height, input_width) and 
+                if (input_width == 2 * input_height and  # Width should be twice height
                     output_grid.shape == (expected_output_size, expected_output_size) and  # row² × row²
                     output_grid.size > 0 and 
                     np.any(input_grid != 0) and
@@ -374,16 +355,14 @@ class Taskb190f7f5Generator(ARCTaskGenerator):
         
         while len(test_pairs) == 0 and test_attempts < 20:
             try:
-                test_taskvars = taskvars.copy()
-                test_input = self.create_input(test_taskvars)
-                test_output = self.transform_input(test_input.copy(), test_taskvars)
+                test_input = self.create_input(taskvars)
+                test_output = self.transform_input(test_input.copy(), taskvars)
                 
                 # Validate test grid
-                test_input_height = test_taskvars['input_height']
-                test_input_width = test_taskvars['input_width']
+                test_input_height, test_input_width = test_input.shape
                 test_expected_output_size = test_input_height * test_input_height  # row² × row²
                 
-                if (test_input.shape == (test_input_height, test_input_width) and 
+                if (test_input_width == 2 * test_input_height and  # Width should be twice height
                     test_output.shape == (test_expected_output_size, test_expected_output_size) and  # row² × row²
                     test_output.size > 0 and 
                     np.any(test_input != 0) and
@@ -400,3 +379,4 @@ class Taskb190f7f5Generator(ARCTaskGenerator):
             raise ValueError("Failed to generate valid test pair")
         
         return taskvars, TrainTestData(train=train_pairs, test=test_pairs)
+

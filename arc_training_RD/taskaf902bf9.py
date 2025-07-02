@@ -7,12 +7,12 @@ from transformation_library import find_connected_objects, GridObject, GridObjec
 class Taskaf902bf9Generator(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
-            "Input grids are square grids of varying sizes.",
+            "Input grids are square grids of size {vars['grid_rows']} x {vars['grid_cols']}.",
             "The grid contains 1-3 sets of patterns. Each pattern consists of 4 corner cells in {color('corner_color')}.",
-            "Patterns can be of three types:",
-            "1. Square pattern: 4 corner cells forming a square",
-            "2. Rectangle pattern: 4 corner cells forming a wider rectangle",
-            "3. Cross pattern: 4 corner cells with exactly one empty cell between them"
+            "Patterns can be of three types.",
+            "Firstly, a square pattern with 4 corner cells forming a square",
+            "Secondly, a rectangle pattern with 4 corner cells forming a wider rectangle",
+            "Lastly, a cross pattern with 4 corner cells with exactly one empty cell between them"
         ]
         
         transformation_reasoning_chain = [
@@ -213,10 +213,12 @@ class Taskaf902bf9Generator(ARCTaskGenerator):
         corner_color = random.randint(1, 9)
         quad_color = random.choice([c for c in range(1, 10) if c != corner_color])
             
-        # Store the task variables
+        # Store the task variables (including grid dimensions for square grids)
         taskvars = {
             "corner_color": corner_color,
-            "quad_color": quad_color
+            "quad_color": quad_color,
+            "grid_rows": grid_size,      # Added grid_rows
+            "grid_cols": grid_size       # Added grid_cols (same as grid_rows for square grids)
         }
         
         # Generate 3-5 training examples

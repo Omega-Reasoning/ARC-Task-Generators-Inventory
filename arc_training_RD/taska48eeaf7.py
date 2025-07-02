@@ -4,7 +4,7 @@ from input_library import retry
 import numpy as np
 import random
 
-class BlockAttachmentTaskGenerator(ARCTaskGenerator):
+class Taska48eeaf7Generator(ARCTaskGenerator):
     
     def __init__(self):
         # Input reasoning chain
