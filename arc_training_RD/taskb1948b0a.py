@@ -1,8 +1,6 @@
 from arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
 import numpy as np
 import random
-from input_library import create_object, random_cell_coloring, Contiguity
-from transformation_library import find_connected_objects, GridObject, GridObjects
 
 class Taskb1948b0aGenerator(ARCTaskGenerator):
     def __init__(self):
@@ -19,22 +17,8 @@ class Taskb1948b0aGenerator(ARCTaskGenerator):
         
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
     
-    def color_name(self, color: int) -> str:
-        color_map = {
-            0: "black",
-            1: "blue",
-            2: "red",
-            3: "green",
-            4: "yellow",
-            5: "gray",
-            6: "magenta",
-            7: "orange",
-            8: "cyan",
-            9: "brown"
-        }
-        return color_map.get(color, f"color_{color}")
-    
-    def create_input(self, taskvars):
+    def create_input(self, taskvars: dict, gridvars: dict) -> np.ndarray:
+        """Create a grid filled with two colors in random shapes."""
         # Get colors from taskvars
         object_color = taskvars["object_color"]
         fill_color = taskvars["fill_color"]
@@ -42,11 +26,8 @@ class Taskb1948b0aGenerator(ARCTaskGenerator):
         # Create a grid of random size between 5x5 and 15x15
         rows = random.randint(5, 15)
         cols = random.randint(5, 15)
-        # taskvars["rows"] = rows
-        # taskvars["cols"] = cols
-        # taskvars["grid_size"] = f"{rows} x {cols}"
         
-        # Initialize grid with the fill_color (now we'll add object_color instead of the reverse)
+        # Initialize grid with the fill_color
         grid = np.full((rows, cols), fill_color, dtype=int)
         
         # Determine coverage percentage for object_color (30-70% of the grid)
@@ -98,11 +79,11 @@ class Taskb1948b0aGenerator(ARCTaskGenerator):
             rand_c = random.randint(0, cols - 1)
             grid[rand_r, rand_c] = object_color
 
-        # taskvars["grid_size"] = f"{rows} x {cols}"
         return grid
     
-    def transform_input(self, input_grid, taskvars):
-        output_grid = input_grid.copy()
+    def transform_input(self, grid, taskvars):
+        """Transform input by replacing fill_color cells with replace_color."""
+        output_grid = grid.copy()
         
         # Get colors from taskvars
         fill_color = taskvars["fill_color"]
@@ -112,11 +93,9 @@ class Taskb1948b0aGenerator(ARCTaskGenerator):
         output_grid[output_grid == fill_color] = replace_color
         
         return output_grid
-    
-    def create_grids(self):
-        num_train_pairs = random.randint(3, 5)
-        train_pairs = []
 
+    def create_grids(self) -> tuple[dict, dict]:
+        """Create train and test grids with consistent variables."""
         # Define random colors for the task (all different)
         colors = random.sample(range(1, 10), 3)
         taskvars = {
@@ -125,42 +104,40 @@ class Taskb1948b0aGenerator(ARCTaskGenerator):
             "replace_color": colors[2]
         }
 
-        # Helper for reasoning chain formatting
-        def color_fmt(key):
-            color_id = taskvars[key]
-            return f"{self.color_name(color_id)} ({color_id})"
-
-        # --- Generate the first input grid to set rows/cols in taskvars ---
-        input_grid = self.create_input(taskvars)
-        output_grid = self.transform_input(input_grid, taskvars)
-        train_pairs.append(GridPair(input=input_grid, output=output_grid))
-
-        # Now update the reasoning chains with the correct grid size
-        self.input_reasoning_chain = [
-            chain.replace("{color('object_color')}", color_fmt('object_color'))
-                 .replace("{color('fill_color')}", color_fmt('fill_color'))
-                 .replace("{color('replace_color')}", color_fmt('replace_color'))
-                #  .replace("{vars['rows']}", str(taskvars.get('rows', 'M')))
-                #  .replace("{vars['cols']}", str(taskvars.get('cols', 'N')))
-            for chain in self.input_reasoning_chain
-        ]
-
-        self.transformation_reasoning_chain = [
-            chain.replace("{color('object_color')}", color_fmt('object_color'))
-                 .replace("{color('fill_color')}", color_fmt('fill_color'))
-                 .replace("{color('replace_color')}", color_fmt('replace_color'))
-            for chain in self.transformation_reasoning_chain
-        ]
-
-        # Generate the rest of the training pairs
-        for _ in range(num_train_pairs - 1):
-            input_grid = self.create_input(taskvars)
+        # Generate 3-5 training examples with same task variables
+        num_train_examples = random.randint(3, 5)
+        train_examples = []
+        
+        for _ in range(num_train_examples):
+            gridvars = {}
+            
+            input_grid = self.create_input(taskvars, gridvars)
             output_grid = self.transform_input(input_grid, taskvars)
-            train_pairs.append(GridPair(input=input_grid, output=output_grid))
-
-        # Create test pair
-        test_input = self.create_input(taskvars)
+            
+            train_examples.append({
+                'input': input_grid,
+                'output': output_grid
+            })
+        
+        # Create test example with same task variables
+        test_gridvars = {}
+        test_input = self.create_input(taskvars, test_gridvars)
         test_output = self.transform_input(test_input, taskvars)
-        test_pairs = [GridPair(input=test_input, output=test_output)]
+        
+        test_examples = [{
+            'input': test_input,
+            'output': test_output
+        }]
+        
+        return taskvars, {
+            'train': train_examples,
+            'test': test_examples
+        }
 
-        return taskvars, TrainTestData(train=train_pairs, test=test_pairs)
+# Test code
+if __name__ == "__main__":
+    generator = Taskb1948b0aGenerator()
+    taskvars, train_test_data = generator.create_grids()
+    
+    print("Task Variables:", taskvars)
+    ARCTaskGenerator.visualize_train_test_data(train_test_data)

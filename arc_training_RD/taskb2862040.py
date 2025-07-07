@@ -23,7 +23,8 @@ class Taskb2862040Generator(ARCTaskGenerator):
         
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
     
-    def create_input(self, taskvars):
+    def create_input(self, taskvars: dict, gridvars: dict) -> np.ndarray:
+        """Create a grid with mixture of open and closed shapes."""
         grid_height = random.randint(15, 20)
         grid_width = random.randint(15, 20)
         
@@ -194,6 +195,7 @@ class Taskb2862040Generator(ARCTaskGenerator):
         return False
     
     def transform_input(self, grid, taskvars):
+        """Transform input by changing closed shapes to close_color."""
         input_color = taskvars['input_color']
         close_color = taskvars['close_color']
         
@@ -281,7 +283,8 @@ class Taskb2862040Generator(ARCTaskGenerator):
         
         return output_grid
 
-    def create_grids(self):
+    def create_grids(self) -> tuple[dict, dict]:
+        """Create train and test grids with consistent variables."""
         available_colors = list(range(1, 10))
         random.shuffle(available_colors)
         
@@ -293,17 +296,40 @@ class Taskb2862040Generator(ARCTaskGenerator):
             "close_color": close_color
         }
         
-        num_train_pairs = random.randint(3, 5)
-        train_pairs = []
+        # Generate 3-5 training examples with same task variables
+        num_train_examples = random.randint(3, 5)
+        train_examples = []
         
-        for _ in range(num_train_pairs):
-            input_grid = self.create_input(taskvars)
-            output_grid = self.transform_input(input_grid.copy(), taskvars)
-            train_pairs.append(GridPair(input=input_grid, output=output_grid))
+        for _ in range(num_train_examples):
+            gridvars = {}
+            
+            input_grid = self.create_input(taskvars, gridvars)
+            output_grid = self.transform_input(input_grid, taskvars)
+            
+            train_examples.append({
+                'input': input_grid,
+                'output': output_grid
+            })
         
-        test_input = self.create_input(taskvars)
-        test_output = self.transform_input(test_input.copy(), taskvars)
-        test_pairs = [GridPair(input=test_input, output=test_output)]
+        # Create test example with same task variables
+        test_gridvars = {}
+        test_input = self.create_input(taskvars, test_gridvars)
+        test_output = self.transform_input(test_input, taskvars)
         
-        return taskvars, TrainTestData(train=train_pairs, test=test_pairs)
+        test_examples = [{
+            'input': test_input,
+            'output': test_output
+        }]
+        
+        return taskvars, {
+            'train': train_examples,
+            'test': test_examples
+        }
 
+# Test code
+if __name__ == "__main__":
+    generator = Taskb2862040Generator()
+    taskvars, train_test_data = generator.create_grids()
+    
+    print("Task Variables:", taskvars)
+    ARCTaskGenerator.visualize_train_test_data(train_test_data)

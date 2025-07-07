@@ -23,24 +23,10 @@ class Taskb60334d2Generator(ARCTaskGenerator):
         
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
     
-    def color_name(self, color: int) -> str:
-        color_map = {
-            0: "black",
-            1: "blue",
-            2: "red",
-            3: "green",
-            4: "yellow",
-            5: "gray",
-            6: "magenta",
-            7: "orange",
-            8: "cyan",
-            9: "brown"
-        }
-        return color_map.get(color, f"color_{color}")
-    
-    def create_input(self, taskvars):
+    def create_input(self, taskvars: dict, gridvars: dict) -> np.ndarray:
+        """Create a grid with exactly 4 scattered cells of object_color."""
         object_color = taskvars["object_color"]
-        grid_size = taskvars["grid_size"]  # Now an integer from taskvars
+        grid_size = taskvars["grid_size"]
         
         # Initialize grid
         grid = np.zeros((grid_size, grid_size), dtype=int)
@@ -54,11 +40,13 @@ class Taskb60334d2Generator(ARCTaskGenerator):
             placed_cells = []
             for _ in range(4):
                 for attempt in range(100):  # Attempt 100 times to place a cell
-                    r = random.randint(1, grid_size - 2)  # Avoid edges to allow for boundary
-                    c = random.randint(1, grid_size - 2)
+                    r = random.randint(2, grid_size - 3)  # Increased margin from edges
+                    c = random.randint(2, grid_size - 3)
                     
                     # Check if this position is far enough from existing cells
-                    if all(abs(r - cr) > 2 or abs(c - cc) > 2 for cr, cc in placed_cells):
+                    # Increased minimum distance to ensure boundary blocks don't touch
+                    min_distance = 4  # This ensures at least 1 empty cell between boundary blocks
+                    if all(abs(r - cr) >= min_distance or abs(c - cc) >= min_distance for cr, cc in placed_cells):
                         grid[r, c] = object_color
                         placed_cells.append((r, c))
                         break
@@ -77,17 +65,18 @@ class Taskb60334d2Generator(ARCTaskGenerator):
         
         return grid
 
-    def transform_input(self, input_grid, taskvars):
+    def transform_input(self, grid, taskvars):
+        """Transform input by creating boundaries around object cells."""
         object_color = taskvars["object_color"]
         fill_color_4way = taskvars["fill_color_4way"]
         # 8-way connected cells use the same color as object_color
         fill_color_8way = object_color
         
         # Create empty output grid (all zeros)
-        output_grid = np.zeros_like(input_grid)
+        output_grid = np.zeros_like(grid)
         
         # Find the 4 object cells from input grid
-        objects = find_connected_objects(input_grid, diagonal_connectivity=False, background=0)
+        objects = find_connected_objects(grid, diagonal_connectivity=False, background=0)
         object_cells = [(r, c) for obj in objects.objects 
                         for r, c, col in obj.cells if col == object_color]
         
@@ -104,23 +93,21 @@ class Taskb60334d2Generator(ARCTaskGenerator):
             
             # Add boundary cells with appropriate colors
             for nr, nc in four_way:
-                if (0 <= nr < input_grid.shape[0] and 0 <= nc < input_grid.shape[1] and 
+                if (0 <= nr < grid.shape[0] and 0 <= nc < grid.shape[1] and 
                     output_grid[nr, nc] == 0):  # Only if cell is empty
                     output_grid[nr, nc] = fill_color_4way
             
             for nr, nc in eight_way:
-                if (0 <= nr < input_grid.shape[0] and 0 <= nc < input_grid.shape[1] and 
+                if (0 <= nr < grid.shape[0] and 0 <= nc < grid.shape[1] and 
                     output_grid[nr, nc] == 0):  # Only if cell is empty
                     output_grid[nr, nc] = fill_color_8way  # This is object_color
         
         return output_grid
-    
-    def create_grids(self):
-        num_train_pairs = random.randint(3, 5)
-        train_pairs = []
-        
-        # Choose random grid size
-        grid_size = random.randint(7, 15)
+
+    def create_grids(self) -> tuple[dict, dict]:
+        """Create train and test grids with consistent variables."""
+        # Choose random grid size - increased minimum to accommodate spacing
+        grid_size = random.randint(10, 15)  # Increased from 7-15 to 10-15
         
         # Pick distinct colors for objects and 4-way boundary
         # We only need 2 distinct colors since 8-way uses object_color
@@ -131,37 +118,43 @@ class Taskb60334d2Generator(ARCTaskGenerator):
         taskvars = {
             "object_color": available_colors[0],
             "fill_color_4way": available_colors[1],
-            "grid_size": grid_size,  # <-- integer for logic
+            "grid_size": grid_size,
         }
         
-        # Helper for reasoning chain formatting
-        def color_fmt(key):
-            color_id = taskvars[key]
-            return f"{self.color_name(color_id)} ({color_id})"
-
-        # Replace color and grid_size placeholders in reasoning chains
-        self.input_reasoning_chain = [
-            chain.replace("{color('object_color')}", color_fmt('object_color'))
-                 .replace("{color('fill_color_4way')}", color_fmt('fill_color_4way'))
-                 .replace("{vars['grid_size']} x {vars['grid_size']}", f"{taskvars['grid_size']} x {taskvars['grid_size']}")
-            for chain in self.input_reasoning_chain
-        ]
+        # Generate 3-5 training examples with same task variables
+        num_train_examples = random.randint(3, 5)
+        train_examples = []
         
-        self.transformation_reasoning_chain = [
-            chain.replace("{color('object_color')}", color_fmt('object_color'))
-                 .replace("{color('fill_color_4way')}", color_fmt('fill_color_4way'))
-            for chain in self.transformation_reasoning_chain
-        ]
-        
-        # Generate train pairs
-        for _ in range(num_train_pairs):
-            input_grid = self.create_input(taskvars)
+        for _ in range(num_train_examples):
+            gridvars = {}
+            
+            input_grid = self.create_input(taskvars, gridvars)
             output_grid = self.transform_input(input_grid, taskvars)
-            train_pairs.append(GridPair(input=input_grid, output=output_grid))
+            
+            train_examples.append({
+                'input': input_grid,
+                'output': output_grid
+            })
         
-        # Create test pair
-        test_input = self.create_input(taskvars)
-        test_output = self.transform_input(test_input.copy(), taskvars)
-        test_pairs = [GridPair(input=test_input, output=test_output)]
+        # Create test example with same task variables
+        test_gridvars = {}
+        test_input = self.create_input(taskvars, test_gridvars)
+        test_output = self.transform_input(test_input, taskvars)
         
-        return taskvars, TrainTestData(train=train_pairs, test=test_pairs)
+        test_examples = [{
+            'input': test_input,
+            'output': test_output
+        }]
+        
+        return taskvars, {
+            'train': train_examples,
+            'test': test_examples
+        }
+
+# Test code
+if __name__ == "__main__":
+    generator = Taskb60334d2Generator()
+    taskvars, train_test_data = generator.create_grids()
+    
+    print("Task Variables:", taskvars)
+    ARCTaskGenerator.visualize_train_test_data(train_test_data)
