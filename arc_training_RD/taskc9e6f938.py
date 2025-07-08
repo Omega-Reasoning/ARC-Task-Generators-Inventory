@@ -19,22 +19,8 @@ class Taskc9e6f938Generator(ARCTaskGenerator):
         
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
     
-    def color_name(self, color: int) -> str:
-        color_map = {
-            0: "black",
-            1: "blue",
-            2: "red",
-            3: "green",
-            4: "yellow",
-            5: "gray",
-            6: "magenta",
-            7: "orange",
-            8: "cyan",
-            9: "brown"
-        }
-        return color_map.get(color, f"color_{color}")
-    
-    def create_input(self, taskvars):
+    def create_input(self, taskvars: dict, gridvars: dict) -> np.ndarray:
+        """Create a square grid with one connected object."""
         object_color = taskvars["object_color"]
         grid_size = taskvars["grid_size"]
         grid = np.zeros((grid_size, grid_size), dtype=int)
@@ -77,24 +63,23 @@ class Taskc9e6f938Generator(ARCTaskGenerator):
         
         return grid
 
-    def transform_input(self, input_grid, taskvars):
-        output_rows = input_grid.shape[0]
-        output_cols = input_grid.shape[1] * 2
+    def transform_input(self, grid, taskvars):
+        """Transform input by creating a horizontally mirrored output grid."""
+        output_rows = grid.shape[0]
+        output_cols = grid.shape[1] * 2
         output_grid = np.zeros((output_rows, output_cols), dtype=int)
         
         # Copy input grid to left half
-        output_grid[:, :input_grid.shape[1]] = input_grid
+        output_grid[:, :grid.shape[1]] = grid
         
         # Mirror the entire input grid in the right half
-        right_half = np.fliplr(input_grid)
-        output_grid[:, input_grid.shape[1]:] = right_half
+        right_half = np.fliplr(grid)
+        output_grid[:, grid.shape[1]:] = right_half
         
         return output_grid
     
-    def create_grids(self):
-        num_train_pairs = random.randint(3, 5)
-        train_pairs = []
-
+    def create_grids(self) -> tuple[dict, dict]:
+        """Create train and test grids with consistent variables."""
         # Randomly select colors ensuring they are all different
         available_colors = list(range(1, 10))
         random.shuffle(available_colors)
@@ -103,36 +88,44 @@ class Taskc9e6f938Generator(ARCTaskGenerator):
         grid_size = random.randint(3, 6)
 
         taskvars = {
-            'object_color': available_colors[0],  # Object color (int)
-            'grid_size': grid_size,               # <-- integer for logic
+            'object_color': available_colors[0],
+            'grid_size': grid_size,
         }
 
-        # Helper for reasoning chain formatting
-        def color_fmt(key):
-            color_id = taskvars[key]
-            return f"{self.color_name(color_id)} ({color_id})"
+        # Generate 3-5 training examples with same task variables
+        num_train_examples = random.randint(3, 5)
+        train_examples = []
+        
+        for _ in range(num_train_examples):
+            gridvars = {}
+            
+            input_grid = self.create_input(taskvars, gridvars)
+            output_grid = self.transform_input(input_grid, taskvars)
+            
+            train_examples.append({
+                'input': input_grid,
+                'output': output_grid
+            })
+        
+        # Create test example with same task variables
+        test_gridvars = {}
+        test_input = self.create_input(taskvars, test_gridvars)
+        test_output = self.transform_input(test_input, taskvars)
+        
+        test_examples = [{
+            'input': test_input,
+            'output': test_output
+        }]
+        
+        return taskvars, {
+            'train': train_examples,
+            'test': test_examples
+        }
 
-        # Replace color and grid_size placeholders in reasoning chains
-        self.input_reasoning_chain = [
-            chain.replace("{color('object_color')}", color_fmt('object_color'))
-                 .replace("{vars['grid_size']} x {vars['grid_size']}", f"{taskvars['grid_size']} x {taskvars['grid_size']}")
-            for chain in self.input_reasoning_chain
-        ]
-
-        self.transformation_reasoning_chain = [
-            chain.replace("{color('object_color')}", color_fmt('object_color'))
-            for chain in self.transformation_reasoning_chain
-        ]
-        
-        # Create train and test data
-        for _ in range(num_train_pairs):
-            input_grid = self.create_input(taskvars)
-            output_grid = self.transform_input(input_grid.copy(), taskvars)
-            train_pairs.append(GridPair(input=input_grid, output=output_grid))
-        
-        # Create test pair
-        test_input = self.create_input(taskvars)
-        test_output = self.transform_input(test_input.copy(), taskvars)
-        test_pairs = [GridPair(input=test_input, output=test_output)]
-        
-        return taskvars, TrainTestData(train=train_pairs, test=test_pairs)
+# Test code
+if __name__ == "__main__":
+    generator = Taskc9e6f938Generator()
+    taskvars, train_test_data = generator.create_grids()
+    
+    print("Task Variables:", taskvars)
+    ARCTaskGenerator.visualize_train_test_data(train_test_data)

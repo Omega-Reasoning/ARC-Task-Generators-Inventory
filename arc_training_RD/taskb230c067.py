@@ -20,21 +20,6 @@ class Taskb230c067Generator(ARCTaskGenerator):
         
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
     
-    def color_name(self, color: int) -> str:
-        color_map = {
-            0: "black",
-            1: "blue",
-            2: "red",
-            3: "green",
-            4: "yellow",
-            5: "gray",
-            6: "magenta",
-            7: "orange",
-            8: "cyan",
-            9: "brown"
-        }
-        return color_map.get(color, f"color_{color}")
-    
     def objects_are_identical(self, obj1_array, obj2_array):
         """Check if two object arrays are identical in shape"""
         # Normalize both arrays by removing empty rows/columns
@@ -106,8 +91,10 @@ class Taskb230c067Generator(ARCTaskGenerator):
             # Make a 2x2 square
             return np.array([[object_color, object_color], [object_color, object_color]])
     
-    def create_input(self, taskvars, grid_size=10):
+    def create_input(self, taskvars: dict, gridvars: dict) -> np.ndarray:
+        """Create a 10x10 grid with 3 objects: 2 identical and 1 different."""
         object_color = taskvars["object_color"]
+        grid_size = 10
         
         max_grid_attempts = 20
         for grid_attempt in range(max_grid_attempts):
@@ -212,15 +199,16 @@ class Taskb230c067Generator(ARCTaskGenerator):
         
         return grid
 
-    def transform_input(self, input_grid, taskvars):
+    def transform_input(self, grid, taskvars):
+        """Transform input by coloring identical and different objects with different colors."""
         same_color = taskvars["same_color"]
         different_color = taskvars["different_color"]
-        output_grid = np.zeros_like(input_grid)  # Start with empty grid
+        output_grid = np.zeros_like(grid)  # Start with empty grid
         
-        objects = find_connected_objects(input_grid, diagonal_connectivity=False)
+        objects = find_connected_objects(grid, diagonal_connectivity=False)
         
         if len(objects) != 3:
-            return input_grid.copy()  # Should have exactly 3 objects
+            return grid.copy()  # Should have exactly 3 objects
         
         # Find the different object and the identical objects by comparing shapes
         object_arrays = []
@@ -255,10 +243,8 @@ class Taskb230c067Generator(ARCTaskGenerator):
         
         return output_grid
     
-    def create_grids(self):
-        num_train_pairs = random.randint(3, 5)
-        train_pairs = []
-        
+    def create_grids(self) -> tuple[dict, dict]:
+        """Create train and test grids with consistent variables."""
         # Choose 3 different random colors between 1-9
         available_colors = list(range(1, 10))
         random.shuffle(available_colors)
@@ -273,36 +259,40 @@ class Taskb230c067Generator(ARCTaskGenerator):
             "different_color": different_color
         }
         
-        # Helper for reasoning chain formatting
-        def color_fmt(key):
-            color_id = taskvars[key]
-            return f"{self.color_name(color_id)} ({color_id})"
-
-        # Replace color placeholders in reasoning chains
-        self.input_reasoning_chain = [
-            chain.replace("{color('object_color')}", color_fmt('object_color'))
-                 .replace("{color('same_color')}", color_fmt('same_color'))
-                 .replace("{color('different_color')}", color_fmt('different_color'))
-            for chain in self.input_reasoning_chain
-        ]
+        # Generate 3-5 training examples with same task variables
+        num_train_examples = random.randint(3, 5)
+        train_examples = []
         
-        self.transformation_reasoning_chain = [
-            chain.replace("{color('object_color')}", color_fmt('object_color'))
-                 .replace("{color('same_color')}", color_fmt('same_color'))
-                 .replace("{color('different_color')}", color_fmt('different_color'))
-            for chain in self.transformation_reasoning_chain
-        ]
-        
-        # Generate training pairs with validation
-        for _ in range(num_train_pairs):
-            input_grid = self.create_input(taskvars, grid_size=10)
+        for _ in range(num_train_examples):
+            gridvars = {}
+            
+            input_grid = self.create_input(taskvars, gridvars)
             output_grid = self.transform_input(input_grid, taskvars)
-            train_pairs.append(GridPair(input=input_grid, output=output_grid))
+            
+            train_examples.append({
+                'input': input_grid,
+                'output': output_grid
+            })
         
-        # Generate test pair
-        test_input = self.create_input(taskvars, grid_size=10)
+        # Create test example with same task variables
+        test_gridvars = {}
+        test_input = self.create_input(taskvars, test_gridvars)
         test_output = self.transform_input(test_input, taskvars)
-        test_pairs = [GridPair(input=test_input, output=test_output)]
         
-        return taskvars, TrainTestData(train=train_pairs, test=test_pairs)
+        test_examples = [{
+            'input': test_input,
+            'output': test_output
+        }]
+        
+        return taskvars, {
+            'train': train_examples,
+            'test': test_examples
+        }
 
+# Test code
+if __name__ == "__main__":
+    generator = Taskb230c067Generator()
+    taskvars, train_test_data = generator.create_grids()
+    
+    print("Task Variables:", taskvars)
+    ARCTaskGenerator.visualize_train_test_data(train_test_data)

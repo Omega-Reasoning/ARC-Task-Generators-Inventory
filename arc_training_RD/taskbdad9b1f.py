@@ -9,7 +9,7 @@ class Taskbdad9b1fGenerator(ARCTaskGenerator):
         # Use placeholders in the reasoning chains
         input_reasoning_chain = [
             "Input grids are square grids of same sizes.", 
-            "Each grid contains :", 
+            "Each grid contains the listed blocks.", 
             "Two-celled horizontal blocks with {color('h_color')} color.",
             "Two-celled vertical blocks with {color('v_color')} color.", 
             "These horizontal and vertical blocks are positioned such that when extended in their respective directions, they intersect at one or more grid cells."
@@ -25,22 +25,8 @@ class Taskbdad9b1fGenerator(ARCTaskGenerator):
         
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
     
-    def color_name(self, color: int) -> str:
-        color_map = {
-            0: "black",
-            1: "blue",
-            2: "red",
-            3: "green",
-            4: "yellow",
-            5: "gray",
-            6: "magenta",
-            7: "orange",
-            8: "cyan",
-            9: "brown"
-        }
-        return color_map.get(color, f"color_{color}")
-    
-    def create_input(self, taskvars, gridvars):
+    def create_input(self, taskvars: dict, gridvars: dict) -> np.ndarray:
+        """Create a grid with horizontal and vertical blocks."""
         # Random grid size (preferring even numbers and more than 5 rows/columns)
         size = random.choice([6, 8, 10, 12, 14, 16])
         
@@ -97,6 +83,7 @@ class Taskbdad9b1fGenerator(ARCTaskGenerator):
         return grid
     
     def transform_input(self, grid, taskvars):
+        """Transform input by extending blocks and marking intersections."""
         # Extract colors from taskvars
         h_color = taskvars["h_color"]
         v_color = taskvars["v_color"]
@@ -138,7 +125,8 @@ class Taskbdad9b1fGenerator(ARCTaskGenerator):
         
         return output_grid
     
-    def create_grids(self):
+    def create_grids(self) -> tuple[dict, dict]:
+        """Create train and test grids with consistent variables."""
         # Define task variables with distinct colors
         h_color = random.randint(1, 9)
         v_color = random.choice([c for c in range(1, 10) if c != h_color])
@@ -150,25 +138,6 @@ class Taskbdad9b1fGenerator(ARCTaskGenerator):
             "i_color": i_color
         }
         
-        # Helper for reasoning chain formatting
-        def color_fmt(key):
-            color_id = taskvars[key]
-            return f"{self.color_name(color_id)} ({color_id})"
-        
-        # Replace placeholders in reasoning chains
-        self.input_reasoning_chain = [
-            chain.replace("{color('h_color')}", color_fmt('h_color'))
-                 .replace("{color('v_color')}", color_fmt('v_color'))
-                 .replace("{color('i_color')}", color_fmt('i_color'))
-            for chain in self.input_reasoning_chain
-        ]
-        self.transformation_reasoning_chain = [
-            chain.replace("{color('h_color')}", color_fmt('h_color'))
-                 .replace("{color('v_color')}", color_fmt('v_color'))
-                 .replace("{color('i_color')}", color_fmt('i_color'))
-            for chain in self.transformation_reasoning_chain
-        ]
-        
         nr_train = random.randint(3, 5)
         nr_test = random.randint(1, 2)
 
@@ -179,7 +148,8 @@ class Taskbdad9b1fGenerator(ARCTaskGenerator):
             max_attempts = 100 
             
             while len(examples) < n and attempts < max_attempts:
-                input_grid = self.create_input(taskvars, {})
+                gridvars = {}
+                input_grid = self.create_input(taskvars, gridvars)
                 output_grid = self.transform_input(input_grid, taskvars)
                 
                 # For test examples, always add the first one and ensure second is different
@@ -207,9 +177,15 @@ class Taskbdad9b1fGenerator(ARCTaskGenerator):
         train_examples = generate_examples(nr_train)
         test_examples = generate_examples(nr_test, is_test=True)
         
-        # Convert to the expected format
-        train_pairs = [GridPair(input=ex['input'], output=ex['output']) for ex in train_examples]
-        test_pairs = [GridPair(input=ex['input'], output=ex['output']) for ex in test_examples]
-        
-        return taskvars, TrainTestData(train=train_pairs, test=test_pairs)
+        return taskvars, {
+            'train': train_examples,
+            'test': test_examples
+        }
 
+# Test code
+if __name__ == "__main__":
+    generator = Taskbdad9b1fGenerator()
+    taskvars, train_test_data = generator.create_grids()
+    
+    print("Task Variables:", taskvars)
+    ARCTaskGenerator.visualize_train_test_data(train_test_data)
