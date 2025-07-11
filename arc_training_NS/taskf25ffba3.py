@@ -5,7 +5,7 @@ import numpy as np
 import random
 from typing import Dict, Any, Tuple, List
 
-class Task25ffba3(ARCTaskGenerator):
+class Taskf25ffba3(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
             "Input grids are of size {vars['rows']} x {vars['columns']}, where {vars['rows']} is always greater than {vars['columns']}.",
@@ -23,7 +23,7 @@ class Task25ffba3(ARCTaskGenerator):
 
     def create_grids(self) -> Tuple[Dict[str, Any], TrainTestData]:
         # Generate task variables
-        rows = random.randint(6, 20)  # Keep reasonable size, ensure rows > columns
+        rows = random.randint(6, 30)  # Keep reasonable size, ensure rows > columns
         columns = random.randint(3, min(rows - 1, 15))  # Ensure columns < rows
         
         # Available colors (excluding background 0)
