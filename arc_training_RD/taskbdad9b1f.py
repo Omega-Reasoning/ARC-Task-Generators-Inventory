@@ -8,7 +8,7 @@ class Taskbdad9b1fGenerator(ARCTaskGenerator):
     def __init__(self):
         # Use placeholders in the reasoning chains
         input_reasoning_chain = [
-            "Input grids are square grids of same sizes.", 
+            "Input grids are square grids of size {vars['rows']} x {vars['columns']}.", 
             "Each grid contains the listed blocks.", 
             "Two-celled horizontal blocks with {color('h_color')} color.",
             "Two-celled vertical blocks with {color('v_color')} color.", 
@@ -27,8 +27,8 @@ class Taskbdad9b1fGenerator(ARCTaskGenerator):
     
     def create_input(self, taskvars: dict, gridvars: dict) -> np.ndarray:
         """Create a grid with horizontal and vertical blocks."""
-        # Random grid size (preferring even numbers and more than 5 rows/columns)
-        size = random.choice([6, 8, 10, 12, 14, 16])
+        # Use grid size from taskvars
+        size = taskvars['rows']  # Since it's square, rows = columns
         
         # Colors for horizontal, vertical blocks and intersections
         h_color = taskvars["h_color"]
@@ -127,12 +127,17 @@ class Taskbdad9b1fGenerator(ARCTaskGenerator):
     
     def create_grids(self) -> tuple[dict, dict]:
         """Create train and test grids with consistent variables."""
+        # Random grid size (preferring even numbers and more than 5 rows/columns)
+        size = random.choice([6, 8, 10, 12, 14, 16])
+        
         # Define task variables with distinct colors
         h_color = random.randint(1, 9)
         v_color = random.choice([c for c in range(1, 10) if c != h_color])
         i_color = random.choice([c for c in range(1, 10) if c != h_color and c != v_color])
         
         taskvars = {
+            "rows": size,
+            "columns": size,
             "h_color": h_color,
             "v_color": v_color,
             "i_color": i_color
@@ -182,10 +187,3 @@ class Taskbdad9b1fGenerator(ARCTaskGenerator):
             'test': test_examples
         }
 
-# Test code
-if __name__ == "__main__":
-    generator = Taskbdad9b1fGenerator()
-    taskvars, train_test_data = generator.create_grids()
-    
-    print("Task Variables:", taskvars)
-    ARCTaskGenerator.visualize_train_test_data(train_test_data)

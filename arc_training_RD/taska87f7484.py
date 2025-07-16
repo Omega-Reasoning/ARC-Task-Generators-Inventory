@@ -4,7 +4,7 @@ from input_library import create_object, retry, random_cell_coloring, Contiguity
 import numpy as np
 import random
 
-class Taska87f7484Generator(ARCTaskGenerator):
+class TaskGenerator(ARCTaskGenerator):
     
     def __init__(self):
         input_reasoning_chain = [

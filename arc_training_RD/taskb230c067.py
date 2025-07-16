@@ -7,7 +7,7 @@ from input_library import create_object, Contiguity, retry
 class Taskb230c067Generator(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
-            "Input grids are square grids of size 10x10.", 
+            "Input grids are square grids of size {vars['rows']} x {vars['columns']}.", 
             "The grid consists of three objects of {color('object_color')}, where two of the objects are exactly the same while the other one object is different"
         ]
         
@@ -92,9 +92,9 @@ class Taskb230c067Generator(ARCTaskGenerator):
             return np.array([[object_color, object_color], [object_color, object_color]])
     
     def create_input(self, taskvars: dict, gridvars: dict) -> np.ndarray:
-        """Create a 10x10 grid with 3 objects: 2 identical and 1 different."""
+        """Create a grid with 3 objects: 2 identical and 1 different."""
         object_color = taskvars["object_color"]
-        grid_size = 10
+        grid_size = taskvars["rows"]  # Use grid size from taskvars
         
         max_grid_attempts = 20
         for grid_attempt in range(max_grid_attempts):
@@ -245,6 +245,9 @@ class Taskb230c067Generator(ARCTaskGenerator):
     
     def create_grids(self) -> tuple[dict, dict]:
         """Create train and test grids with consistent variables."""
+        # Choose grid size
+        grid_size = random.choice([8, 10, 12, 14])
+        
         # Choose 3 different random colors between 1-9
         available_colors = list(range(1, 10))
         random.shuffle(available_colors)
@@ -254,6 +257,8 @@ class Taskb230c067Generator(ARCTaskGenerator):
         different_color = available_colors[2]
             
         taskvars = {
+            "rows": grid_size,
+            "columns": grid_size,
             "object_color": object_color,
             "same_color": same_color,
             "different_color": different_color
@@ -289,10 +294,3 @@ class Taskb230c067Generator(ARCTaskGenerator):
             'test': test_examples
         }
 
-# Test code
-if __name__ == "__main__":
-    generator = Taskb230c067Generator()
-    taskvars, train_test_data = generator.create_grids()
-    
-    print("Task Variables:", taskvars)
-    ARCTaskGenerator.visualize_train_test_data(train_test_data)
