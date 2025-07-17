@@ -29,8 +29,8 @@ class Taskf1cefba8(ARCTaskGenerator):
     
     def create_grids(self) -> Tuple[Dict[str, Any], TrainTestData]:
         # Generate random grid dimensions
-        rows = random.randint(10, 25)
-        columns = random.randint(10, 25)
+        rows = random.randint(10, 30)
+        columns = random.randint(10, 30)
         
         taskvars = {
             'rows': rows,

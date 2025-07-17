@@ -161,7 +161,7 @@ class ARCGeneratorTestRunner:
 
 def main():
     parser = argparse.ArgumentParser(description='Run tests for ARC task generators')
-    parser.add_argument('--csv-file', type=str, default='tests/generator_tests.csv',
+    parser.add_argument('--csv-file', type=str, default='tests/generator_tests_NS.csv',
                       help='Path to CSV file containing tests')
     parser.add_argument('--generator', type=str,
                       help='Specific generator file to test')

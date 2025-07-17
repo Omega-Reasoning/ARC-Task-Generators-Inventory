@@ -7,7 +7,7 @@ import random
 from typing import Dict, Any, Tuple, List
 from collections import Counter
 
-class RegionNoiseRemovalGenerator(ARCTaskGenerator):
+class Taske26a3af2(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
             "Input grids are of size {vars['n']} x {vars['n']}.",
@@ -149,8 +149,8 @@ class RegionNoiseRemovalGenerator(ARCTaskGenerator):
         n = taskvars['n']
         output_grid = grid.copy()
         
-        # Try to detect regions
-        regions = self._identify_regions_improved(grid)
+        # Try to detect regions more aggressively
+        regions = self._identify_regions_robust(grid)
         
         # For each region, find the base color and convert noise to base color
         for region_bounds in regions:
@@ -165,6 +165,97 @@ class RegionNoiseRemovalGenerator(ARCTaskGenerator):
             output_grid[r1:r2, c1:c2] = base_color
         
         return output_grid
+
+    def _identify_regions_robust(self, grid: np.ndarray) -> List[Tuple[int, int, int, int]]:
+        """More robust region detection using row/column analysis."""
+        n = grid.shape[0]
+        
+        # Try horizontal splits first (regions stacked vertically)
+        horizontal_boundaries = self._find_horizontal_boundaries_robust(grid)
+        if len(horizontal_boundaries) > 0:
+            boundaries = [0] + horizontal_boundaries + [n]
+            boundaries = sorted(list(set(boundaries)))
+            if len(boundaries) >= 3:  # At least 3 boundaries for 2+ regions
+                regions = []
+                for i in range(len(boundaries) - 1):
+                    if boundaries[i+1] - boundaries[i] >= 2:
+                        regions.append((boundaries[i], boundaries[i + 1], 0, n))
+                if len(regions) >= 2:
+                    return regions
+        
+        # Try vertical splits (regions side by side)
+        vertical_boundaries = self._find_vertical_boundaries_robust(grid)
+        if len(vertical_boundaries) > 0:
+            boundaries = [0] + vertical_boundaries + [n]
+            boundaries = sorted(list(set(boundaries)))
+            if len(boundaries) >= 3:
+                regions = []
+                for i in range(len(boundaries) - 1):
+                    if boundaries[i+1] - boundaries[i] >= 2:
+                        regions.append((0, n, boundaries[i], boundaries[i + 1]))
+                if len(regions) >= 2:
+                    return regions
+        
+        # Fallback: treat as single region
+        return [(0, n, 0, n)]
+
+    def _find_horizontal_boundaries_robust(self, grid: np.ndarray) -> List[int]:
+        """Find horizontal boundaries by analyzing dominant colors in each row."""
+        n = grid.shape[0]
+        boundaries = []
+        
+        # Get the dominant color for each row
+        row_dominant_colors = []
+        for r in range(n):
+            row_colors = grid[r, :]
+            colors, counts = np.unique(row_colors, return_counts=True)
+            dominant_color = colors[np.argmax(counts)]
+            row_dominant_colors.append(dominant_color)
+        
+        # Find boundaries where dominant color changes
+        for r in range(1, n):
+            if row_dominant_colors[r] != row_dominant_colors[r-1]:
+                # Check if this is a consistent boundary across multiple rows
+                # Look ahead to see if the new color persists
+                if r < n - 1:
+                    persistence = 0
+                    for check_r in range(r, min(r + 3, n)):
+                        if row_dominant_colors[check_r] == row_dominant_colors[r]:
+                            persistence += 1
+                    
+                    if persistence >= 2:  # New color persists for at least 2 rows
+                        boundaries.append(r)
+        
+        return boundaries
+
+    def _find_vertical_boundaries_robust(self, grid: np.ndarray) -> List[int]:
+        """Find vertical boundaries by analyzing dominant colors in each column."""
+        n = grid.shape[1]
+        boundaries = []
+        
+        # Get the dominant color for each column
+        col_dominant_colors = []
+        for c in range(n):
+            col_colors = grid[:, c]
+            colors, counts = np.unique(col_colors, return_counts=True)
+            dominant_color = colors[np.argmax(counts)]
+            col_dominant_colors.append(dominant_color)
+        
+        # Find boundaries where dominant color changes
+        for c in range(1, n):
+            if col_dominant_colors[c] != col_dominant_colors[c-1]:
+                # Check if this is a consistent boundary across multiple columns
+                # Look ahead to see if the new color persists
+                if c < n - 1:
+                    persistence = 0
+                    for check_c in range(c, min(c + 3, n)):
+                        if col_dominant_colors[check_c] == col_dominant_colors[c]:
+                            persistence += 1
+                    
+                    if persistence >= 2:  # New color persists for at least 2 columns
+                        boundaries.append(c)
+        
+        return boundaries
 
     def _split_dimension(self, total_size: int, num_regions: int) -> List[int]:
         """Split a dimension into num_regions parts, ensuring each part is at least 2."""
@@ -187,118 +278,3 @@ class RegionNoiseRemovalGenerator(ARCTaskGenerator):
             sizes[region_idx] += 1
         
         return sizes
-
-    def _identify_regions_improved(self, grid: np.ndarray) -> List[Tuple[int, int, int, int]]:
-        """Improved region detection using sliding window analysis."""
-        n = grid.shape[0]
-        
-        # Try horizontal splits first (regions stacked vertically)
-        horizontal_boundaries = self._find_horizontal_boundaries(grid)
-        if len(horizontal_boundaries) >= 2:  # Need at least 2 boundaries for 3+ regions
-            boundaries = [0] + horizontal_boundaries + [n]
-            boundaries = sorted(list(set(boundaries)))  # Remove duplicates and sort
-            if len(boundaries) >= 3:  # At least 3 boundaries for 2+ regions
-                regions = []
-                for i in range(len(boundaries) - 1):
-                    if boundaries[i+1] - boundaries[i] >= 2:  # Ensure meaningful region size
-                        regions.append((boundaries[i], boundaries[i + 1], 0, n))
-                if len(regions) >= 2:
-                    return regions
-        
-        # Try vertical splits (regions side by side)
-        vertical_boundaries = self._find_vertical_boundaries(grid)
-        if len(vertical_boundaries) >= 2:
-            boundaries = [0] + vertical_boundaries + [n]
-            boundaries = sorted(list(set(boundaries)))
-            if len(boundaries) >= 3:
-                regions = []
-                for i in range(len(boundaries) - 1):
-                    if boundaries[i+1] - boundaries[i] >= 2:
-                        regions.append((0, n, boundaries[i], boundaries[i + 1]))
-                if len(regions) >= 2:
-                    return regions
-        
-        # Fallback: treat as single region
-        return [(0, n, 0, n)]
-
-    def _find_horizontal_boundaries(self, grid: np.ndarray) -> List[int]:
-        """Find horizontal boundaries by analyzing color consistency."""
-        n = grid.shape[0]
-        boundaries = []
-        
-        # Look for rows where the dominant color changes significantly
-        for r in range(1, n - 1):
-            # Analyze a window around this row
-            window_size = min(3, r, n - r)
-            
-            upper_region = grid[r-window_size:r, :]
-            lower_region = grid[r:r+window_size, :]
-            
-            # Get most common colors in each region
-            upper_colors, upper_counts = np.unique(upper_region, return_counts=True)
-            lower_colors, lower_counts = np.unique(lower_region, return_counts=True)
-            
-            upper_dominant = upper_colors[np.argmax(upper_counts)]
-            lower_dominant = lower_colors[np.argmax(lower_counts)]
-            
-            # Check if there's a significant difference
-            if upper_dominant != lower_dominant:
-                # Additional check: ensure the boundary is consistent across the width
-                consistency = 0
-                for c in range(grid.shape[1]):
-                    upper_col = grid[max(0, r-window_size):r, c]
-                    lower_col = grid[r:min(n, r+window_size), c]
-                    
-                    if len(upper_col) > 0 and len(lower_col) > 0:
-                        upper_mode = Counter(upper_col).most_common(1)[0][0]
-                        lower_mode = Counter(lower_col).most_common(1)[0][0]
-                        if upper_mode != lower_mode:
-                            consistency += 1
-                
-                # If majority of columns show the boundary, it's likely a real boundary
-                if consistency > grid.shape[1] * 0.6:
-                    boundaries.append(r)
-        
-        return boundaries
-
-    def _find_vertical_boundaries(self, grid: np.ndarray) -> List[int]:
-        """Find vertical boundaries by analyzing color consistency."""
-        n = grid.shape[1]
-        boundaries = []
-        
-        # Look for columns where the dominant color changes significantly
-        for c in range(1, n - 1):
-            # Analyze a window around this column
-            window_size = min(3, c, n - c)
-            
-            left_region = grid[:, c-window_size:c]
-            right_region = grid[:, c:c+window_size]
-            
-            # Get most common colors in each region
-            left_colors, left_counts = np.unique(left_region, return_counts=True)
-            right_colors, right_counts = np.unique(right_region, return_counts=True)
-            
-            left_dominant = left_colors[np.argmax(left_counts)]
-            right_dominant = right_colors[np.argmax(right_counts)]
-            
-            # Check if there's a significant difference
-            if left_dominant != right_dominant:
-                # Additional check: ensure the boundary is consistent across the height
-                consistency = 0
-                for r in range(grid.shape[0]):
-                    left_row = grid[r, max(0, c-window_size):c]
-                    right_row = grid[r, c:min(n, c+window_size)]
-                    
-                    if len(left_row) > 0 and len(right_row) > 0:
-                        left_mode = Counter(left_row).most_common(1)[0][0]
-                        right_mode = Counter(right_row).most_common(1)[0][0]
-                        if left_mode != right_mode:
-                            consistency += 1
-                
-                # If majority of rows show the boundary, it's likely a real boundary
-                if consistency > grid.shape[0] * 0.6:
-                    boundaries.append(c)
-        
-        return boundaries
-
-

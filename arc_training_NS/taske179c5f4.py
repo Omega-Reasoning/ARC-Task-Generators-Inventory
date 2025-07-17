@@ -3,7 +3,7 @@ import numpy as np
 import random
 from typing import Dict, Any, Tuple, List
 
-class ZigzagFillTaskGenerator(ARCTaskGenerator):
+class Taske179c5f4(ARCTaskGenerator):
     
     def __init__(self):
         input_reasoning_chain = [

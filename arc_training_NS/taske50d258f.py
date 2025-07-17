@@ -15,7 +15,7 @@ class Taske50d258f(ARCTaskGenerator):
             "Each rectangle contains a random number of cells colored with {color('main_color')}, {color('target_color')}, and {color('other_color')}.",
             "In most rectangles, the majority of cells are colored with {color('main_color')}.",
             "The number of {color('target_color')} cells is different across rectangles within the same grid.",
-            "In each input grid, the rectangle that has the highest number of cells colored with {color('target_color')} compared to the other rectangles also has fewer cells of color {color('other_color')} than {color('target_color')}."
+            "In each input grid, the rectangle that has the highest number of cells colored with {color('target_color')} compared to the other rectangles, also has fewer cells of color {color('other_color')} than {color('target_color')}."
         ]
         
         transformation_reasoning_chain = [
@@ -29,7 +29,7 @@ class Taske50d258f(ARCTaskGenerator):
     def create_grids(self) -> Tuple[Dict[str, Any], TrainTestData]:
         # Initialize task variables
         taskvars = {
-            'n': random.randint(15, 25),  # Grid size
+            'n': random.randint(10, 30),  # Grid size
             'main_color': random.choice([1, 2, 3, 4, 5, 6, 7, 8, 9]),
             'target_color': random.choice([1, 2, 3, 4, 5, 6, 7, 8, 9]),
             'other_color': random.choice([1, 2, 3, 4, 5, 6, 7, 8, 9])

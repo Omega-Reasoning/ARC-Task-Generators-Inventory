@@ -5,7 +5,7 @@ import numpy as np
 import random
 import math
 
-class SymmetricPatternInpaintingGenerator(ARCTaskGenerator):
+class Taskff805c23(ARCTaskGenerator):
     
     def __init__(self):
         input_reasoning_chain = [
