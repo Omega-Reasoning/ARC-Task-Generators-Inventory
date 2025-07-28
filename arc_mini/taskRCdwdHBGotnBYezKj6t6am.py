@@ -28,20 +28,35 @@ class TaskRCdwdHBGotnBYezKj6t6amGenerator(ARCTaskGenerator):
         height = n - 2  # Leave space at top and bottom
         width = (n // 2) - 1  # Use left half minus border
         
-        # Create a random connected object for the left side
-        def generate_left_object():
-            return create_object(
+        # Define a function to generate a valid object
+        def generate_valid_object():
+            # Create base object
+            obj = create_object(
                 height=height,
                 width=width,
                 color_palette=chosen_color,
                 contiguity=Contiguity.FOUR,
                 background=0
             )
+            
+            # Verify it meets our requirements
+            if obj.shape != (height, width):
+                return None
+            if not find_connected_objects(obj, background=0):
+                return None
+            return obj
         
-        # Ensure object spans full height and width
-        left_object = enforce_object_height(
-            lambda: enforce_object_width(generate_left_object)
-        )
+        # Generate object with retries
+        left_object = None
+        for _ in range(500):  # Max attempts
+            candidate = generate_valid_object()
+            if candidate is not None:
+                left_object = candidate
+                break
+        
+        # Fallback if we couldn't generate a valid object
+        if left_object is None:
+            left_object = np.ones((height, width), dtype=int) * chosen_color
         
         # Place the left object in the grid with 1-cell border
         grid[1:n-1, 1:width+1] = left_object
@@ -78,34 +93,27 @@ class TaskRCdwdHBGotnBYezKj6t6amGenerator(ARCTaskGenerator):
             "object_color2": obj_col2,
             "object_color3": obj_col3,
             "object_color4": obj_col4,
-            "n": 2 * random.randint(3, 9)
+            "n": random.choice([8, 10, 12])  # Using more reliable grid sizes
         }
 
         nr_train = random.randint(3, 5)
         
-        # Generate n-1 training examples randomly
+        # Generate training examples
         train_examples = []
         colors_used = set()
         
-        for _ in range(nr_train - 1):
-            chosen_color = random.choice([taskvars['object_color1'], taskvars['object_color2']])
+        for _ in range(nr_train):
+            # Alternate between colors to ensure both are represented
+            if len(colors_used) < 2:
+                chosen_color = taskvars['object_color1'] if taskvars['object_color1'] not in colors_used else taskvars['object_color2']
+            else:
+                chosen_color = random.choice([taskvars['object_color1'], taskvars['object_color2']])
+            
             colors_used.add(chosen_color)
             train_examples.append({
                 'input': (input_grid := self.create_input(taskvars, {"chosen_color": chosen_color})),
                 'output': self.transform_input(input_grid, taskvars)
             })
-        
-        # For the last example, use the unused color if necessary
-        if len(colors_used) == 1:
-            unused_color = taskvars['object_color1'] if taskvars['object_color2'] in colors_used else taskvars['object_color2']
-            chosen_color = unused_color
-        else:
-            chosen_color = random.choice([taskvars['object_color1'], taskvars['object_color2']])
-        
-        train_examples.append({
-            'input': (input_grid := self.create_input(taskvars, {"chosen_color": chosen_color})),
-            'output': self.transform_input(input_grid, taskvars)
-        })
         
         # Generate one test example with random color
         test_examples = [{
