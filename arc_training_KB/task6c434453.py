@@ -27,7 +27,7 @@ class Task6c434453Generator(ARCTaskGenerator):
     
     def create_grids(self) -> Tuple[Dict[str, Any], TrainTestData]:
         # Initialize task variables
-        grid_size = random.randint(10, 20)
+        grid_size = random.randint(10, 30)
         object_color = random.randint(1, 9)
         
         # Ensure newobject_color is different from object_color
