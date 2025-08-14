@@ -3,7 +3,7 @@ from input_library import random_cell_coloring
 import numpy as np
 import random
 
-class LShapeDoublingTaskGenerator(ARCTaskGenerator):
+class Task60c09cacGenerator(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
             "Input grids are squares of size {vars['rows']} by {vars['cols']}.",

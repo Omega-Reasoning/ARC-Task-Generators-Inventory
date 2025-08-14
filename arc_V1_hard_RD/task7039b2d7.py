@@ -2,7 +2,7 @@ import random
 import numpy as np
 from arc_task_generator import ARCTaskGenerator, TrainTestData
 
-class PartitionCountTask(ARCTaskGenerator):
+class Task7039b2d7Generator(ARCTaskGenerator):
     def __init__(self):
         # Input reasoning chain
         input_reasoning_chain = [

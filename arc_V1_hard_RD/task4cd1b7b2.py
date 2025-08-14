@@ -4,7 +4,7 @@ from input_library import create_object, random_cell_coloring, retry
 import numpy as np
 import random
 
-class ColorSudokuTaskGenerator(ARCTaskGenerator):
+class Task4cd1b7b2Generator(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
             "Input grids are squares of size {vars['rows']} x {vars['columns']}.",

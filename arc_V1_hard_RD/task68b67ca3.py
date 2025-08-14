@@ -2,7 +2,7 @@ import random
 import numpy as np
 from arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
 
-class SeparatedPatternTaskGenerator(ARCTaskGenerator):
+class Task68b67ca3Generator(ARCTaskGenerator):
     def __init__(self):
         # Input reasoning chain
         input_reasoning_chain = [

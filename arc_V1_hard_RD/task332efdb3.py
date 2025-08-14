@@ -4,7 +4,7 @@ from input_library import create_object, random_cell_coloring, retry
 import numpy as np
 import random
 
-class PunchHolePatternTaskGenerator(ARCTaskGenerator):
+class Task332efdb3Generator(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
             "Input grids are odd number square grids.",
