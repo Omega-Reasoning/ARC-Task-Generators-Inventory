@@ -58,9 +58,8 @@ class Task182e5d0fGenerator(ARCTaskGenerator):
     def create_input(self, taskvars: Dict[str, Any], gridvars: Dict[str, Any]) -> np.ndarray:
         bg, obj, cel = taskvars['background_color'], taskvars['object_color'], taskvars['cell_color']
 
-        max_corners = 4
+        # Keep original upper bound but choose requested_n first
         requested_n = random.randint(2, 4)
-        n = min(requested_n, max_corners)  # ensure we don’t ask for more than 4 corners
 
         force_dirs = list(gridvars.get('force_long_dirs', []))
         all_dirs = force_dirs + [d for d in ['left', 'right', 'up', 'down'] if d not in force_dirs]
@@ -78,13 +77,32 @@ class Task182e5d0fGenerator(ARCTaskGenerator):
                 return 'SW' if ac == 0 else 'SE'
             return None
 
+        # try odd/even sizes up to 30 as before
         for size in range(random.randint(12, 20), 31, 2):
             grid = np.full((size, size), bg, dtype=int)
+            # Dynamic cap for n depending on side length
+            # (small boards struggle to host 4 Ls with spacing)
+            size_cap = 2 if size < 16 else (3 if size < 22 else 4)
+            n = min(requested_n, size_cap)
+
             buffer: Set[Tuple[int, int]] = set()
             used_corners = set()
 
+            def in_bounds(r, c):
+                return 0 <= r < size and 0 <= c < size
+
+            def halo_object_cells(cells):
+                """1-cell halo only around object cells (no halo for zeros or edge-cell)."""
+                for r, c in cells:
+                    buffer.add((r, c))
+                    for dr, dc in [(-1,0),(1,0),(0,-1),(0,1)]:
+                        nr, nc = r+dr, c+dc
+                        if in_bounds(nr, nc):
+                            buffer.add((nr, nc))
+
             def place_single(long_dir: str, force_option: int = None) -> bool:
-                for _ in range(2000):  # Increased retry attempts
+                # Much higher attempt budget to dodge unlucky RNG
+                for _ in range(10000):
                     # Anchor on edge
                     if long_dir in ('left', 'right'):
                         row_edge = random.choice([0, size - 1])
@@ -100,25 +118,27 @@ class Task182e5d0fGenerator(ARCTaskGenerator):
                         horiz = False
 
                     corner = get_corner(long_dir, anchor)
-                    if corner in used_corners:
+
+                    # Only enforce unique corners when we truly need four distinct ones
+                    if n == 4 and corner in used_corners:
                         continue
 
                     if anchor in buffer:
                         continue
 
-                    # 3-cell zero strip
+                    # 3-cell zero strip (exact cells reserved, no halo)
                     strip = [
                         (anchor[0] - 1, anchor[1]) if not horiz else (anchor[0], anchor[1] - 1),
                         anchor,
                         (anchor[0] + 1, anchor[1]) if not horiz else (anchor[0], anchor[1] + 1)
                     ]
-                    if any(c in buffer for c in strip):
+                    if any(not in_bounds(r, c) or (r, c) in buffer for r, c in strip):
                         continue
 
-                    # Short leg
+                    # Short leg (object cells)
                     short_len = random.choice([2, 3])
                     short = [(anchor[0] + k * short_vec[0], anchor[1] + k * short_vec[1]) for k in range(short_len)]
-                    if any(not (0 <= r < size and 0 <= c < size) or (r, c) in buffer for r, c in short):
+                    if any(not in_bounds(r, c) or (r, c) in buffer for r, c in short):
                         continue
 
                     # Long leg
@@ -133,22 +153,19 @@ class Task182e5d0fGenerator(ARCTaskGenerator):
                     if max_reach < 1:
                         continue
 
-                    # Force Option 1 if required
                     option = force_option if force_option is not None else random.choice([1, 2, 3])
                     if option == 1:
                         length = max_reach
                     elif option == 2:
                         length = max_reach - 1
                     else:
-                        length = max_reach - random.choice([2, 3])
-                    if length < 1:
-                        continue
+                        length = max(1, max_reach - random.choice([2, 3]))  # clamp
 
                     long = [(start[0] + i * vec[0], start[1] + i * vec[1]) for i in range(1, length + 1)]
-                    if any(c in buffer for c in long):
+                    if any((r, c) in buffer or not in_bounds(r, c) for r, c in long):
                         continue
 
-                    # Cell-color at edge
+                    # Cell-color at edge (reserve exact cell, no halo)
                     end_r, end_c = long[-1]
                     if long_dir == 'left':
                         cell = (self._adjacent(end_r, size - 1), 0)
@@ -158,27 +175,40 @@ class Task182e5d0fGenerator(ARCTaskGenerator):
                         cell = (0, self._adjacent(end_c, size - 1))
                     else:
                         cell = (size - 1, self._adjacent(end_c, size - 1))
+
+                    if not in_bounds(*cell):
+                        continue
                     if cell in buffer or cell in strip or cell in short or cell in long:
                         continue
 
                     # Commit placement
+                    # zeros: exact reserve only
                     for r, c in strip:
-                        if (r, c) != anchor:
-                            grid[r, c] = 0
+                        grid[r, c] = 0
+
+                    # object legs: draw and halo them
                     grid[anchor] = obj
                     for r, c in short[1:]:
                         grid[r, c] = obj
                     for r, c in long:
                         grid[r, c] = obj
+
+                    # edge cell: exact reserve only
                     grid[cell] = cel
 
-                    buffer.update(self._with_buffer(strip + short + long + [cell], size, size))
+                    # Update buffers:
+                    #  - object cells get a 1-cell halo to prevent collisions
+                    #  - zero strip and the edge cell are reserved exactly (no halo)
+                    halo_object_cells(short + long)  # includes anchor because short starts at anchor
+                    buffer.update(strip)            # exact
+                    buffer.add(cell)                # exact
+
                     used_corners.add(corner)
                     return True
                 return False
 
             success = True
-            # Place the Option 1 object first
+            # Still place one "reach edge" first, but with relaxed spacing this is safer
             if not place_single(all_dirs[0], force_option=1):
                 success = False
             else:
@@ -190,6 +220,7 @@ class Task182e5d0fGenerator(ARCTaskGenerator):
             if success:
                 return grid
 
+        # If we truly can’t place with all relaxations above, raise as before.
         raise RuntimeError("Unable to create grid up to 30×30; reduce n or constraints")
 
     def transform_input(self, grid: np.ndarray, taskvars: Dict[str, Any]) -> np.ndarray:

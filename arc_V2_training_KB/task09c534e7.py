@@ -191,7 +191,7 @@ class Task09c534e7Generator(ARCTaskGenerator):
             return grid
         
         # Generate a valid grid
-        result = retry(_generate_valid_grid, lambda x: x is not None, max_attempts=20)
+        result = retry(_generate_valid_grid, lambda x: x is not None, max_attempts=100)
         return result
     
     def transform_input(self, grid: np.ndarray, taskvars: Dict[str, Any]) -> np.ndarray:

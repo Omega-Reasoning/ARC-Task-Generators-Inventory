@@ -40,38 +40,36 @@ class Task13f06aa5Generator(ARCTaskGenerator):
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
 
     def create_grids(self) -> Tuple[Dict[str, Any], TrainTestData]:
-        # Generate task variables with larger grids
         rows = random.randint(16, 30)
         cols = random.randint(16, 30)
-        taskvars = {
-            'rows': rows,
-            'cols': cols
-        }
-        
-        # Create training grids
+        taskvars = {'rows': rows, 'cols': cols}
+
         train_grids = []
-        
-        # Create each grid and transform immediately
+
         for i in range(3):
-            if i == 1:  # Second grid: try for specific borders
+            if i == 1:
                 grid_data = self.create_grid_with_specific_borders(taskvars, ['top', 'bottom', 'left'])
             else:
                 grid_data = self.create_grid_with_fallback(taskvars, max_objects=3)
-            
-            # Transform immediately while objects_info is still available
-            grid_data['output'] = self.transform_input_with_info(grid_data['input'], taskvars, grid_data['objects_info'])
+
+            grid_data['output'] = self.transform_input_with_info(
+                grid_data['input'], taskvars, grid_data['objects_info']
+            )
+            # 🔧 remove the non-JSONable helper data
+            grid_data.pop('objects_info', None)
+
             train_grids.append(grid_data)
-        
-        # Create test grid
+
         test_grid = self.create_grid_with_fallback(taskvars, max_objects=3)
-        test_grid['output'] = self.transform_input_with_info(test_grid['input'], taskvars, test_grid['objects_info'])
-        
-        train_test_data = {
-            'train': train_grids,
-            'test': [test_grid]
-        }
-        
+        test_grid['output'] = self.transform_input_with_info(
+            test_grid['input'], taskvars, test_grid['objects_info']
+        )
+        # 🔧 remove here too
+        test_grid.pop('objects_info', None)
+
+        train_test_data = {'train': train_grids, 'test': [test_grid]}
         return taskvars, train_test_data
+
 
     def create_grid_with_fallback(self, taskvars: Dict[str, Any], max_objects: int) -> Dict[str, Any]:
         """Create a grid with fallback to fewer objects if needed."""
