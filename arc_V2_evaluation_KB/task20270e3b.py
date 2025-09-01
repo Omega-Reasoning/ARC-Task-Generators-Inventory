@@ -7,7 +7,7 @@ from transformation_library import find_connected_objects, BorderBehavior
 from input_library import create_object, Contiguity
 
 
-class PuzzlePieceTaskGenerator(ARCTaskGenerator):
+class Task20270e3bGenerator(ARCTaskGenerator):
     """ARC‑AGI task generator for the vertical puzzle‑piece connection pattern.
 
     In each generated task the two objects' connector rows are separated by at

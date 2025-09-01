@@ -26,7 +26,7 @@ class Task103eff5bGenerator(ARCTaskGenerator):
             "Input grids are of different sizes.",
             "Each grid contains exactly two objects: a multi-colored small object and another {color('big_object')} object; the remaining cells are empty (0).",
             "The multi-colored small object is formed by 8-way connected cells using all four colors {color('small_object1')}, {color('small_object2')}, {color('small_object3')}, and {color('small_object4')}. Its shape and size fit within either a 3x3 or 4x4 area.",
-            "Each color — {color('small_object1')}, {color('small_object2')}, {color('small_object3')}, and {color('small_object4')} — forms either a vertical block, a horizontal block, or a single 1x1 block, which are then connected to form the entire object.",
+            "Each color — {color('small_object1')}, {color('small_object2')}, {color('small_object3')}, and {color('small_object4')} — forms irregular connected regions that create an asymmetric overall shape.",
             "The {color('big_object')} object has a shape that exactly matches the multi-colored object. Its size is 8x8 if the multi-colored object is 4x4; otherwise, it is 9x9.",
             "Ensure both objects are completely separated from each other by empty (0) cells. Once the {color('big_object')} object has been created, rotate it 90 degrees clockwise before placing it.",
             "The {color('big_object')} object should be placed in the bottom half, and the multi-colored small object should be placed in the upper half."
@@ -48,12 +48,13 @@ class Task103eff5bGenerator(ARCTaskGenerator):
 
     @staticmethod
     def _generate_small_shape(size: int, colours: List[int]) -> np.ndarray:
-        """Create a connected multi‑coloured shape inside a *size×size* array.
+        """Create a connected multi‑coloured irregular shape inside a *size×size* array.
 
         Rules
         -----
-        • Exactly four colours – one contiguous block per colour (vertical, horizontal, or single cell).
+        • Exactly four colours – each forming irregular connected regions.
         • Overall 8‑way connectivity.
+        • Shape must be irregular and asymmetric to ensure unique coloring correspondence.
         • Shape must *change* when rotated 90° clockwise (to avoid accidental symmetry).
         """
 
@@ -66,51 +67,132 @@ class Task103eff5bGenerator(ARCTaskGenerator):
             # Each colour appears exactly once as a connected component
             unique_colours = {c for c in arr.flat if c != 0}
             colour_ok = len(unique_colours) == 4
-            return connected and different and colour_ok
+            
+            # Check for irregularity - ensure no perfect rectangles or simple patterns
+            irregular = _check_irregularity(arr)
+            
+            return connected and different and colour_ok and irregular
+
+        def _check_irregularity(arr: np.ndarray) -> bool:
+            """Check if the shape is sufficiently irregular and asymmetric."""
+            # Check that it's not symmetric in any way
+            flipped_h = np.fliplr(arr)
+            flipped_v = np.flipud(arr)
+            rot_180 = np.rot90(arr, k=2)
+            
+            symmetric = (np.array_equal(arr != 0, flipped_h != 0) or 
+                        np.array_equal(arr != 0, flipped_v != 0) or
+                        np.array_equal(arr != 0, rot_180 != 0))
+            
+            if symmetric:
+                return False
+                
+            # Check that each color region is not a perfect rectangle
+            for color in colours:
+                color_mask = (arr == color)
+                if np.sum(color_mask) == 0:
+                    continue
+                    
+                # Find bounding box of this color
+                rows, cols = np.where(color_mask)
+                if len(rows) > 1:  # Only check if more than one cell
+                    min_r, max_r = rows.min(), rows.max()
+                    min_c, max_c = cols.min(), cols.max()
+                    expected_cells = (max_r - min_r + 1) * (max_c - min_c + 1)
+                    actual_cells = np.sum(color_mask)
+                    
+                    # If it's a perfect rectangle, reject
+                    if actual_cells == expected_cells and actual_cells > 1:
+                        return False
+            
+            return True
 
         def _make_once() -> np.ndarray:
             arr = np.zeros((size, size), dtype=int)
             occupied = set()
 
-            for col in colours:
-                # Decide block type
-                block_type = random.choice(["single", "vertical", "horizontal"])
+            # Create irregular patterns by growing regions organically
+            for i, col in enumerate(colours):
                 placed = False
                 attempts = 0
-                while not placed and attempts < 100:
+                
+                while not placed and attempts < 200:
                     attempts += 1
-                    # Pick anchor cell either adjacent to existing shape (for connectivity) or anywhere for first colour
+                    
+                    # For first color, start anywhere; for others, start adjacent to existing shape
                     if not occupied:
                         r, c = random.randrange(size), random.randrange(size)
+                        start_cells = [(r, c)]
                     else:
-                        r0, c0 = random.choice(list(occupied))
-                        dr, dc = random.choice([(dr, dc) for dr in (-1, 0, 1) for dc in (-1, 0, 1) if (dr, dc) != (0, 0)])
-                        r, c = r0 + dr, c0 + dc
-                        if not (0 <= r < size and 0 <= c < size) or (r, c) in occupied:
+                        # Find all possible starting positions adjacent to existing shape
+                        adjacent_cells = []
+                        for (r0, c0) in occupied:
+                            for dr in (-1, 0, 1):
+                                for dc in (-1, 0, 1):
+                                    if dr == 0 and dc == 0:
+                                        continue
+                                    nr, nc = r0 + dr, c0 + dc
+                                    if (0 <= nr < size and 0 <= nc < size and 
+                                        (nr, nc) not in occupied and (nr, nc) not in adjacent_cells):
+                                        adjacent_cells.append((nr, nc))
+                        
+                        if not adjacent_cells:
                             continue
-                    cells = []
-                    if block_type == "single":
-                        cells = [(r, c)]
-                    elif block_type == "vertical":
-                        length = random.choice([2, 3]) if size == 4 else 2
-                        if r + length - 1 >= size:
+                            
+                        start_cells = [random.choice(adjacent_cells)]
+                    
+                    # Grow this color region organically
+                    region_cells = []
+                    candidates = start_cells.copy()
+                    target_size = random.randint(1, min(4, size * size // 4))  # Variable region size
+                    
+                    while candidates and len(region_cells) < target_size:
+                        current = candidates.pop(random.randrange(len(candidates)))
+                        if current in occupied:
                             continue
-                        cells = [(r + k, c) for k in range(length)]
-                    else:  # horizontal
-                        length = random.choice([2, 3]) if size == 4 else 2
-                        if c + length - 1 >= size:
-                            continue
-                        cells = [(r, c + k) for k in range(length)]
-                    if any(cell in occupied or not (0 <= cell[0] < size and 0 <= cell[1] < size) for cell in cells):
-                        continue
-                    for rr, cc in cells:
-                        arr[rr, cc] = col
-                        occupied.add((rr, cc))
-                    placed = True
+                            
+                        region_cells.append(current)
+                        
+                        # Add neighbors as potential expansion candidates
+                        r, c = current
+                        for dr in (-1, 0, 1):
+                            for dc in (-1, 0, 1):
+                                if dr == 0 and dc == 0:
+                                    continue
+                                nr, nc = r + dr, c + dc
+                                if (0 <= nr < size and 0 <= nc < size and 
+                                    (nr, nc) not in occupied and (nr, nc) not in region_cells and
+                                    (nr, nc) not in candidates):
+                                    # Add with some probability to create irregular growth
+                                    if random.random() < 0.7:  # 70% chance to add neighbor
+                                        candidates.append((nr, nc))
+                    
+                    # Check if this region would create a valid shape
+                    if len(region_cells) > 0:
+                        # Temporarily place the region
+                        temp_occupied = occupied.copy()
+                        for r, c in region_cells:
+                            arr[r, c] = col
+                            temp_occupied.add((r, c))
+                        
+                        # Check if still connected overall
+                        test_objs = find_connected_objects(arr, diagonal_connectivity=True, background=0, monochromatic=False)
+                        if len(test_objs) == 1:
+                            occupied = temp_occupied
+                            placed = True
+                        else:
+                            # Revert
+                            for r, c in region_cells:
+                                arr[r, c] = 0
+                
+                if not placed:
+                    # If we couldn't place this color, restart the whole process
+                    return np.zeros((size, size), dtype=int)
+            
             return arr
 
         # Retry until the constraints are met
-        shape = retry(_make_once, _is_valid)
+        shape = retry(_make_once, _is_valid, max_attempts=100)
         return shape
 
     @staticmethod
@@ -172,13 +254,6 @@ class Task103eff5bGenerator(ARCTaskGenerator):
     # ────────────────────────────────────────── Transformation ──────────────────────────────────────
 
     def transform_input(self, grid: np.ndarray, taskvars: Dict[str, Any]) -> np.ndarray:
-        """Re‑colour the large mono‑coloured copy to match the rotated pattern of the small object.
-
-        We avoid any shape‑mismatch issues by recolouring *cell‑wise* instead of slicing
-        whole sub‑arrays.  For every coloured cell of the big object we look up the
-        corresponding cell in the rotated small object (after down‑scaling via integer
-        division) and simply overwrite that single position in the output grid.
-        """
         big_colour = taskvars["big_object"]
         small_colours = {
             taskvars["small_object1"], 
@@ -186,31 +261,25 @@ class Task103eff5bGenerator(ARCTaskGenerator):
             taskvars["small_object3"], 
             taskvars["small_object4"]
         }
-
         objects = find_connected_objects(grid, diagonal_connectivity=True, background=0, monochromatic=False)
 
         # Identify objects by their colour signatures
         big_obj: GridObject = next(obj for obj in objects if obj.colors == {big_colour})
         small_obj: GridObject = next(obj for obj in objects if obj.colors == small_colours)
-
         # Reference arrays and helper data
         small_arr = small_obj.to_array()
         rotated_small = np.rot90(small_arr, k=-1)
-
         # Scaling factor from small to big (integer; identical in both dims)
         big_bb = big_obj.bounding_box
         big_h = big_bb[0].stop - big_bb[0].start
         scale = big_h // rotated_small.shape[0]
-
         out = grid.copy()
         r0, c0 = big_bb[0].start, big_bb[1].start
-
         for r, c, _ in big_obj:
             rr = (r - r0) // scale  # row in rotated_small
             cc = (c - c0) // scale  # col in rotated_small
             new_colour = rotated_small[rr, cc]
             out[r, c] = new_colour
-
         return out
 
     # ──────────────────────────────────────────── create_grids ──────────────────────────────────────
