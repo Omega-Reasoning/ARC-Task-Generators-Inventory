@@ -4,7 +4,7 @@ from input_library import retry
 import numpy as np
 import random
 from typing import Dict, Any, Tuple, List
-
+from scipy.ndimage import binary_fill_holes
 
 class Taskd5d6de2d(ARCTaskGenerator):
     def __init__(self):
