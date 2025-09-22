@@ -2,12 +2,6 @@ from arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
 import numpy as np
 import random
 from typing import Dict, Any, Tuple
-# We can optionally import from the transformation library if needed, e.g.:
-# from transformation_library import find_connected_objects
-# But for this particular generator, direct numpy manipulation is sufficient.
-
-# We do not import from input_library.py in transform_input(), but we can use it in create_input() if desired.
-# However, for this simple generator (filling a diagonal), standard numpy is enough.
 
 class TaskfZZdqLV3JHHUUxBZ7dmJtHGenerator(ARCTaskGenerator):
     def __init__(self):
