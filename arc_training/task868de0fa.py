@@ -1,14 +1,16 @@
 from arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
+from transformation_library import find_connected_objects, GridObjects
+from input_library import create_object, retry
 import numpy as np
 import random
-from input_library import retry, create_object, Contiguity
-from transformation_library import find_connected_objects, GridObject
+from typing import Dict, Any, Tuple, List
 
 class ARCTask868de0faGenerator(ARCTaskGenerator):
+    
     def __init__(self):
         input_reasoning_chain = [
             "The input grid is a square grid with dimension n.",
-            "There are a few 4-way objects present in the input grid, each of these are a square whose perimeter cells are filled with color {color('per_color')} and the remaining cells are empty(0)."
+            "There is a minimum of 2 and maximum of 5, 4-way connected objects present in the input grid, each of these are a square whose perimeter is filled with {color('per_color')} and the remaining cells within the perimeter of the square are empty cells(0)."
         ]
         
         transformation_reasoning_chain = [
@@ -19,155 +21,209 @@ class ARCTask868de0faGenerator(ARCTaskGenerator):
         
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
     
-    def create_input(self, taskvars, gridvars):
-        # Determine grid size (between 13 to 30)
-        grid_size = random.randint(13, 30)
-        grid = np.zeros((grid_size, grid_size), dtype=int)
+    def create_input(self, taskvars: Dict[str, Any], gridvars: Dict[str, Any]) -> np.ndarray:
+        n = gridvars['n']
+        per_color = taskvars['per_color']
+        num_squares = gridvars['num_squares']
+        square_sizes = gridvars['square_sizes']
         
-        # Decide how many squares to generate (2-4 squares)
-        num_squares = random.randint(2, 4)
+        grid = np.zeros((n, n), dtype=int)
         
-        # Maximum square size is grid_size//2 - 1
-        max_square_size = grid_size // 2 - 1
+        def generate_valid_grid():
+            test_grid = np.zeros((n, n), dtype=int)
+            placed_squares = []
+            
+            for size in square_sizes:
+                # Try to place this square without overlapping others
+                max_attempts = 50
+                placed = False
+                
+                for _ in range(max_attempts):
+                    # Random position for top-left corner
+                    max_row = n - size
+                    max_col = n - size
+                    if max_row <= 0 or max_col <= 0:
+                        continue
+                        
+                    row = random.randint(0, max_row)
+                    col = random.randint(0, max_col)
+                    
+                    # Check if this square is at least 1 cell away from any existing squares
+                    overlaps = False
+                    for existing_row, existing_col, existing_size in placed_squares:
+                        # Expand both rectangles by 1 cell in all directions for spacing check
+                        # Current square bounds (expanded by 1)
+                        curr_top = row - 1
+                        curr_bottom = row + size
+                        curr_left = col - 1
+                        curr_right = col + size
+                        
+                        # Existing square bounds (expanded by 1)
+                        exist_top = existing_row - 1
+                        exist_bottom = existing_row + existing_size
+                        exist_left = existing_col - 1
+                        exist_right = existing_col + existing_size
+                        
+                        # Check if expanded rectangles overlap (meaning squares are too close)
+                        if not (curr_right <= exist_left or 
+                            exist_right <= curr_left or 
+                            curr_bottom <= exist_top or 
+                            exist_bottom <= curr_top):
+                            overlaps = True
+                            break
+                    
+                    if not overlaps:
+                        # Place the square perimeter
+                        # Top and bottom edges
+                        test_grid[row, col:col+size] = per_color
+                        test_grid[row+size-1, col:col+size] = per_color
+                        # Left and right edges
+                        test_grid[row:row+size, col] = per_color
+                        test_grid[row:row+size, col+size-1] = per_color
+                        
+                        placed_squares.append((row, col, size))
+                        placed = True
+                        break
+                
+                if not placed:
+                    return None
+            
+            return test_grid, placed_squares
         
-        # Generate squares of different sizes
+        result = retry(generate_valid_grid, lambda x: x is not None, max_attempts=200)
+        return result[0]
+
+    
+    def transform_input(self, grid: np.ndarray, taskvars: Dict[str, Any]) -> np.ndarray:
+        output_grid = grid.copy()
+        per_color = taskvars['per_color']
+        color_1 = taskvars['color_1']
+        color_2 = taskvars['color_2']
+        
+        # Find all squares by detecting connected components of the perimeter color
+        objects = find_connected_objects(grid, diagonal_connectivity=False, background=0)
+        perimeter_objects = objects.with_color(per_color)
+        
+        for obj in perimeter_objects:
+            # Get bounding box of the object
+            bbox = obj.bounding_box
+            height = bbox[0].stop - bbox[0].start
+            width = bbox[1].stop - bbox[1].start
+            
+            # Verify this is a square perimeter
+            if height == width and height >= 3:
+                # Calculate interior area (exclude perimeter)
+                interior_cells = (height - 2) * (width - 2)
+                
+                # Fill interior based on parity
+                fill_color = color_1 if interior_cells % 2 == 0 else color_2
+                
+                # Fill the interior
+                start_row = bbox[0].start + 1
+                end_row = bbox[0].stop - 1
+                start_col = bbox[1].start + 1
+                end_col = bbox[1].stop - 1
+                
+                if start_row < end_row and start_col < end_col:
+                    output_grid[start_row:end_row, start_col:end_col] = fill_color
+        
+        return output_grid
+
+    def _get_square_sizes(self, n: int, num_squares: int) -> List[int]:
+        # Generate square sizes ensuring variety
+        max_size = n // 2 - 1
+        min_size = 3  # Minimum size to have interior
+        
+        if max_size < min_size:
+            max_size = min_size
+        
+        # Generate sizes ensuring at least one even and one odd interior
         square_sizes = []
+        for i in range(num_squares):
+            size = random.randint(min_size, max_size)
+            square_sizes.append(size)
         
-        # Ensure we have at least one even and one odd sized square
-        even_size = random.randrange(4, max_square_size + 1, 2)  # Even size
-        odd_size = random.randrange(3, max_square_size + 1, 2)   # Odd size
-        
-        square_sizes.append(even_size)
-        square_sizes.append(odd_size)
-        
-        # Add more square sizes if needed
-        while len(square_sizes) < num_squares:
-            size = random.randint(4, max_square_size)
+        # Ensure unique sizes
+        square_sizes = list(set(square_sizes))
+        while len(square_sizes) < min(num_squares, (max_size - min_size + 1)):
+            size = random.randint(min_size, max_size)
             if size not in square_sizes:
                 square_sizes.append(size)
         
-        # Shuffle the sizes
-        random.shuffle(square_sizes)
+        square_sizes = square_sizes[:num_squares]
         
-        # Place squares on the grid
-        for size in square_sizes:
-            self._place_square_on_grid(grid, size, taskvars['per_color'])
+        # Ensure at least one even and one odd interior area
+        has_even = any((size - 2) * (size - 2) % 2 == 0 for size in square_sizes)
+        has_odd = any((size - 2) * (size - 2) % 2 == 1 for size in square_sizes)
         
-        return grid
+        if not has_even:
+            # Replace a size to ensure even interior
+            for i, size in enumerate(square_sizes):
+                new_size = size + (1 if size % 2 == 1 else -1)
+                if new_size >= min_size and new_size <= max_size:
+                    if (new_size - 2) * (new_size - 2) % 2 == 0:
+                        square_sizes[i] = new_size
+                        break
+        
+        if not has_odd:
+            # Replace a size to ensure odd interior
+            for i, size in enumerate(square_sizes):
+                new_size = size + (1 if size % 2 == 0 else -1)
+                if new_size >= min_size and new_size <= max_size:
+                    if (new_size - 2) * (new_size - 2) % 2 == 1:
+                        square_sizes[i] = new_size
+                        break
+        
+        return square_sizes
     
-    def _place_square_on_grid(self, grid, size, color):
-        """Place a square with perimeter of specified color on the grid."""
-        grid_size = grid.shape[0]
-        max_attempts = 100
+    def create_grids(self) -> Tuple[Dict[str, Any], TrainTestData]:
+        # Generate different colors
+        all_colors = list(range(1, 10))
+        random.shuffle(all_colors)
+        per_color, color_1, color_2 = all_colors[:3]
         
-        for _ in range(max_attempts):
-            # Random position for top-left corner
-            top = random.randint(0, grid_size - size)
-            left = random.randint(0, grid_size - size)
-            
-            # Check if this area is free
-            if np.any(grid[top:top+size, left:left+size] != 0):
-                continue  # Area not free, try again
-            
-            # Place the square perimeter
-            # Top and bottom rows
-            grid[top, left:left+size] = color
-            grid[top+size-1, left:left+size] = color
-            
-            # Left and right columns (excluding corners which are already set)
-            grid[top+1:top+size-1, left] = color
-            grid[top+1:top+size-1, left+size-1] = color
-            
-            return True  # Successfully placed
         
-        return False  # Could not place after max attempts
-    
-    def transform_input(self, grid, taskvars):
-        output_grid = grid.copy()
-        
-        # Find all squares in the grid
-        for r in range(grid.shape[0]):
-            for c in range(grid.shape[1]):
-                if grid[r, c] == taskvars['per_color']:
-                    # Try to detect if this is part of a square perimeter
-                    square_size = self._detect_square(grid, r, c, taskvars['per_color'])
-                    if square_size > 0:
-                        # Calculate number of cells inside the square
-                        inside_cells = (square_size - 2) * (square_size - 2)
-                        
-                        # Fill inside based on whether number of inside cells is even or odd
-                        fill_color = taskvars['color_1'] if inside_cells % 2 == 0 else taskvars['color_2']
-                        
-                        # Fill the inside of the square
-                        output_grid[r+1:r+square_size-1, c+1:c+square_size-1] = fill_color
-        
-        return output_grid
-    
-    def _detect_square(self, grid, top_r, left_c, color):
-        """
-        Detect if there's a square starting at (top_r, left_c)
-        Returns the size of the square if found, 0 otherwise
-        """
-        grid_size = grid.shape[0]
-        
-        # Look for horizontal line to the right
-        size = 0
-        for c in range(left_c, grid_size):
-            if grid[top_r, c] == color:
-                size += 1
-            else:
-                break
-        
-        if size < 2:  # Too small to be a square
-            return 0
-        
-        # Check if there's a vertical line of the same length going down
-        if top_r + size > grid_size:
-            return 0  # Would go out of bounds
-        
-        # Check right vertical line
-        for r in range(top_r, top_r + size):
-            if grid[r, left_c + size - 1] != color:
-                return 0  # Not a square
-        
-        # Check bottom horizontal line
-        for c in range(left_c, left_c + size):
-            if grid[top_r + size - 1, c] != color:
-                return 0  # Not a square
-        
-        # Check left vertical line
-        for r in range(top_r, top_r + size):
-            if grid[r, left_c] != color:
-                return 0  # Not a square
-        
-        # Check that inside is empty (not part of another square)
-        if np.any(grid[top_r+1:top_r+size-1, left_c+1:left_c+size-1] != 0):
-            return 0  # Inside is not empty
-        
-        return size
-    
-    def create_grids(self):
-        # Initialize task variables
         taskvars = {
-            'per_color': random.randint(1, 9)
+            'per_color': per_color,
+            'color_1': color_1,
+            'color_2': color_2,
         }
         
-        # Ensure color_1 and color_2 are different from per_color and each other
-        colors = [i for i in range(1, 10) if i != taskvars['per_color']]
-        taskvars['color_1'], taskvars['color_2'] = random.sample(colors, 2)
-        
-        # Generate 4-5 training examples and 1 test example
+        # Generate training examples
         num_train = random.randint(4, 5)
-        
         train_examples = []
         for _ in range(num_train):
-            input_grid = self.create_input(taskvars, {})
+            n = random.randint(13, 30)
+            num_squares = random.randint(2, 5)
+
+            square_sizes = self._get_square_sizes(n, num_squares)
+            gridvars = {
+                'n': n,
+                'num_squares': num_squares,
+                'square_sizes': square_sizes
+            }
+
+            input_grid = self.create_input(taskvars, gridvars)
             output_grid = self.transform_input(input_grid, taskvars)
             train_examples.append({'input': input_grid, 'output': output_grid})
         
-        test_examples = []
-        test_input = self.create_input(taskvars, {})
+        n = random.randint(13, 30)
+        num_squares = random.randint(2, 5)
+        square_sizes = self._get_square_sizes(n, num_squares)
+        gridvars = {
+            'n': n,
+            'num_squares': num_squares,
+            'square_sizes': square_sizes
+        }
+        # Generate test example
+        test_input = self.create_input(taskvars, gridvars)
         test_output = self.transform_input(test_input, taskvars)
-        test_examples.append({'input': test_input, 'output': test_output})
+        test_examples = [{'input': test_input, 'output': test_output}]
         
-        return taskvars, {'train': train_examples, 'test': test_examples}
+        train_test_data = {
+            'train': train_examples,
+            'test': test_examples
+        }
+        
+        return taskvars, train_test_data
+
