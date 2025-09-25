@@ -131,7 +131,7 @@ class ARCTask868de0faGenerator(ARCTaskGenerator):
 
     def _get_square_sizes(self, n: int, num_squares: int) -> List[int]:
         # Generate square sizes ensuring variety
-        max_size = n // 2 - 1
+        max_size = min(n // 3, 8)
         min_size = 3  # Minimum size to have interior
         
         if max_size < min_size:
@@ -193,7 +193,7 @@ class ARCTask868de0faGenerator(ARCTaskGenerator):
         num_train = random.randint(4, 5)
         train_examples = []
         for _ in range(num_train):
-            n = random.randint(13, 30)
+            n = random.randint(15, 30)
             num_squares = random.randint(2, 5)
 
             square_sizes = self._get_square_sizes(n, num_squares)

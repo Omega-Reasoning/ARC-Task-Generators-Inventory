@@ -168,7 +168,7 @@ class ARCTask239be575Generator(ARCTaskGenerator):
         taskvars = {
             'rows': random.randint(15, 30),
             'cols': random.randint(15, 30),
-            'subgrd': random.randint(2, 8),
+            'subgrd': random.randint(2, 5),
             'in_color': random.choice(range(1, 10)),
             'cell_color': random.choice(range(1, 10))
         }

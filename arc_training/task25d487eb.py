@@ -4,6 +4,7 @@ from arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
 from transformation_library import find_connected_objects
 from input_library import create_object, retry
 
+#
 class ARCTask25d487ebGenerator(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
@@ -28,63 +29,68 @@ class ARCTask25d487ebGenerator(ARCTaskGenerator):
     
     def create_input(self, taskvars, gridvars):
         rows, cols = taskvars['rows'], taskvars['cols']
-        grid = np.zeros((rows, cols), dtype=int)
-        rotation_angle = random.choice([0, 90, 180, 270])
+        def generate_valid_grid():
+            grid = np.zeros((rows, cols), dtype=int)
+            rotation_angle = random.choice([0, 90, 180, 270])
 
-        # Define triangle properties
-        triangle_color = random.randint(1, 9)
-        while triangle_color == taskvars['cell_color']:
+            # Define triangle properties
             triangle_color = random.randint(1, 9)
-        
-        height = random.randint(2, rows // 3)
-        base_width = 2 * height - 1
-        
-        # Create a subgrid that can contain the triangle
-        subgrid_size = max(height, base_width)
-        if subgrid_size % 2 == 0:  # Ensure odd size for proper rotation center
-            subgrid_size += 1
-        subgrid = np.zeros((subgrid_size, subgrid_size), dtype=int)
-        
-        # Calculate center of subgrid
-        center = subgrid_size // 2
-        
-        # Draw triangle in subgrid
-        for i in range(height):
-            for j in range(-i, i + 1):
-                row = center - i
-                col = center + j
-                subgrid[row, col] = triangle_color
-        
-        # Set the center cell color
-        subgrid[0 , center] = taskvars['cell_color']
-        print(subgrid)
-        
-        # Rotate subgrid if needed
-        if rotation_angle == 90:
-            subgrid = np.rot90(subgrid, k=3)
-        elif rotation_angle == 180:
-            subgrid = np.rot90(subgrid, k=2)
-        elif rotation_angle == 270:
-            subgrid = np.rot90(subgrid, k=1)
-        
-        # Calculate valid placement ranges for the rotated subgrid
-        min_row = subgrid_size // 2
-        max_row = rows - (subgrid_size // 2) - 1
-        min_col = subgrid_size // 2
-        max_col = cols - (subgrid_size // 2) - 1
-        
-        # Place the rotated subgrid in the main grid
-        if max_row >= min_row and max_col >= min_col:
-            place_row = random.randint(min_row, max_row)
-            place_col = random.randint(min_col, max_col)
+            while triangle_color == taskvars['cell_color']:
+                triangle_color = random.randint(1, 9)
             
-            # Copy the rotated subgrid to the main grid
-            start_row = place_row - subgrid_size // 2
-            start_col = place_col - subgrid_size // 2
-            grid[start_row:start_row + subgrid_size, 
-                 start_col:start_col + subgrid_size] = subgrid
-        
-        return grid
+            height = random.randint(2, rows // 3)
+            base_width = 2 * height - 1
+            
+            # Create a subgrid that can contain the triangle
+            subgrid_size = max(height, base_width)
+            if subgrid_size % 2 == 0:  # Ensure odd size for proper rotation center
+                subgrid_size += 1
+            subgrid = np.zeros((subgrid_size, subgrid_size), dtype=int)
+            
+            # Calculate center of subgrid
+            center = subgrid_size // 2
+            
+            # Draw triangle in subgrid
+            for i in range(height):
+                for j in range(-i, i + 1):
+                    row = center - i
+                    col = center + j
+                    subgrid[row, col] = triangle_color
+            
+            # Set the center cell color
+            subgrid[0 , center] = taskvars['cell_color']
+            
+            # Rotate subgrid if needed
+            if rotation_angle == 90:
+                subgrid = np.rot90(subgrid, k=3)
+            elif rotation_angle == 180:
+                subgrid = np.rot90(subgrid, k=2)
+            elif rotation_angle == 270:
+                subgrid = np.rot90(subgrid, k=1)
+            
+            # Calculate valid placement ranges for the rotated subgrid
+            min_row = subgrid_size // 2
+            max_row = rows - (subgrid_size // 2) - 1
+            min_col = subgrid_size // 2
+            max_col = cols - (subgrid_size // 2) - 1
+            
+            # Place the rotated subgrid in the main grid
+            if max_row >= min_row and max_col >= min_col:
+                place_row = random.randint(min_row, max_row)
+                place_col = random.randint(min_col, max_col)
+                
+                # Copy the rotated subgrid to the main grid
+                start_row = place_row - subgrid_size // 2
+                start_col = place_col - subgrid_size // 2
+                grid[start_row:start_row + subgrid_size, 
+                    start_col:start_col + subgrid_size] = subgrid
+            
+            if np.any(grid != 0):
+                return grid
+            else:
+                return None
+
+        return retry(generate_valid_grid, lambda x: x is not None, max_attempts=100)
     
     def transform_input(self, grid, taskvars):
         output_grid = grid.copy()
