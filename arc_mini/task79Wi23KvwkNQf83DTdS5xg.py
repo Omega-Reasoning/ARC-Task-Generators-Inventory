@@ -41,8 +41,8 @@ class Task79Wi23KvwkNQf83DTdS5xgGenerator(ARCTaskGenerator):
         no_right_space = gridvars['no_right_space']  # bool
 
         # Randomly choose grid dimensions
-        rows = random.randint(5, 10)
-        cols = random.randint(5, 10)
+        rows = random.randint(5, 30)
+        cols = random.randint(5, 30)
 
         grid = np.zeros((rows, cols), dtype=int)
 

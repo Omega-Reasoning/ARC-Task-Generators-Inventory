@@ -30,7 +30,7 @@ class Task9DJPUL8gn2U73r7KneZzRYGenerator(ARCTaskGenerator):
         
         def generate_example(diagonal_type=None):
             while True:
-                n = random.randint(8, 20)
+                n = random.randint(8, 30)
                 if n % 2 == 1:
                     break
             gridvars = {"n": n, "diagonal_type": diagonal_type}

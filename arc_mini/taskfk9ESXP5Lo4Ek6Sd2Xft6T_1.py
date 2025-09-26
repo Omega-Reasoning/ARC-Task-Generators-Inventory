@@ -14,7 +14,7 @@ class Taskfk9ESXP5Lo4Ek6Sd2Xft6T_1Generator(ARCTaskGenerator):
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
 
     def create_input(self, taskvars: Dict[str, Any], gridvars: Dict[str, Any]) -> np.ndarray:
-        rows, cols = np.random.randint(5, 15), np.random.randint(5, 15)
+        rows, cols = np.random.randint(5, 30), np.random.randint(5, 30)
         matrix = np.zeros((rows, cols), dtype=int)
         start_row, start_col = np.random.randint(0, rows), np.random.randint(0, cols)
         matrix[start_row, start_col] = taskvars['object_color']

@@ -114,7 +114,7 @@ class TaskMUavpxnb8di7qRxZFhNAa7Generator(ARCTaskGenerator):
         #    - rows in [7..20], cols in [7..20]
         #    - all columns are odd
         #    - at least one grid with even # of rows, at least one with odd # of rows among the training set
-        possible_rows = list(range(7, 21))
+        possible_rows = list(range(7, 31))
         possible_cols = [c for c in range(7, 21) if c % 2 == 1]  # columns must be odd
         random.shuffle(possible_rows)
         random.shuffle(possible_cols)

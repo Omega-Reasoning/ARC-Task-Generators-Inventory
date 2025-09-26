@@ -43,7 +43,7 @@ class TaskjonFUmqwVVkzaeDRu5q2gSGenerator(ARCTaskGenerator):
                         break
             elif shape == '1x2':
                 while True:
-                    x, y = randint(0, rows - 1), randint(0, cols - 2)
+                    x, y = randint(0,rows - 1), randint(0, cols - 2)
                     if self._is_free(matrix, x, y, 1, 2, placed_positions):
                         matrix[x:x+1, y:y+2] = color
                         placed_positions.append((x, y, 1, 2))

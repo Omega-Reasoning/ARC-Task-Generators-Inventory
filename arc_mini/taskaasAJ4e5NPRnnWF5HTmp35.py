@@ -137,8 +137,8 @@ class TaskaasAJ4e5NPRnnWF5HTmp35Generator(ARCTaskGenerator):
         object_color1, object_color2, object_color3, object_color4 = all_colors[:4]
 
         # 2) Choose rows, cols
-        rows = random.randint(5, 12)   # smaller range to see results easily
-        cols = random.randint(5, 12)
+        rows = random.randint(5, 30)   # smaller range to see results easily
+        cols = random.randint(5, 30)
 
         # We store them in the taskvars dictionary
         taskvars = {

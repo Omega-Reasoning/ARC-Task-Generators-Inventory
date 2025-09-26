@@ -60,8 +60,8 @@ class Task5WKhJgUJdkVm7Nc2aU9ZMkGenerator(ARCTaskGenerator):
 
         def generator():
             # Randomly choose grid dimensions
-            rows = random.randint(5, 15)
-            cols = random.randint(5, 15)
+            rows = random.randint(5, 30)
+            cols = random.randint(5, 30)
             grid = np.zeros((rows, cols), dtype=int)
 
             # Randomly color some cells with cell_color, with moderate density

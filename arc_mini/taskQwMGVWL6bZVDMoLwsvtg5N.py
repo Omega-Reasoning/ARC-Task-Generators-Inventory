@@ -31,7 +31,7 @@ class TaskQwMGVWL6bZVDMoLwsvtg5NGenerator(ARCTaskGenerator):
         """
         # Pick a random odd grid size between 4 and 20
         # (as per instructions, it must be an odd number).
-        possible_sizes = [s for s in range(5, 21, 2)]  # 5,7,9,11,13,15,17,19
+        possible_sizes = [s for s in range(5, 31, 2)]  # 5,7,9,11,13,15,17,19
         grid_size = random.choice(possible_sizes)
 
         # Store the task variables in a dictionary

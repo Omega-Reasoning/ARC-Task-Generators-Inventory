@@ -119,8 +119,8 @@ class Task7z9atKrHYamgLqxg6F4eN8Generator(ARCTaskGenerator):
         # Let's pick 6 distinct sizes from [5..15], for instance.
 
         possible_sizes = []
-        for r in range(5, 16):
-            for c in range(5, 16):
+        for r in range(5, 30):
+            for c in range(5, 30):
                 possible_sizes.append((r, c))
         random.shuffle(possible_sizes)
 

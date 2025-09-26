@@ -107,7 +107,7 @@ class Taskdr6p8jZDwQADuPdhCVvPGUGenerator(ARCTaskGenerator):
 
     def create_grids(self) -> Tuple[Dict[str, Any], TrainTestData]:
         # Generate random grid size between 5 and 15
-        grid_size = random.randint(5, 15)
+        grid_size = random.randint(5, 30)
         
         taskvars = {
             'grid_size': grid_size

@@ -51,8 +51,8 @@ class TaskXL7W8LmN2kTVYPztmzcN67Generator(ARCTaskGenerator):
                 Containing the train and test GridPairs.
         """
         # Randomly choose the puzzle-wide variables
-        rows = random.randint(3, 10)
-        cols = random.randint(7, 12)
+        rows = random.randint(5, 30)
+        cols = random.randint(7, 30)
         object_color = random.randint(1, 9)
 
         taskvars = {

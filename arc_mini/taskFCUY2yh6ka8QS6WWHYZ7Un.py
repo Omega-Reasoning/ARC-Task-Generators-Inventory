@@ -74,8 +74,8 @@ class TaskFCUY2yh6ka8QS6WWHYZ7UnGenerator(ARCTaskGenerator):
 
     def create_input(self, taskvars, gridvars):
         filled_color = gridvars["filled_column_color"]
-        rows = random.randint(6, 20)
-        cols = random.randint(6, 20)
+        rows = random.randint(6, 30)
+        cols = random.randint(6, 30)
         
         avoid_columns = gridvars.get("avoid_columns", [])
         valid_cols = [c for c in range(cols) if c not in avoid_columns]

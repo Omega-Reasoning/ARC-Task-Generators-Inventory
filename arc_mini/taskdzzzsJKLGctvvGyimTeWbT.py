@@ -90,8 +90,8 @@ class TaskdzzzsJKLGctvvGyimTeWbTGenerator(ARCTaskGenerator):
         connected = gridvars.get('connected', False)
         
         # Randomly choose grid size between 5 and 10
-        rows = random.randint(5, 10)
-        cols = random.randint(5, 10)
+        rows = random.randint(5, 30)
+        cols = random.randint(5, 30)
         
         # Initialize empty grid
         grid = np.zeros((rows, cols), dtype=int)

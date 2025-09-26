@@ -32,8 +32,8 @@ class TaskoNFpUiszkfkwdYR89NZcnP_1Generator(ARCTaskGenerator):
         object_color2 = taskvars['object_color2']
         
         # Always ensure the grid is large enough (minimum 12x12)
-        rows = random.randint(12, 15)  
-        cols = random.randint(12, 15)
+        rows = random.randint(12, 30)  
+        cols = random.randint(12, 30)
         grid = np.zeros((rows, cols), dtype=int)
         
         # Simple, reliable positioning approach:

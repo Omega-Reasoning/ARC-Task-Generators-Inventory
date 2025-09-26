@@ -85,8 +85,8 @@ class TaskHaYFUvUagZhLxKJpdjhDgtGenerator(ARCTaskGenerator):
         """Create task variables and generate train/test grids."""
         # Initialize task variables
         taskvars = {
-            'rows': random.randint(5, 15),
-            'cols': random.randint(5, 15),
+            'rows': random.randint(5, 30),
+            'cols': random.randint(5, 30),
             'cell_color1': random.choice([1, 2, 3, 4, 5, 6, 7, 8, 9]),
             'cell_color2': None,  # Will be set below
             'new_color': None     # Will be set below

@@ -157,7 +157,7 @@ class Task6rsDQRUVrnRibsQDeutHwhGenerator(ARCTaskGenerator):
         
         for _ in range(num_train):
             gridvars = {
-                'grid_size': random.randint(6, 15),
+                'grid_size': random.randint(6, 30),
                 'strip_length': random.choice([2, 3]),
                 'is_vertical': random.choice([True, False])
             }

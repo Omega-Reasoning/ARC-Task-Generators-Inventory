@@ -20,8 +20,8 @@ class TaskeV8NEV3ouyuG6eUVBGznv2Generator(ARCTaskGenerator):
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
 
     def create_grids(self):
-        rows = random.randint(5, 10)
-        cols = random.choice([c for c in range(5, 16) if c % 2 == 1])
+        rows = random.randint(5, 30)
+        cols = random.choice([c for c in range(5, 30) if c % 2 == 1])
         colors = random.sample(range(1, 10), 4)
         taskvars = {
             'rows': rows,

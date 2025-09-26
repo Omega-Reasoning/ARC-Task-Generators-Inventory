@@ -61,8 +61,8 @@ class TaskULXmq8k24GG7tNvmdgfKFvGenerator(ARCTaskGenerator):
         number_of_cells = taskvars['number_of_cells']
         
         # Randomly pick grid dimensions
-        height = random.randint(8, 20)
-        width = random.randint(8, 20)
+        height = random.randint(8, 30)
+        width = random.randint(8, 30)
         
         # Create the grid filled with zeros
         grid = np.zeros((height, width), dtype=int)

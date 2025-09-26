@@ -66,8 +66,8 @@ class TaskYJPsmQTAZNWv7FDE4CfDuiGenerator (ARCTaskGenerator):
         Returns a tuple: (taskvars, train_test_data).
         """
         # Pick random grid dimensions between 6 and 15 (can be up to 30 if desired)
-        rows = random.randint(6, 15)
-        cols = random.randint(6, 15)
+        rows = random.randint(6, 30)
+        cols = random.randint(6, 30)
         taskvars = {
             'rows': rows,
             'cols': cols

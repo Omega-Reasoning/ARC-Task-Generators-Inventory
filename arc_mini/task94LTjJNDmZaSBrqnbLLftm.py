@@ -44,7 +44,7 @@ class Task94LTjJNDmZaSBrqnbLLftmGenerator(ARCTaskGenerator):
 
     def create_grids(self) -> tuple:
         # Randomly initialize task variables
-        col = random.randint(3, 9)
+        col = random.randint(5, 30)
         cell_color = random.randint(1, 9)
 
         taskvars = {

@@ -78,7 +78,7 @@ class TaskU3jfTvgq8Do2qnrBXi5bwjGenerator(ARCTaskGenerator):
 
     def create_grids(self) -> Tuple[Dict[str, Any], TrainTestData]:
         # Generate random number of columns (even, between 6 and 14)
-        cols = random.choice([6, 8, 10, 12, 14])
+        cols = random.choice([6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30])
         
         # Available colors (excluding 0 which is background)
         available_colors = [1, 2, 3, 4, 5, 6, 7, 8, 9]

@@ -48,7 +48,7 @@ class Task2sdDfpnuYZKx9bL3pjTjF5Generator(ARCTaskGenerator):
     
     def create_grids(self) -> Tuple[Dict[str, Any], TrainTestData]:
         # Initialize task variables
-        grid_size = random.randint(5, 15)
+        grid_size = random.randint(5, 30)
         taskvars = {'grid_size': grid_size}
         
         # Generate 3-5 training examples and 1 test example

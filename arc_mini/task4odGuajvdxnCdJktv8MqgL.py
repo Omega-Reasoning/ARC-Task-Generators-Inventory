@@ -132,8 +132,8 @@ class Task4odGuajvdxnCdJktv8MqgLGenerator(ARCTaskGenerator):
     
     def create_grids(self) -> Tuple[Dict[str, Any], TrainTestData]:
         # Initialize task variables with random grid size between 5 and 15
-        rows = random.randint(5, 15)
-        cols = random.randint(5, 15)
+        rows = random.randint(5, 30)
+        cols = random.randint(5, 30)
         taskvars = {'rows': rows, 'cols': cols}
         
         # Generate 3-5 training examples and 1 test example

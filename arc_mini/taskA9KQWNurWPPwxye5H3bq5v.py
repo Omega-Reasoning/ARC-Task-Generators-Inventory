@@ -109,8 +109,8 @@ class TaskA9KQWNurWPPwxye5H3bq5vGenerator(ARCTaskGenerator):
         
 
         # So let's pick them once:
-        rows = random.randint(5, 10)
-        cols = random.randint(5, 10)
+        rows = random.randint(5, 30)
+        cols = random.randint(5, 30)
         color1 = random.randint(1, 9)
         # pick a different color2
         color2 = random.choice([c for c in range(1, 10) if c != color1])

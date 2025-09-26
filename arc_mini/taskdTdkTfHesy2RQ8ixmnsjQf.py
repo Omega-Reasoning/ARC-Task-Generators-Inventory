@@ -29,9 +29,9 @@ class TaskdTdkTfHesy2RQ8ixmnsjQfGenerator(ARCTaskGenerator):
         Creates the dictionary of task-level variables (rows, columns, fill_color1, fill_color2)
         and the train/test data (5 total examples: 4 train + 1 test).
         """
-        # 1) Randomly choose rows, columns in [4..9]
-        rows = random.randint(4, 9)
-        cols = random.randint(4, 9)
+       
+        rows = random.randint(5, 30)
+        cols = random.randint(5, 30)
 
         # 2) Randomly choose fill_color1 and fill_color2 in [1..9], ensuring they are different
         fill_color1 = random.randint(1, 9)

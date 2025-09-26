@@ -124,7 +124,7 @@ class TaskQ7PVog2EvMiogz6MUD9g8Generator(ARCTaskGenerator):
         Ensures that size is an odd number between 5 and 20.
         Fill type is randomly chosen between 'row' and 'column'.
         """
-        size = random.choice([n for n in range(5, 21) if n % 2 == 1])
+        size = random.choice([n for n in range(5, 31) if n % 2 == 1])
         fill = random.choice(['row', 'column'])
         return {
             'size': size,

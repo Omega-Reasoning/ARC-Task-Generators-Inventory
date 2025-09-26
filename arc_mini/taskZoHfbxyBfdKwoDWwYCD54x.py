@@ -31,8 +31,8 @@ class TasktZoHfbxyBfdKwoDWwYCD54xGenerator(ARCTaskGenerator):
         taskvars = {}
 
         # Randomly pick rows, columns in [4..9]
-        rows = random.randint(4, 9)
-        columns = random.randint(4, 9)
+        rows = random.randint(4, 30)
+        columns = random.randint(4,30)
 
         # The color used for the puzzle
         cell_color = random.randint(1, 9)  # from 1..9

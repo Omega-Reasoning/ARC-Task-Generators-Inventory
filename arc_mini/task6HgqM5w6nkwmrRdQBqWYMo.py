@@ -62,7 +62,7 @@ class Task6HgqM5w6nkwmrRdQBqWYMoGenerator(ARCTaskGenerator):
     
     def create_grids(self) -> Tuple[Dict[str, Any], TrainTestData]:
         # Randomly choose task variables
-        grid_size = random.randint(5, 15)
+        grid_size = random.randint(5, 30)
         block_color = random.choice([1, 2, 3, 4, 5, 6, 7, 8, 9])  # Any color except 0 (background)
         
         taskvars = {

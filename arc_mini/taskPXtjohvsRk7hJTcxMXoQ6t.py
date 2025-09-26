@@ -32,14 +32,7 @@ class TaskPXtjohvsRk7hJTcxMXoQ6tGenerator(ARCTaskGenerator):
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
 
     def create_input(self, taskvars, gridvars) -> np.ndarray:
-        """
-        Creates an input grid of size (rows x cols). 
         
-        All other cells remain empty (0).
-        
-        We ensure the colored cells have at least two distinct colors to emphasize
-        'multi-colored' (if there's more than one cell).
-        """
         rows = taskvars['rows']
         cols = taskvars['cols']
         
@@ -65,10 +58,7 @@ class TaskPXtjohvsRk7hJTcxMXoQ6tGenerator(ARCTaskGenerator):
         return grid
 
     def transform_input(self, grid: np.ndarray, taskvars) -> np.ndarray:
-        """
-        Transformation: For each column where the first row has a color != 0,
-        fill the entire column with that color.
-        """
+       
         out_grid = grid.copy()
         rows, cols = out_grid.shape
         
@@ -80,13 +70,7 @@ class TaskPXtjohvsRk7hJTcxMXoQ6tGenerator(ARCTaskGenerator):
         return out_grid
 
     def create_grids(self):
-        """
-        Randomly selects 'rows' and 'cols' within constraints.
-        Creates 2 or 3 training pairs and 1 test pair (randomly ensures variety).
-        Returns:
-          - A dictionary with keys 'rows' and 'cols'
-          - Train/test data
-        """
+       
         # Randomly choose the grid size within the specified invariants
         rows = random.randint(5, 30)   # between 5 and 30
         cols = random.randint(4, 23)   # between 4 and 23

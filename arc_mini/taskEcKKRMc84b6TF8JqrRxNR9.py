@@ -99,7 +99,7 @@ class TaskEcKKRMc84b6TF8JqrRxNR9Generator(ARCTaskGenerator):
         for _ in range(nr_train):
             # Choose a unique size for each example
             while True:
-                size = random.randint(5, 20)
+                size = random.randint(5, 30)
                 if size not in used_sizes:
                     used_sizes.add(size)
                     break

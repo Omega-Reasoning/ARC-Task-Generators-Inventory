@@ -126,8 +126,8 @@ class TaskWXFqRz6U2kgzcaugRKMaKnGenerator(ARCTaskGenerator):
         - Then we generate multiple examples with the same size but different random placements.
         """
         # Randomly choose row/col size for the entire puzzle
-        rows = random.randint(5, 20)
-        cols = random.randint(5, 20)
+        rows = random.randint(5, 30)
+        cols = random.randint(5, 30)
 
         # We'll store these in taskvars so they can be substituted in the chains
         taskvars = {

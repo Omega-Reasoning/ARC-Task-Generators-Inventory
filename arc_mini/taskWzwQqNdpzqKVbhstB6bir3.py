@@ -44,8 +44,8 @@ class TaskWzwQqNdpzqKVbhstB6bir3Generator(ARCTaskGenerator):
         object_color2 = taskvars['object_color2']
 
         # Randomly choose grid size
-        rows = random.randint(8, 15)
-        cols = random.randint(8, 15)
+        rows = random.randint(8, 30)
+        cols = random.randint(8, 30)
 
         # Initialize empty grid
         grid = np.zeros((rows, cols), dtype=int)

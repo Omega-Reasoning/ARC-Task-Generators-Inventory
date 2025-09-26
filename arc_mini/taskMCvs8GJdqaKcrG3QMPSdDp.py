@@ -113,8 +113,8 @@ class TaskMCvs8GJdqaKcrG3QMPSdDpGenerator(ARCTaskGenerator):
     def create_grids(self) -> (dict, TrainTestData):
         # Randomly choose grid size within the 30x30 limit, but keep it big enough
         # to allow 2x2 expansions. We'll keep them from 4 to 10 in each dimension for variety.
-        grid_rows = random.randint(4, 10)
-        grid_cols = random.randint(4, 10)
+        grid_rows = random.randint(4, 30)
+        grid_cols = random.randint(4, 30)
 
         # Pick two distinct colors among 1..9
         color_1 = random.randint(1, 9)

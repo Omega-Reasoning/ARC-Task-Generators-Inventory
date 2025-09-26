@@ -161,7 +161,7 @@ class TaskhnNKFsGwtKG63KSbhwEmUaGenerator(ARCTaskGenerator):
         grid has a color1 cell 4way connected to a diagonal cell with color1.
         """
         # Randomly select grid size, color1, color2
-        grid_size = random.randint(7, 15)
+        grid_size = random.randint(7, 30)
         object_color1 = random.randint(1, 9)
         # ensure color2 is distinct
         while True:

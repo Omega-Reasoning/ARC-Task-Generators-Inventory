@@ -50,8 +50,8 @@ class TaskoNFpUiszkfkwdYR89NZcnPGenerator(ARCTaskGenerator):
           - Grid size between 7x7 and 30x30
         """
         object_color = taskvars['object_color']
-        height = random.randint(7, 15)
-        width = random.randint(7, 15)
+        height = random.randint(7, 30)
+        width = random.randint(7, 30)
         grid = np.zeros((height, width), dtype=int)
 
         n_rings = random.randint(2, 4)

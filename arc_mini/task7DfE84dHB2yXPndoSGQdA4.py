@@ -58,8 +58,8 @@ class Task7DfE84dHB2yXPndoSGQdA4Generator(ARCTaskGenerator):
         object_color1 = taskvars["object_color1"]
         
         # Randomly choose grid dimensions (in 5..10 for demonstration; up to 30..30 is also allowed)
-        rows = random.randint(5, 10)
-        cols = random.randint(5, 10)
+        rows = random.randint(5, 30)
+        cols = random.randint(5, 30)
         
         # Create an empty grid
         grid = np.zeros((rows, cols), dtype=int)

@@ -78,7 +78,7 @@ class Task4D4vnzhkR3Jzm5nHMB73ViGenerator(ARCTaskGenerator):
             "pattern_color4": pattern_color4
         }
 
-        possible_ns = [5, 7, 9, 11, 13, 15, 17, 19]
+        possible_ns = [5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29]
         random.shuffle(possible_ns)
         chosen_ns = possible_ns[:6]
 

@@ -37,8 +37,8 @@ class TaskgjCeQnHqtfsBeVPqTXnrfXGenerator(ARCTaskGenerator):
             'object_color': random.randint(1, 9)
         }
         
-        train_sizes = random.sample(range(5, 16), 3)
-        test_size = random.choice([size for size in range(5, 16) if size not in train_sizes])
+        train_sizes = random.sample(range(5, 30), 3)
+        test_size = random.choice([size for size in range(5, 30) if size not in train_sizes])
         
         grids = {'grid_size': train_sizes + [test_size]}
         

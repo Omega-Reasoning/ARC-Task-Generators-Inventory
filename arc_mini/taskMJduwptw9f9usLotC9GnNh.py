@@ -74,8 +74,8 @@ class TaskMJduwptw9f9usLotC9GnNhGenerator(ARCTaskGenerator):
         object_color1, object_color2 = object_colors
         
         # Choose grid size between 5 and 20 for both rows and columns
-        grid_height = random.randint(5, 20)
-        grid_width = random.randint(5, 20)
+        grid_height = random.randint(5, 30)
+        grid_width = random.randint(5, 30)
         
         return {
             'object_color1': object_color1,

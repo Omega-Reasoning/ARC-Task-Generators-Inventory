@@ -51,8 +51,8 @@ class TaskQyGcGH5Y2igBpVBj6GXZ99Generator(ARCTaskGenerator):
 
     def create_grids(self) -> Tuple[Dict[str, Any], TrainTestData]:
         taskvars = {
-            'rows': randint(5, 10),  # Random rows (5-10)
-            'columns': randint(5, 10),  # Random columns (5-10)
+            'rows': randint(5, 30),  # Random rows (5-10)
+            'columns': randint(5, 30),  # Random columns (5-10)
             'cell_color': randint(1, 9)
         }
 

@@ -21,8 +21,8 @@ class Task7SoqGCfpBkqDFG8RJpwGswGenerator(ARCTaskGenerator):
         color1 = taskvars["object_color1"]
         color2 = taskvars["object_color2"]
 
-        height = random.randint(5, 15)
-        width = random.randint(5, 15)
+        height = random.randint(5, 30)
+        width = random.randint(5, 30)
         grid = np.zeros((height, width), dtype=int)
 
         # Create a vertical column for object1

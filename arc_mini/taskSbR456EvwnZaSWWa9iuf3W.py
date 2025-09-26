@@ -38,8 +38,8 @@ class TaskSbR456EvwnZaSWWa9iuf3WGenerator(ARCTaskGenerator):
         cell_color2 = taskvars["cell_color2"]
 
         def generator():
-            height = random.randint(5, 10)
-            width = random.randint(5, 10)
+            height = random.randint(5, 30)
+            width = random.randint(5, 30)
             grid = np.zeros((height, width), dtype=int)
 
             num_color1 = random.randint(1, max(1, (height*width)//4))

@@ -26,8 +26,8 @@ class TaskW8tGS5zKCegimNhtyiabHDGenerator(ARCTaskGenerator):
         Choose random row and col (both between 3 and 7), then use create_grids_default 
         to produce 3 training pairs and 1 test pair.
         """
-        row = random.randint(3, 7)
-        col = random.randint(3, 7)
+        row = random.randint(5, 30)
+        col = random.randint(5, 30)
         
         taskvars = {
             "row": row,

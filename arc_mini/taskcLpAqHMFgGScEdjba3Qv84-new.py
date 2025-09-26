@@ -18,8 +18,8 @@ class TaskcLpAqHMFgGScEdjba3Qv84newGenerator(ARCTaskGenerator):
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
 
     def create_input(self, taskvars: dict, gridvars: dict) -> np.ndarray:
-        rows = random.randint(5, 15)
-        cols = random.randint(5, 15)
+        rows = random.randint(5, 30)
+        cols = random.randint(5, 30)
         grid = np.zeros((rows, cols), dtype=int)
         
         for r in range(rows):

@@ -64,8 +64,8 @@ class TaskVZZBf6aATWK63Ne4QSmJDRGenerator(ARCTaskGenerator):
 
     def create_grids(self) -> Tuple[Dict[str, Any], TrainTestData]:
         # Set grid size between 5 and 25
-        rows = random.randint(5, 25)
-        columns = max(random.randint(5, 25), 8)  # Ensure at least 8 columns
+        rows = random.randint(5, 30)
+        columns = max(random.randint(5, 30), 8)  # Ensure at least 8 columns
         
         # Define specific colors for the columns
         column_color1 = random.randint(1, 3)

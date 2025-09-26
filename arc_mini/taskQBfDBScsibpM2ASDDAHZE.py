@@ -59,7 +59,7 @@ class TaskfQBfDBScsibpM2ASDDAHZEGenerator(ARCTaskGenerator):
             "object_color2": obj_col2,
             "new_color1": new_col1,
             "new_color2": new_col2,
-            "n": random.randint(3, 9)
+            "n": random.randint(5, 30)
         }
 
         nr_train = random.randint(3, 5)

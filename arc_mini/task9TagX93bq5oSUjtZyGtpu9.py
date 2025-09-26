@@ -36,8 +36,8 @@ class Task9TagX93bq5oSUjtZyGtpu9Generator(ARCTaskGenerator):
          * The row of each colored cell is different from the row of a colored cell in another column
         """
         # Randomize grid size
-        height = random.randint(3, 9)
-        width = random.randint(3, 9)
+        height = random.randint(5, 30)
+        width = random.randint(5, 30)
         grid = np.zeros((height, width), dtype=int)
 
         # Decide how many columns will contain a colored cell (at least 1)

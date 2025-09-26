@@ -67,8 +67,8 @@ class TaskL759EDhLD4RUQUkk3Rj2RCGenerator(ARCTaskGenerator):
         cell_color = taskvars["cell_color"]
 
         # Pick random dimensions:
-        height = random.randint(5, 10)
-        width = random.randint(5, 10)
+        height = random.randint(5, 30)
+        width = random.randint(5,30)
         grid = np.zeros((height, width), dtype=int)
 
         # We want at least 3 colored cells

@@ -38,7 +38,7 @@ class TaskCzSeQxLDe3AmrK2nfCZtcKGenerator(ARCTaskGenerator):
         and a single pair of fill_color1 and fill_color2 (from 1..9, different from each other).
         """
         # Possible odd sizes between 4..20 (but 4 is not odd, so we start from 5)
-        possible_sizes = [5, 7, 9, 11, 13, 15, 17, 19]
+        possible_sizes = [5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29]
         
         # Pick 4 distinct odd sizes for the 3 train pairs + 1 test pair
         random.shuffle(possible_sizes)

@@ -74,8 +74,8 @@ class Task5gi7RCrbqh2meZ5Kv3eXYEGenerator(ARCTaskGenerator):
         The rest of the grid cells are 0.
         """
         # 1) Randomly choose grid size between 7 and 15
-        height = random.randint(7, 15)
-        width = random.randint(7, 15)
+        height = random.randint(7, 30)
+        width = random.randint(7, 30)
 
         # 2) Initialize empty grid
         grid = np.zeros((height, width), dtype=int)

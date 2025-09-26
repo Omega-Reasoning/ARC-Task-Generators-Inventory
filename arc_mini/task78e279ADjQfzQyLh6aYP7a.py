@@ -103,8 +103,8 @@ class Task78e279ADjQfzQyLh6aYP7aGenerator(ARCTaskGenerator):
         is_test = gridvars.get("is_test", False)
 
         # 1) Choose random grid size in [10..20]
-        rows = random.randint(10, 20)
-        cols = random.randint(10, 20)
+        rows = random.randint(10,30)
+        cols = random.randint(10, 30)
 
         # 2) Initialize empty grid
         grid = np.zeros((rows, cols), dtype=int)

@@ -53,8 +53,8 @@ class TaskHBngoxq2x8QDjDxrP5VbxCGenerator(ARCTaskGenerator):
 
         def generate_grid():
             # Random grid size between 3x3 and 15x15
-            rows = random.randint(3, 15)
-            cols = random.randint(3, 15)
+            rows = random.randint(3, 30)
+            cols = random.randint(3, 30)
             grid = np.zeros((rows, cols), dtype=int)
 
             # Probability of using cell_color1 vs cell_color2

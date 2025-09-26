@@ -71,7 +71,7 @@ class Task6gaAGVbchx3Ub78pE7Y8RJGenerator(ARCTaskGenerator):
     def create_grids(self) -> Tuple[Dict[str, Any], TrainTestData]:
         # Initialize task variables
         taskvars = {
-            'grid_size': random.randint(5, 15),
+            'grid_size': random.randint(5, 30),
             'strip1': random.choice([1, 2, 3, 4, 5, 6, 7, 8, 9]),
             'strip2': random.choice([1, 2, 3, 4, 5, 6, 7, 8, 9])
         }

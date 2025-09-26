@@ -53,8 +53,8 @@ class TaskGDYejPt6cSQzg6tbxHcpmNGenerator(ARCTaskGenerator):
         """
         object_color = taskvars['object_color']
         
-        rows = random.randint(5, 12)  # Keep within range to avoid tight spaces
-        cols = random.randint(5, 12)
+        rows = random.randint(5, 30)  # Keep within range to avoid tight spaces
+        cols = random.randint(5,30)
 
         def generate_grid():
             grid = np.zeros((rows, cols), dtype=int)

@@ -88,8 +88,8 @@ class TaskGUPvBjtMimxSy5djJoNaWfGenerator(ARCTaskGenerator):
          - 3 to 5 train examples, 1 test example
          - Each example must have exactly three diagonally connected colored cells
         """
-        rows = random.randint(5, 10)
-        cols = random.randint(5, 10)
+        rows = random.randint(5, 30)
+        cols = random.randint(5, 30)
         cell_color = random.randint(1, 9)
         
         # Put these in taskvars (used for template expansions)

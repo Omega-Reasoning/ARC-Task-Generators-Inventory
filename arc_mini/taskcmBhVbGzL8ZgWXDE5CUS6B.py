@@ -40,8 +40,8 @@ class TaskcmBhVbGzL8ZgWXDE5CUS6BGenerator(ARCTaskGenerator):
         color1 = taskvars["object_color1"]
 
         # Random grid size between 10 and 20
-        rows = random.randint(10, 20)
-        cols = random.randint(10, 20)
+        rows = random.randint(10, 30)
+        cols = random.randint(10, 30)
         grid = np.zeros((rows, cols), dtype=int)
 
         # Choose a random bounding box size for the frame:

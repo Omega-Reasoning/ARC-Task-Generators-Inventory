@@ -113,8 +113,8 @@ class TaskmhTE37F5cVpMjzQX8f75nHGenerator(ARCTaskGenerator):
         interior_color = gridvars['interior_color']
 
         # Randomly choose grid dimensions between 5 and 30
-        rows = random.randint(5, 10)      # smaller upper bound for demonstration
-        cols = random.randint(5, 10)
+        rows = random.randint(5, 30)      # smaller upper bound for demonstration
+        cols = random.randint(5, 30)
 
         grid = np.zeros((rows, cols), dtype=int)
 

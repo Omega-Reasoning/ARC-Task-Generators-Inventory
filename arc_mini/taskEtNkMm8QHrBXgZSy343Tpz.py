@@ -31,8 +31,8 @@ class TaskEtNkMm8QHrBXgZSy343TpzGenerator(ARCTaskGenerator):
         We use 3-5 training examples and 1 test example.
         """
         # Randomly choose grid size
-        rows = random.randint(6, 15)
-        cols = random.randint(6, 15)
+        rows = random.randint(5, 30)
+        cols = random.randint(5, 30)
 
         # Randomly choose colors (different from each other)
         cell_color = random.randint(1, 9)

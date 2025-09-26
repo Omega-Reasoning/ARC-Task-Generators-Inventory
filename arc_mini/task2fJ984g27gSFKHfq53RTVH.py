@@ -129,8 +129,8 @@ class Task2fJ984g27gSFKHfq53RTVHGenerator(ARCTaskGenerator):
         """
 
         # Choose a single rows/cols for the entire puzzle
-        rows = random.randint(5, 10)
-        cols = random.randint(10, 15)
+        rows = random.randint(5, 30)
+        cols = random.randint(10, 30)
         taskvars = {'rows': rows, 'cols': cols}
 
         # Randomly choose how many training examples: 3-6

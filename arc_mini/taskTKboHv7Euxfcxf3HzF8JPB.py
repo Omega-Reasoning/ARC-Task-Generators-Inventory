@@ -64,7 +64,7 @@ class TaskTKboHv7Euxfcxf3HzF8JPBGenerator(ARCTaskGenerator):
         """
 
         # Randomly pick an even grid size in [6,8,10].
-        grid_size = random.choice([6, 8, 10])
+        grid_size = random.choice([6, 8, 10,12,14,16,18,20,22,24,26,28,30])
         grid_size2 = grid_size // 2
 
         # Store task variables

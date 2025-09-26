@@ -45,8 +45,8 @@ class TaskSCzQu58iCqZNi46VnxRUFeGenerator(ARCTaskGenerator):
         cell_color = taskvars['cell_color']
         
         # Extract grid variables or set defaults
-        rows = gridvars.get('rows', random.randint(5, 20))
-        cols = gridvars.get('cols', random.randint(5, 20))
+        rows = gridvars.get('rows', random.randint(5, 30))
+        cols = gridvars.get('cols', random.randint(5, 30))
         
         # Initialize empty grid
         grid = np.zeros((rows, cols), dtype=int)

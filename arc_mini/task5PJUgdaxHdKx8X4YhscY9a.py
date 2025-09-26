@@ -35,7 +35,7 @@ class Task5PJUgdaxHdKx8X4YhscY9aGenerator(ARCTaskGenerator):
 
         # 1) Randomize the task variables
         #    'columns': an odd integer between 5 and 19 (inclusive).
-        columns_candidates = [c for c in range(5, 20) if c % 2 == 1]
+        columns_candidates = [c for c in range(5, 30) if c % 2 == 1]
         columns = random.choice(columns_candidates)
         
         # row_color and fill_color from 1..9, must be different

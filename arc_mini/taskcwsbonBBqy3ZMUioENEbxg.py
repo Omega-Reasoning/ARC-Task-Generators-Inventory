@@ -149,8 +149,8 @@ class TaskcwsbonBBqy3ZMUioENEbxgGenerator(ARCTaskGenerator):
         for candidate in possible_test_positions:
             # Try a few random attempts at size to see if we can get a unique position:
             for _ in range(10):
-                h = random.randint(7, 12)
-                w = random.randint(7, 12)
+                h = random.randint(7, 30)
+                w = random.randint(7, 30)
                 row, col = candidate(h, w)
                 if (row, col, h, w) not in used_positions:
                     # we found a distinct combination

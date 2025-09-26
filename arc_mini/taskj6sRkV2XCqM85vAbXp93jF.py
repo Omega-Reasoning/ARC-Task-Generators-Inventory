@@ -45,7 +45,7 @@ class Taskj6sRkV2XCqM85vAbXp93jFGenerator(ARCTaskGenerator):
         return grid
 
     def create_grids(self) -> tuple:
-        n = random.randint(8, 15)
+        n = random.randint(8, 30)
         color = random.randint(1, 9)
         taskvars = {'n': n, 'color': color}
         

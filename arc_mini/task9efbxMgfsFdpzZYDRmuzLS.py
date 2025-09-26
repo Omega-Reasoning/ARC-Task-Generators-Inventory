@@ -36,7 +36,7 @@ class Task9efbxMgfsFdpzZYDRmuzLSGenerator(ARCTaskGenerator):
         #    A simple approach: choose 5 distinct integers from [5..30] for square grids 
         #    or we can choose random pairs. We'll just pick square grids for simplicity,
         #    each with a different side length.
-        sizes = random.sample(range(5, 18), 7)
+        sizes = random.sample(range(5, 30), 7)
 
         # Store our task variables in a dictionary
         taskvars = {

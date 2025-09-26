@@ -41,8 +41,8 @@ class TaskdzzzsJKLGctvvGyimTeWbT_1Generator(ARCTaskGenerator):
         # Choose a random grid size from 6..30 (as per the specification)
         # (You may adjust the upper bound if you want smaller, but let's allow up to 12 or 15 
         #  to reduce visual clutter; the prompt says up to 30 is allowed. We'll do up to 12 for variety.)
-        rows = random.randint(6, 12)
-        cols = random.randint(6, 12)
+        rows = random.randint(6, 30)
+        cols = random.randint(6, 30)
         
         # Create an empty grid
         grid = np.zeros((rows, cols), dtype=int)

@@ -5,7 +5,7 @@ import numpy as np
 import random
 from collections import Counter
 
-class TaskBmszN4FfYKKSiswJRzvBeQGenerator(ARCTaskGenerator):
+class Generator(ARCTaskGenerator):
     def __init__(self):
         # 1) Input reasoning chain
         input_reasoning_chain = [

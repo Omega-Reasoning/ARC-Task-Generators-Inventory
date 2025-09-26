@@ -37,8 +37,8 @@ class TaskeVF85AwX5G5LEAyi2UEuPrGenerator(ARCTaskGenerator):
         color2 = taskvars['object_color2']
 
         def generator():
-            height = random.randint(5, 15)
-            width = random.randint(5, 15)
+            height = random.randint(5, 30)
+            width = random.randint(5, 30)
             grid = np.zeros((height, width), dtype=int)
 
             def place_object(grid, color, min_size=2):

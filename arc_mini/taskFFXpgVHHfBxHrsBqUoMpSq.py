@@ -18,7 +18,7 @@ class TaskFFXpgVHHfBxHrsBqUoMpSqGenerator(ARCTaskGenerator):
         super().__init__(observation_chain, reasoning_chain)
 
     def create_input(self, taskvars: dict, gridvars: dict) -> np.ndarray:
-        size = random.randint(8, 20)
+        size = random.randint(8, 30)
         grid = np.zeros((size, size), dtype=int)
         
         object_color1 = taskvars['object_color1']

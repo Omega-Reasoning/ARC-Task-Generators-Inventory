@@ -44,8 +44,8 @@ class TaskX6HCwSYD7eu8ZURWuN5EVgGenerator(ARCTaskGenerator):
         # Randomly assign 'cell_color' and 'fill_color' in [1..9]
         # (Optionally enforce fill_color != cell_color for clarity)
         # -----------------------------
-        rows = random.randint(4, 9)
-        columns = random.randint(4, 9)
+        rows = random.randint(5, 30)
+        columns = random.randint(5, 30)
         cell_color = random.randint(1, 9)
         fill_color = random.randint(1, 9)
         while fill_color == cell_color:

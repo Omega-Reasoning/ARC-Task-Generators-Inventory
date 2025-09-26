@@ -108,7 +108,7 @@ class taskWpSCfZmCFnUfL5Xn6o5CfyGenerator(ARCTaskGenerator):
         for _ in range(num_train):
             # Create diverse grid variables for each example
             gridvars = {
-                'grid_size': random.randint(5, 15),
+                'grid_size': random.randint(5, 30),
                 'cell_color': random.choice([c for c in range(1, 10) if c != taskvars['new_cell']]),
                 'num_cells': None  # Will be determined in create_input
             }

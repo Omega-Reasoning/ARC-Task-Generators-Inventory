@@ -37,8 +37,8 @@ class Taskj7mpCWkYUkayEYV7dUoUaC_1Generator(ARCTaskGenerator):
         nr_test_examples = 1
 
         # 2) Randomly choose a grid size (rows and cols between 7 and 30).
-        rows = random.randint(7, 15)
-        cols = random.randint(7, 15)
+        rows = random.randint(7, 30)
+        cols = random.randint(7, 30)
 
         # 3) Pick 6 distinct colors from 1..9 for the cell colors and fill colors.
         #    We do not allow duplication among cell_color1, cell_color2, cell_color3, fill_color1, fill_color2, fill_color3.

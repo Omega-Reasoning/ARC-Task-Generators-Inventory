@@ -33,8 +33,8 @@ class TaskV7GeftPFBHovpSanYostQ2Generator(ARCTaskGenerator):
         two cells is the same within each row, but may differ across rows.
         """
         # Random grid dimensions (within ARC specs)
-        rows = random.randint(5, 10)
-        cols = random.randint(5, 10)
+        rows = random.randint(5, 30)
+        cols = random.randint(5, 30)
         
         # Initialize a rows x cols grid of zeros
         grid = np.zeros((rows, cols), dtype=int)

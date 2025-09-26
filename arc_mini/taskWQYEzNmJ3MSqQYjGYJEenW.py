@@ -94,8 +94,8 @@ class TaskWQYEzNmJ3MSqQYjGYJEenWGenerator(ARCTaskGenerator):
         force_different_col = gridvars.get('force_different_col', False)
 
         # Randomly choose grid shape
-        rows = random.randint(6, 10)
-        cols = random.randint(6, 10)
+        rows = random.randint(6, 30)
+        cols = random.randint(6, 30)
 
         # We want to find a column that is not used if force_different_col is True
         # or we allow any otherwise. We'll keep trying a random column until we

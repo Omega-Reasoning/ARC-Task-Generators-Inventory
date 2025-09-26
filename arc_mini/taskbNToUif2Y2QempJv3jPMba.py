@@ -40,7 +40,7 @@ class TaskbNToUif2Y2QempJv3jPMbaGenerator(ARCTaskGenerator):
         """
 
         # 1) Random grid size
-        grid_size = random.randint(5, 20)
+        grid_size = random.randint(5, 30)
 
         # 2) Pick 4 distinct colors from 1..9
         distinct_colors = random.sample(range(1, 10), 4)

@@ -124,8 +124,8 @@ class TaskHvvoLDKhDwDkuv4pGmu2huGenerator(ARCTaskGenerator):
         #    It's valid up to 30, but this is arbitrary.
         sizes = set()
         while len(sizes) < total:
-            r = random.randint(7, 15)
-            c = random.randint(7, 15)
+            r = random.randint(7, 30)
+            c = random.randint(7, 30)
             sizes.add((r, c))
         sizes = list(sizes)
         random.shuffle(sizes)

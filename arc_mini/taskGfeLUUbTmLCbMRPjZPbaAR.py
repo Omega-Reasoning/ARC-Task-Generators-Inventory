@@ -151,7 +151,7 @@ class TaskGfeLUUbTmLCbMRPjZPbaARGenerator(ARCTaskGenerator):
         We then create multiple train examples and one test example using
         the same rows and cols, but with random block placements (subject to constraints).
         """
-        possible_dims = [5, 7, 9, 11, 13, 15]
+        possible_dims = [5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29]
         rows = random.choice(possible_dims)
         cols = random.choice(possible_dims)
 
