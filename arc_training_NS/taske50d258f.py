@@ -15,7 +15,7 @@ class Taske50d258f(ARCTaskGenerator):
             "Each rectangle contains a random number of cells colored with {color('main_color')}, {color('target_color')}, and {color('other_color')}.",
             "In most rectangles, the majority of cells are colored with {color('main_color')}.",
             "The number of {color('target_color')} cells is different across rectangles within the same grid.",
-            "In each input grid, the rectangle that has the highest number of cells colored with {color('target_color')} compared to the other rectangles, also has fewer cells of color {color('other_color')} than {color('target_color')}."
+            "In each input grid, the rectangle that has the highest number of cells colored with {color('target_color')} compared to the other rectangles, does not have the highest number of cells of color {color('other_color')} compared to other rectangles."
         ]
         
         transformation_reasoning_chain = [
@@ -73,62 +73,146 @@ class Taske50d258f(ARCTaskGenerator):
             num_rectangles = random.choice([3, 4])
             rectangles = []
             
-            # Generate rectangles with different sizes
-            for _ in range(num_rectangles):
+            # Calculate max rectangle size based on grid size
+            max_rect_size = max(4, n // 4)  # Increased minimum to 4
+            min_rect_size = 3  # Increased minimum to 3 for more cells
+            
+            # Generate rectangles with different sizes using a grid subdivision approach
+            # Divide the grid into regions to ensure rectangles fit
+            margin = 2  # Space between rectangles
+            
+            for rect_idx in range(num_rectangles):
                 attempts = 0
-                while attempts < 100:
-                    # Random rectangle size (at least 2x2, different sizes)
-                    width = random.randint(2, min(8, n//3))
-                    height = random.randint(2, min(8, n//3))
+                placed = False
+                
+                while attempts < 200 and not placed:
+                    # Random rectangle size
+                    width = random.randint(min_rect_size, max_rect_size)
+                    height = random.randint(min_rect_size, max_rect_size)
                     
-                    # Ensure different sizes
+                    # Ensure different sizes (including rotations)
                     size = (width, height)
-                    if size not in [r['size'] for r in rectangles]:
-                        # Try to place rectangle
-                        row = random.randint(0, n - height)
-                        col = random.randint(0, n - width)
+                    existing_sizes = [r['size'] for r in rectangles] + [(r['size'][1], r['size'][0]) for r in rectangles]
+                    
+                    if size in existing_sizes:
+                        attempts += 1
+                        continue
+                    
+                    # Try to place rectangle
+                    if width > n or height > n:
+                        attempts += 1
+                        continue
                         
-                        # Check if placement is valid (no overlap, separated by empty cells)
-                        valid = True
-                        for r in rectangles:
-                            # Check for overlap or adjacency
-                            if not (row + height < r['row'] or row > r['row'] + r['size'][1] or
-                                   col + width < r['col'] or col > r['col'] + r['size'][0]):
-                                valid = False
-                                break
-                        
-                        if valid:
-                            rectangles.append({
-                                'row': row, 'col': col, 'size': size,
-                                'width': width, 'height': height
-                            })
+                    row = random.randint(0, n - height)
+                    col = random.randint(0, n - width)
+                    
+                    # Check if placement is valid (no overlap, separated by empty cells)
+                    valid = True
+                    for r in rectangles:
+                        # Check for overlap with margin
+                        if not (row + height + margin <= r['row'] or 
+                               row >= r['row'] + r['height'] + margin or
+                               col + width + margin <= r['col'] or 
+                               col >= r['col'] + r['width'] + margin):
+                            valid = False
                             break
+                    
+                    if valid:
+                        rectangles.append({
+                            'row': row, 'col': col, 'size': size,
+                            'width': width, 'height': height
+                        })
+                        placed = True
                     
                     attempts += 1
                 
-                if attempts >= 100:
+                if not placed:
                     return None  # Failed to place rectangle
             
             if len(rectangles) != num_rectangles:
                 return None
             
             # Fill rectangles with colors
+            # Strategy: designate one rectangle as having highest target_color
+            # Make sure it does NOT have the highest other_color
+            winner_idx = random.randint(0, num_rectangles - 1)
             target_counts = []
             other_counts = []
             
-            for rect in rectangles:
+            for rect_idx, rect in enumerate(rectangles):
                 row, col, width, height = rect['row'], rect['col'], rect['width'], rect['height']
-                
-                # Fill rectangle area
                 rect_area = width * height
                 
-                # Majority should be main_color
-                main_count = random.randint(rect_area // 2, rect_area - 2)
-                remaining = rect_area - main_count
+                # Ensure we have enough cells for all three colors (at least 6 cells)
+                if rect_area < 6:
+                    return None
                 
-                # Split remaining between target and other colors
-                target_count = random.randint(1, remaining - 1)
-                other_count = remaining - target_count
+                if rect_idx == winner_idx:
+                    # Winner rectangle: highest target_count, but NOT highest other_count
+                    # Calculate target_count (aim for 30-45% but ensure valid range)
+                    min_target = max(2, rect_area // 3)
+                    max_target = max(min_target + 1, (rect_area * 45) // 100)
+                    target_count = random.randint(min_target, max_target)
+                    
+                    # Calculate other_count (aim for 15-30% but ensure valid range)
+                    remaining_after_target = rect_area - target_count
+                    min_other = max(1, (rect_area * 15) // 100)
+                    max_other = min((rect_area * 30) // 100, remaining_after_target - 1)
+                    
+                    if max_other < min_other:
+                        max_other = remaining_after_target - 1
+                        min_other = max(1, max_other // 2)
+                    
+                    if max_other < 1 or min_other < 1 or max_other < min_other:
+                        return None
+                        
+                    other_count = random.randint(min_other, max_other)
+                    main_count = rect_area - target_count - other_count
+                    
+                    if main_count < 1:
+                        return None
+                else:
+                    # Non-winner rectangles: lower target_count
+                    # Calculate target_count (aim for 10-25%)
+                    max_target_loser = max(1, (rect_area * 25) // 100)
+                    min_target_loser = max(1, (rect_area * 10) // 100)
+                    if max_target_loser < min_target_loser:
+                        min_target_loser = 1
+                    target_count = random.randint(min_target_loser, max_target_loser)
+                    
+                    # Some non-winner rectangles should have higher other_count than winner
+                    # With 50% probability, make this rectangle have high other_count
+                    if random.random() < 0.5:
+                        # High other_count (35-50% of area)
+                        remaining_after_target = rect_area - target_count
+                        min_other = max(1, (rect_area * 35) // 100)
+                        max_other = min((rect_area * 50) // 100, remaining_after_target - 1)
+                        
+                        if max_other < min_other:
+                            max_other = remaining_after_target - 1
+                            min_other = max(1, remaining_after_target // 2)
+                    else:
+                        # Normal other_count (15-30% of area)
+                        remaining_after_target = rect_area - target_count
+                        min_other = max(1, (rect_area * 15) // 100)
+                        max_other = min((rect_area * 30) // 100, remaining_after_target - 1)
+                        
+                        if max_other < min_other:
+                            max_other = remaining_after_target - 1
+                            min_other = 1
+                    
+                    if max_other < 1 or min_other < 1 or max_other < min_other:
+                        return None
+                        
+                    other_count = random.randint(min_other, max_other)
+                    remaining = rect_area - target_count - other_count
+                    
+                    if remaining < 1:
+                        return None
+                    main_count = remaining
+                
+                if main_count < 1 or target_count < 1 or other_count < 1:
+                    return None
                 
                 target_counts.append(target_count)
                 other_counts.append(other_count)
@@ -144,12 +228,17 @@ class Taske50d258f(ARCTaskGenerator):
                         grid[r, c] = colors[idx]
                         idx += 1
             
-            # Check constraint: rectangle with highest target_color count has fewer other_color than target_color
-            max_target_idx = target_counts.index(max(target_counts))
-            if other_counts[max_target_idx] >= target_counts[max_target_idx]:
+            # Verify constraints
+            max_target_count = max(target_counts)
+            max_target_idx = target_counts.index(max_target_count)
+            max_other_count = max(other_counts)
+            max_other_idx = other_counts.index(max_other_count)
+            
+            # NEW CONSTRAINT: Rectangle with highest target_color does NOT have highest other_color
+            if max_target_idx == max_other_idx:
                 return None
             
-            # Ensure different target_color counts across rectangles
+            # Ensure all target_color counts are unique
             if len(set(target_counts)) != len(target_counts):
                 return None
             
@@ -181,4 +270,3 @@ class Taske50d258f(ARCTaskGenerator):
         output_grid = grid[bounding_box[0], bounding_box[1]].copy()
         
         return output_grid
-
