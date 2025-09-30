@@ -185,8 +185,8 @@ class Task4938f0c2Generator(ARCTaskGenerator):
     def create_grids(self):
         # Define task variables with randomized values
         taskvars = {
-            'rows': np.random.randint(15, 25),
-            'cols': np.random.randint(15, 25),
+            'rows': np.random.randint(15, 30),
+            'cols': np.random.randint(15, 30),
         }
         
         # Ensure objectcol1 and objectcol2 are different

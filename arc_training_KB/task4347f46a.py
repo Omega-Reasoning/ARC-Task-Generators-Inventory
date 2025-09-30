@@ -23,8 +23,8 @@ class Task4347f46aGenerator(ARCTaskGenerator):
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
     
     def create_grids(self):
-        rows = random.randint(6, 20)  # Grid rows
-        cols = random.randint(6, 20)  # Grid columns
+        rows = random.randint(6, 30)  # Grid rows
+        cols = random.randint(6, 30)  # Grid columns
         num_train = random.randint(3, 4)  # Number of training examples
         
         taskvars = {

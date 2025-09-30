@@ -28,7 +28,7 @@ class Task47c1f68cGenerator(ARCTaskGenerator):
     
     def create_grids(self):
         # Choose grid size (odd number between 5 and 19 for variability)
-        grid_size = random.choice([5, 7, 9, 11, 13, 15, 17, 19])
+        grid_size = random.choice([5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29])
         
         taskvars = {
             'grid_size': grid_size
