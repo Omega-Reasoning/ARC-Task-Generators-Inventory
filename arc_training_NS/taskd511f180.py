@@ -52,12 +52,8 @@ class Taskd511f180(ARCTaskGenerator):
         height = random.randint(5, 30)
         width = random.randint(5, 30)
         
-        # Start with background (0)
-        grid = np.zeros((height, width), dtype=int)
-        
-        # Determine number of colors (greater than 2, at most 3/4 of total cells)
-        max_colors = min(9, (height * width * 3) // 4)  # at most 3/4 of cells, max 9 colors
-        num_colors = random.randint(3, max(3, max_colors))
+        # Determine number of colors (greater than 2, at most 9)
+        num_colors = random.randint(3, 9)
         
         # Always include the two swap colors
         colors_to_use = [taskvars['color_1'], taskvars['color_2']]
@@ -69,9 +65,9 @@ class Taskd511f180(ARCTaskGenerator):
             colors_to_use.extend(random.sample(available_colors, 
                                              min(additional_colors_needed, len(available_colors))))
         
-        # Randomly color cells with density to ensure variety
-        density = random.uniform(0.3, 0.8)
-        random_cell_coloring(grid, colors_to_use, density=density, background=0, overwrite=False)
+        # Create grid filled with random colors (no background/0)
+        # Each cell gets a random color from colors_to_use
+        grid = np.random.choice(colors_to_use, size=(height, width))
         
         # Ensure both swap colors are present in the grid
         if taskvars['color_1'] not in grid:

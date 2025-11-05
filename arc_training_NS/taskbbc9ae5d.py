@@ -1,121 +1,137 @@
-from arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
-from input_library import random_cell_coloring
 import numpy as np
 import random
+from typing import Dict, Any, Tuple, List
+from arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
 
 class Taskbbc9ae5d(ARCTaskGenerator):
-    
     def __init__(self):
         input_reasoning_chain = [
             "Input grids are of size 1xn, where n is an even integer in the range [6, 30].",
-            "A contiguous segment of cells, starting at the leftmost position, is assigned the color {color('color_1')}.",
-            "The segment length is chosen randomly and satisfies 1 ≤ length < n//2+1."
+            "A contiguous segment of cells, starting at the leftmost position, is assigned with a random color.",
+            "The segment length is chosen randomly and satisfies 1 ≤ length ≤ n - n//{vars['m']} + 1"
         ]
         
         transformation_reasoning_chain = [
-            "The output grid is first constructed as an empty grid with the same number of columns as the input grid, and with a number of rows equal to half the number of columns.",
+            "The output grid is first constructed as an empty grid with the same number of columns as the input grid, and with a number of rows equal to n//{vars['m']}.",
             "The first row of the output grid is filled with an exact copy of the input grid.",
             "For each subsequent row, the previous row is duplicated, and one additional cell to the right of the existing colored segment is filled with the same color.",
             "This process continues until the right boundary of the output grid is reached."
         ]
         
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
-    
-    def create_input(self, taskvars, gridvars):
-        """Create a 1×n grid with a colored segment starting from the left."""
+
+    def create_input(self, 
+                     taskvars: Dict[str, Any], 
+                     gridvars: Dict[str, Any]) -> np.ndarray:
+        """Create a 1xn input grid with a colored segment starting from the left."""
         n = gridvars['n']
-        segment_length = gridvars['segment_length']
-        color_1 = taskvars['color_1']
+        color = gridvars['color']
+        m = taskvars['m']
         
-        # Create 1×n grid
+        # Create 1xn grid filled with background (0)
         grid = np.zeros((1, n), dtype=int)
         
-        # Fill the leftmost segment_length cells with color_1
-        grid[0, :segment_length] = color_1
+        # Determine segment length: 1 ≤ length ≤ n - n//m + 1
+        max_length = n - n // m + 1
+        if max_length < 1:
+            max_length = 1
+        segment_length = random.randint(1, max_length)
+        
+        # Fill the leftmost segment_length cells with the random color
+        grid[0, :segment_length] = color
         
         return grid
-    
-    def transform_input(self, grid, taskvars):
-        """Transform input according to the expansion rules."""
-        input_height, n = grid.shape
-        output_height = n // 2
+
+    def transform_input(self, 
+                       grid: np.ndarray, 
+                       taskvars: Dict[str, Any]) -> np.ndarray:
+        """Transform input grid according to the progressive expansion rule."""
+        n = grid.shape[1]
+        m = taskvars['m']
         
-        # Create output grid
+        # Find the color used in the input (first non-zero value)
+        color = None
+        for val in grid[0, :]:
+            if val != 0:
+                color = val
+                break
+        
+        if color is None:
+            # Should not happen, but handle edge case
+            return grid
+        
+        # Output grid dimensions: (n // m) rows x n columns
+        output_height = n // m
         output = np.zeros((output_height, n), dtype=int)
         
-        # First row is exact copy of input
+        # First row is an exact copy of the input
         output[0, :] = grid[0, :]
         
-        # For each subsequent row, extend the colored segment by one cell
-        for row in range(1, output_height):
-            # Copy previous row
-            output[row, :] = output[row-1, :]
+        # For each subsequent row, duplicate previous row and extend by one cell
+        for row_idx in range(1, output_height):
+            output[row_idx, :] = output[row_idx - 1, :]
             
             # Find the rightmost colored cell in the previous row
-            colored_positions = np.where(output[row-1, :] != 0)[0]
-            if len(colored_positions) > 0:
-                rightmost_colored = colored_positions[-1]
-                # If there's space to extend right, add one more colored cell
+            colored_cells = np.where(output[row_idx, :] == color)[0]
+            if len(colored_cells) > 0:
+                rightmost_colored = colored_cells[-1]
+                # Extend by one cell to the right if within bounds
                 if rightmost_colored + 1 < n:
-                    color_to_use = output[row-1, rightmost_colored]  # Use same color
-                    output[row, rightmost_colored + 1] = color_to_use
+                    output[row_idx, rightmost_colored + 1] = color
         
         return output
-    
-    def create_grids(self):
-        """Create task variables and generate train/test grids."""
-        
-        # Generate task variables
+
+    def create_grids(self) -> Tuple[Dict[str, Any], TrainTestData]:
+        """Create task variables and train/test grids."""
+        # Initialize task variables
         taskvars = {
-            'color_1': random.choice([1, 2, 3, 4, 5, 6, 7, 8, 9])  # Any color except 0 (background)
+            'm': random.choice([2, 3, 5, 6])  # Divisor for grid width
         }
         
-        # Generate training examples
+        # Create 3-6 training examples
         num_train = random.randint(3, 6)
-        train_examples = []
+        train_pairs = []
         
         for _ in range(num_train):
-            # Generate even n in range [6, 30]
-            n = random.choice([i for i in range(6, 31) if i % 2 == 0])
+            # Generate n such that n % m == 0 and n is in [6, 30]
+            m = taskvars['m']
+            # Find valid values of n
+            valid_n = [n for n in range(6, 31) if n % m == 0]
+            n = random.choice(valid_n)
             
-            # Segment length satisfies 1 ≤ length < n//2+1
-            max_segment_length = n // 2
-            segment_length = random.randint(1, max_segment_length)
-            
+            # Each grid gets a random color
             gridvars = {
                 'n': n,
-                'segment_length': segment_length
+                'color': random.randint(1, 9)
             }
-            
             input_grid = self.create_input(taskvars, gridvars)
             output_grid = self.transform_input(input_grid, taskvars)
             
-            train_examples.append({
+            train_pairs.append({
                 'input': input_grid,
                 'output': output_grid
             })
         
-        # Generate test example
-        n = random.choice([i for i in range(6, 31) if i % 2 == 0])
-        max_segment_length = n // 2
-        segment_length = random.randint(1, max_segment_length)
+        # Create 1 test example
+        m = taskvars['m']
+        valid_n = [n for n in range(6, 31) if n % m == 0]
+        n = random.choice(valid_n)
         
         gridvars = {
             'n': n,
-            'segment_length': segment_length
+            'color': random.randint(1, 9)
         }
-        
         test_input = self.create_input(taskvars, gridvars)
         test_output = self.transform_input(test_input, taskvars)
         
-        test_examples = [{
+        test_pairs = [{
             'input': test_input,
             'output': test_output
         }]
         
         train_test_data = {
-            'train': train_examples,
-            'test': test_examples
+            'train': train_pairs,
+            'test': test_pairs
         }
         
         return taskvars, train_test_data

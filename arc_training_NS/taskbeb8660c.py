@@ -1,153 +1,140 @@
 from arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
-from transformation_library import find_connected_objects, GridObjects, GridObject
-from input_library import random_cell_coloring, retry
+from typing import Dict, Any, Tuple, List
 import numpy as np
 import random
-from typing import Dict, Any, Tuple, List
 
-class Taskbeb8660c(ARCTaskGenerator):
-    
+class SequenceSortingGenerator(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
-            "All input grids are of size n × {vars['m']}, where n varies across grids but is always greater than or equal to {vars['m']}.",
-            "In each input grid, {vars['m']} rows are randomly selected.",
+            "The input grids are of size n x m, where n ≥ m.",
+            "In each input grid, m rows are randomly selected.",
             "In every selected row, a contiguous sequence of cells is chosen, with a length less than or equal to the number of columns.",
             "The sequence lengths are all distinct, ensuring that each row contains a sequence of a different size.",
             "Each sequence is uniformly colored with a unique color, guaranteeing that no two rows share the same color."
         ]
         
         transformation_reasoning_chain = [
-            "The sequences that exist in the input grid are sorted in ascending order by their length.",
-            "The output grid is constructed by stacking these sequences at the bottom of the grid, with the shortest sequence placed above and the longest sequence placed on the bottom row.",
-            "Each sequence is right-aligned, so that its rightmost cell coincides with the right boundary of the output grid."
+            "Output grids are of the same size of the input grids.",
+            "The sequences that exist in the input grid are sorted in descending order by their length.",
+            "The output grid is constructed by stacking these sequences at the {vars['i']} of the grid, with the longest sequence placed on the {vars['i']} row.",
+            "Each sequence is {vars['j']} aligned, so that its {vars['j']}most cell coincides with the {vars['j']} boundary of the output grid."
         ]
         
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
     
     def create_input(self, taskvars: Dict[str, Any], gridvars: Dict[str, Any]) -> np.ndarray:
-        m = taskvars['m']
-        n = gridvars['n']  # Row count varies per grid
+        rows = gridvars['rows']
+        cols = gridvars['cols']
+        num_sequences = cols  # m sequences for n x m grid
         
-        # Create empty grid
-        grid = np.zeros((n, m), dtype=int)
+        grid = np.zeros((rows, cols), dtype=int)
         
-        # Generate m distinct sequence lengths (1 to m)
-        sequence_lengths = random.sample(range(1, m + 1), m)
+        # Generate distinct sequence lengths (1 to cols)
+        sequence_lengths = random.sample(range(1, cols + 1), num_sequences)
         
-        # Select m random rows
-        selected_rows = random.sample(range(n), m)
+        # Select random rows (m rows out of n)
+        selected_rows = random.sample(range(rows), num_sequences)
         
-        # Available colors (excluding background 0)
+        # Generate unique colors (1-9, excluding 0 which is background)
         available_colors = list(range(1, 10))
         random.shuffle(available_colors)
+        colors = available_colors[:num_sequences]
         
         # Place sequences in selected rows
-        for i, row_idx in enumerate(selected_rows):
-            length = sequence_lengths[i]
-            color = available_colors[i]
-            
-            # Choose random starting position for the sequence
-            start_col = random.randint(0, m - length)
+        for row_idx, length, color in zip(selected_rows, sequence_lengths, colors):
+            # Random starting position for the sequence
+            max_start = cols - length
+            start_col = random.randint(0, max_start)
             
             # Place the sequence
-            for j in range(length):
-                grid[row_idx, start_col + j] = color
-                
+            grid[row_idx, start_col:start_col + length] = color
+        
         return grid
     
     def transform_input(self, grid: np.ndarray, taskvars: Dict[str, Any]) -> np.ndarray:
-        m = taskvars['m']
-        n = grid.shape[0]  # Get actual height from the input grid
+        rows, cols = grid.shape
+        output = np.zeros((rows, cols), dtype=int)
         
-        # Find all sequences (horizontal contiguous objects)
+        # Extract sequences from input
         sequences = []
+        for r in range(rows):
+            row = grid[r]
+            non_zero = np.where(row != 0)[0]
+            if len(non_zero) > 0:
+                # Found a sequence
+                start = non_zero[0]
+                end = non_zero[-1] + 1
+                length = end - start
+                color = row[start]
+                sequences.append({'length': length, 'color': color})
         
-        # Check each row for contiguous sequences
-        for r in range(n):
-            current_sequence = []
-            current_color = 0
+        # Sort by length (descending - longest first)
+        sequences.sort(key=lambda x: x['length'], reverse=True)
+        
+        # Stack sequences based on alignment
+        alignment = taskvars['i']  # 'top' or 'bottom'
+        horizontal = taskvars['j']  # 'left' or 'right'
+        
+        for idx, seq in enumerate(sequences):
+            length = seq['length']
+            color = seq['color']
             
-            for c in range(m):
-                if grid[r, c] != 0:  # Non-background cell
-                    if grid[r, c] == current_color:
-                        # Continue current sequence
-                        current_sequence.append((r, c, grid[r, c]))
-                    else:
-                        # Start new sequence or end previous one
-                        if current_sequence:
-                            sequences.append(current_sequence)
-                        current_sequence = [(r, c, grid[r, c])]
-                        current_color = grid[r, c]
-                else:
-                    # Background cell - end current sequence
-                    if current_sequence:
-                        sequences.append(current_sequence)
-                        current_sequence = []
-                        current_color = 0
+            # Determine row position
+            if alignment == 'top':
+                # Longest at top (row 0), then descending
+                row_idx = idx
+            else:  # bottom
+                # Longest at bottom (last row with sequences), then ascending
+                row_idx = rows - 1 - idx
             
-            # Don't forget the last sequence in the row
-            if current_sequence:
-                sequences.append(current_sequence)
+            # Determine column position
+            if horizontal == 'left':
+                output[row_idx, :length] = color
+            else:  # right
+                output[row_idx, cols - length:] = color
         
-        # Sort sequences by length (ascending)
-        sequences.sort(key=len)
-        
-        # Create output grid with same dimensions as input
-        output_grid = np.zeros((n, m), dtype=int)
-        
-        # Place sequences at the bottom, right-aligned
-        for i, sequence in enumerate(sequences):
-            target_row = n - len(sequences) + i  # Bottom rows
-            sequence_length = len(sequence)
-            color = sequence[0][2]  # Get color from first cell
-            
-            # Right-align: start from rightmost position
-            start_col = m - sequence_length
-            
-            # Place the sequence
-            for j in range(sequence_length):
-                output_grid[target_row, start_col + j] = color
-        
-        return output_grid
+        return output
     
     def create_grids(self) -> Tuple[Dict[str, Any], TrainTestData]:
-        # Generate fixed column count for all grids in this task (between 5 and 30)
-        m = random.randint(5, 9)  # Number of columns (fixed for all grids)
-        
+        # Randomly choose alignment parameters (consistent across all examples)
         taskvars = {
-            'm': m
+            'i': random.choice(['top', 'bottom']),
+            'j': random.choice(['left', 'right'])
         }
         
-        # Generate training examples with varying row counts
+        # Create 3-6 training examples
         num_train = random.randint(3, 6)
-        train_examples = []
+        train_pairs = []
         
         for _ in range(num_train):
-            # Each grid gets its own random number of rows (between m and 30)
-            n = random.randint(m, 30)  # Ensure n >= m and within ARC constraints
-            # Create a fresh gridvars dict for this specific grid
-            current_gridvars = {'n': n}
+            # Random grid dimensions (n >= m, both between 5 and 30)
+            # m (cols) can be at most 9 since we only have 9 non-background colors
+            cols = random.randint(3, 9)
+            rows = random.randint(cols, min(30, cols + 20))
             
-            input_grid = self.create_input(taskvars, current_gridvars)
+            gridvars = {
+                'rows': rows,
+                'cols': cols
+            }
+            
+            input_grid = self.create_input(taskvars, gridvars)
             output_grid = self.transform_input(input_grid, taskvars)
-            train_examples.append({
-                'input': input_grid,
-                'output': output_grid
-            })
+            
+            train_pairs.append({'input': input_grid, 'output': output_grid})
         
-        # Generate test example with its own different row count
-        n_test = random.randint(m, 30)
-        test_gridvars = {'n': n_test}
-        test_input = self.create_input(taskvars, test_gridvars)
-        test_output = self.transform_input(test_input, taskvars)
-        test_examples = [{
-            'input': test_input,
-            'output': test_output
-        }]
+        # Create test example
+        cols = random.randint(3, 9)
+        rows = random.randint(cols, min(30, cols + 20))
         
-        train_test_data = {
-            'train': train_examples,
-            'test': test_examples
+        gridvars = {
+            'rows': rows,
+            'cols': cols
         }
         
-        return taskvars, train_test_data
+        test_input = self.create_input(taskvars, gridvars)
+        test_output = self.transform_input(test_input, taskvars)
+        test_pairs = [{'input': test_input, 'output': test_output}]
+        
+        return taskvars, {'train': train_pairs, 'test': test_pairs}
+
+

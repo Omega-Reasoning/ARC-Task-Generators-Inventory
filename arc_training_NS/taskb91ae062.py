@@ -10,7 +10,7 @@ class Taskb91ae062(ARCTaskGenerator):
         input_reasoning_chain = [
             "Input grids are of size {vars['n']} × {vars['n']}.",
             "A random number of cells are colored.",
-            "The coloring uses at most 4 distinct colors.",
+            "The coloring uses between 2 and {vars['max_colors']} distinct colors, where the maximum is constrained by floor(30 / {vars['n']}) to ensure the output grid does not exceed 30×30.",
             "All remaining cells are empty(0)."
         ]
         
@@ -23,13 +23,14 @@ class Taskb91ae062(ARCTaskGenerator):
 
     def create_input(self, taskvars: Dict[str, Any], gridvars: Dict[str, Any]) -> np.ndarray:
         n = taskvars['n']
+        max_colors = taskvars['max_colors']
         
         def generate_grid():
             # Create empty grid
             grid = np.zeros((n, n), dtype=int)
             
-            # Choose number of colors to use (2 to 4, ensuring more than one)
-            num_colors = random.randint(2, 4)
+            # Choose number of colors to use (2 to max_colors, ensuring more than one)
+            num_colors = random.randint(2, max_colors)
             
             # Choose which colors to use (avoiding 0 which is background)
             available_colors = [1, 2, 3, 4, 5, 6, 7, 8, 9]
@@ -82,11 +83,21 @@ class Taskb91ae062(ARCTaskGenerator):
         return output
 
     def create_grids(self) -> Tuple[Dict[str, Any], TrainTestData]:
-        # Randomly choose grid size (3 to 7 to ensure output fits in 30x30)
-        # Since output is n*m and m can be up to 4, we need n*4 <= 30, so n <= 7.5
-        n = random.randint(3, 7)
+        # Randomly choose grid size (3 to 10)
+        n = random.randint(3, 10)
         
-        taskvars = {'n': n}
+        # Calculate maximum number of colors based on grid size
+        # Since output is n*m and we want n*m <= 30, then m <= 30/n
+        # We use floor division to get the maximum integer value
+        max_colors = min(9, 30 // n)  # Cap at 9 (we have colors 1-9 available)
+        
+        # Ensure we have at least 2 colors possible
+        max_colors = max(2, max_colors)
+        
+        taskvars = {
+            'n': n,
+            'max_colors': max_colors
+        }
         
         # Generate 3-6 training examples
         num_train = random.randint(3, 6)
@@ -111,4 +122,3 @@ class Taskb91ae062(ARCTaskGenerator):
         }
         
         return taskvars, train_test_data
-
