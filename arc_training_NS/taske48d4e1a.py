@@ -19,7 +19,8 @@ class Taske48d4e1a(ARCTaskGenerator):
             "The output grid is constructed by copying the input grid.",
             "The bar in the rightmost column and the cross shape are identified.",
             "The length of the bar, denoted by m, is determined.",
-            "The entire cross shape is then shifted m cells down along the anti-diagonal (from top-right to bottom-left) relative to its center position."
+            "The entire cross shape is then shifted m cells down along the anti-diagonal (from top-right to bottom-left) relative to its center position.",
+            "The bar is removed."
         ]
         
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
@@ -103,6 +104,10 @@ class Taske48d4e1a(ARCTaskGenerator):
         for r in range(n):
             if output_grid[r, cross_center_col] == cross_color:
                 output_grid[r, cross_center_col] = 0
+        
+        # Remove the bar
+        for i in range(bar_length):
+            output_grid[i, n-1] = 0
         
         # Calculate new cross center position (shift by bar_length along anti-diagonal)
         # Anti-diagonal direction: down and left, so (+bar_length, -bar_length)

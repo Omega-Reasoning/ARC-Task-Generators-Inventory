@@ -5,7 +5,7 @@ import numpy as np
 import random
 from typing import Dict, Any, Tuple, List
 
-class Taske8593010(ARCTaskGenerator):
+class taske8593010(ARCTaskGenerator):
     
     def __init__(self):
         input_reasoning_chain = [

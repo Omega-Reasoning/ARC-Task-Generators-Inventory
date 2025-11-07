@@ -10,7 +10,7 @@ class Taske50d258f(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
             "Input grids are of size {vars['n']} x {vars['n']}.",
-            "Each input grid contains 3 or 4 rectangular shapes, separated from each other by empty cells (0).",
+            "Each input grid contains several rectangular shapes, separated from each other by empty cells (0).",
             "The rectangular shapes in each grid are of different sizes.",
             "Each rectangle contains a random number of cells colored with {color('main_color')}, {color('target_color')}, and {color('other_color')}.",
             "In most rectangles, the majority of cells are colored with {color('main_color')}.",
@@ -69,17 +69,24 @@ class Taske50d258f(ARCTaskGenerator):
         def generate_valid_grid():
             grid = np.zeros((n, n), dtype=int)
             
-            # Create 3 or 4 rectangles
-            num_rectangles = random.choice([3, 4])
-            rectangles = []
-            
             # Calculate max rectangle size based on grid size
-            max_rect_size = max(4, n // 4)  # Increased minimum to 4
-            min_rect_size = 3  # Increased minimum to 3 for more cells
+            max_rect_size = max(4, n // 4)
+            min_rect_size = 3
             
-            # Generate rectangles with different sizes using a grid subdivision approach
-            # Divide the grid into regions to ensure rectangles fit
-            margin = 2  # Space between rectangles
+            # Calculate maximum number of rectangles that can fit
+            # Estimate based on grid area and average rectangle size with margins
+            margin = 2
+            avg_rect_size = (min_rect_size + max_rect_size) // 2
+            avg_rect_area = avg_rect_size * avg_rect_size
+            rect_area_with_margin = (avg_rect_size + margin) * (avg_rect_size + margin)
+            max_possible_rectangles = max(2, (n * n) // rect_area_with_margin)
+            
+            # Limit to a reasonable maximum (e.g., 8) to avoid overcrowding
+            max_rectangles = min(8, max_possible_rectangles)
+            
+            # Create random number of rectangles (between 2 and the calculated maximum)
+            num_rectangles = random.randint(2, max_rectangles)
+            rectangles = []
             
             for rect_idx in range(num_rectangles):
                 attempts = 0
@@ -129,13 +136,13 @@ class Taske50d258f(ARCTaskGenerator):
                 if not placed:
                     return None  # Failed to place rectangle
             
-            if len(rectangles) != num_rectangles:
+            if len(rectangles) < 2:  # Need at least 2 rectangles
                 return None
             
             # Fill rectangles with colors
             # Strategy: designate one rectangle as having highest target_color
             # Make sure it does NOT have the highest other_color
-            winner_idx = random.randint(0, num_rectangles - 1)
+            winner_idx = random.randint(0, len(rectangles) - 1)
             target_counts = []
             other_counts = []
             

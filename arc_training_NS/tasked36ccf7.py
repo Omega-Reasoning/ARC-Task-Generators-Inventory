@@ -13,7 +13,7 @@ class Tasked36ccf7(ARCTaskGenerator):
         ]
         
         transformation_reasoning_chain = [
-            "The output grid is constructed by rotating the input grid 90 degrees counterclockwise."
+            "The output grid is constructed by rotating the input grid 90 degrees {vars['direction']}."
         ]
         
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
@@ -22,8 +22,12 @@ class Tasked36ccf7(ARCTaskGenerator):
         # Generate task variables - these will be consistent across all examples in this task
         n = random.randint(5, 30)  # Grid size between 5 and 30
         
+        # Randomly choose rotation direction for this task
+        direction = random.choice(['clockwise', 'counterclockwise'])
+        
         taskvars = {
-            'n': n
+            'n': n,
+            'direction': direction
         }
         
         # Create 3-6 training examples and 1 test example
@@ -53,8 +57,15 @@ class Tasked36ccf7(ARCTaskGenerator):
         return grid
     
     def transform_input(self, grid: np.ndarray, taskvars: Dict[str, Any]) -> np.ndarray:
-        # Rotate 90 degrees counterclockwise
-        # np.rot90 with k=1 rotates counterclockwise by 90 degrees
-        rotated_grid = np.rot90(grid, k=1)
+        direction = taskvars['direction']
+        
+        if direction == 'clockwise':
+            # Rotate 90 degrees clockwise
+            # np.rot90 with k=-1 (or k=3) rotates clockwise by 90 degrees
+            rotated_grid = np.rot90(grid, k=-1)
+        else:  # counterclockwise
+            # Rotate 90 degrees counterclockwise
+            # np.rot90 with k=1 rotates counterclockwise by 90 degrees
+            rotated_grid = np.rot90(grid, k=1)
+        
         return rotated_grid
-
