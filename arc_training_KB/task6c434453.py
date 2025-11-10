@@ -43,13 +43,22 @@ class Task6c434453Generator(ARCTaskGenerator):
         
         # Create 3-4 train examples and 1 test example
         num_train_examples = random.randint(3, 4)
-        
+
         train_examples = []
-        
+
         # Track how many train examples have 1 or 2 cross shapes
         one_cross_created = False
         two_cross_created = False
-        
+
+        # Determine a range of plausible frame counts based on grid size
+        min_frames = max(1, grid_size // 8)
+        max_frames = max(1, grid_size // 4)
+        if max_frames < min_frames:
+            max_frames = min_frames
+
+        # Keep track of frame counts used in training so test can differ
+        train_frame_values = set()
+
         for i in range(num_train_examples):
             # Determine whether this grid should have 1 or 2 crosses
             if not one_cross_created:
@@ -60,30 +69,43 @@ class Task6c434453Generator(ARCTaskGenerator):
                 two_cross_created = True
             else:
                 num_crosses = random.choice([1, 2])
-            
-            # Calculate number of frames based on grid size
-            num_frames = grid_size // 5
-            
+
+            # Choose a (possibly different) number of frames for each training example
+            num_frames = random.randint(min_frames, max_frames)
+            train_frame_values.add(num_frames)
+
             # Create grid variables for this specific example
             gridvars = {
                 'num_crosses': num_crosses,
                 'num_frames': num_frames,
                 'num_other_objects': random.randint(2, 4)
             }
-            
+
             # Create input grid and transform it
             input_grid = self.create_input(taskvars, gridvars)
             output_grid = self.transform_input(input_grid, taskvars)
-            
+
             train_examples.append({
                 'input': input_grid,
                 'output': output_grid
             })
         
-        # Create test example with randomly chosen parameters
+        # Create test example with a num_frames that differs from training
+        # Prefer values in the same plausible range but not used in training
+        possible_test_frames = [v for v in range(min_frames, max_frames + 1) if v not in train_frame_values]
+        if possible_test_frames:
+            test_num_frames = random.choice(possible_test_frames)
+        else:
+            # Fallback: choose a value just outside the training range (cap to reasonable size)
+            fallback = max_frames + 1
+            max_allowed = max(1, grid_size // 3)
+            test_num_frames = min(fallback, max_allowed)
+            if test_num_frames < 1:
+                test_num_frames = 1
+
         test_gridvars = {
             'num_crosses': random.choice([1, 2]),
-            'num_frames': grid_size // 5,
+            'num_frames': test_num_frames,
             'num_other_objects': random.randint(2, 4)
         }
         

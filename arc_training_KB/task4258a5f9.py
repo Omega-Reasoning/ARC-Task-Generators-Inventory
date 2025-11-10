@@ -32,17 +32,24 @@ class Task4258a5f9Generator(ARCTaskGenerator):
         while taskvars['fill_color'] == 0 or taskvars['fill_color'] == taskvars['object_color']:
             taskvars['fill_color'] = random.randint(1, 9)
         
-        # Generate 3-4 training examples
+        # Generate 3-4 training examples (total examples will be train + 1 test)
         num_train_examples = random.randint(3, 4)
-        
+
+        # We need strictly different numbers of colored cells across all grids
+        total_examples = num_train_examples + 1  # include test
+        # Choose unique counts in the range 1..5
+        counts = random.sample(range(1, 6), k=total_examples)
+
         train_examples = []
-        for _ in range(num_train_examples):
-            input_grid = self.create_input(taskvars, {})
+        for i in range(num_train_examples):
+            num_cells = counts[i]
+            input_grid = self.create_input(taskvars, {'num_cells': num_cells})
             output_grid = self.transform_input(input_grid, taskvars)
             train_examples.append({'input': input_grid, 'output': output_grid})
-        
-        # Generate one test example
-        test_input = self.create_input(taskvars, {})
+
+        # Generate one test example with a count different from all training examples
+        test_num_cells = counts[-1]
+        test_input = self.create_input(taskvars, {'num_cells': test_num_cells})
         test_output = self.transform_input(test_input, taskvars)
         
         return taskvars, {
@@ -53,14 +60,16 @@ class Task4258a5f9Generator(ARCTaskGenerator):
     def create_input(self, taskvars, gridvars):
         grid_size = taskvars['grid_size']
         object_color = taskvars['object_color']
-        
         # Create an empty grid
         grid = np.zeros((grid_size, grid_size), dtype=int)
-        
-        # Determine how many colored cells to place (at least 3, but limited by grid size)
-        max_possible = (grid_size - 2) // 3  # One cell every 3 cells
-        max_possible = max(3, min(10, max_possible * max_possible))
-        num_cells = random.randint(3, max_possible)
+
+        # Desired number of colored cells (must be provided by caller to enforce uniqueness);
+        # fall back to a safe random choice in 1..5 if not provided.
+        desired_num = gridvars.get('num_cells', None)
+        if desired_num is None:
+            num_cells = random.randint(1, 5)
+        else:
+            num_cells = int(desired_num)
         
         # Function to check if a position is valid for placing a colored cell
         def is_position_valid(grid, row, col):
@@ -90,12 +99,15 @@ class Task4258a5f9Generator(ARCTaskGenerator):
                 grid[row, col] = object_color
                 cells_placed += 1
         
-        # If we couldn't place at least 3 cells, try again with a larger grid
-        if cells_placed < 3:
-            if grid_size < 13:
-                taskvars['grid_size'] = grid_size + 2
+        # If we couldn't place the desired number of cells, grow the grid and retry a few times
+        if cells_placed < num_cells:
+            # Try increasing the grid size to give more room (but keep it reasonable)
+            if grid_size < 15:
+                taskvars['grid_size'] = min(15, grid_size + 2)
+                return self.create_input(taskvars, gridvars)
+            # As a final fallback, try again (this is unlikely for 1..5 cells)
             return self.create_input(taskvars, gridvars)
-            
+
         return grid
 
     def transform_input(self, grid, taskvars):

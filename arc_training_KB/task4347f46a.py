@@ -26,42 +26,52 @@ class Task4347f46aGenerator(ARCTaskGenerator):
         rows = random.randint(6, 30)  # Grid rows
         cols = random.randint(6, 30)  # Grid columns
         num_train = random.randint(3, 4)  # Number of training examples
-        
+
         taskvars = {
             'rows': rows,
             'cols': cols
         }
-        
-        def generate_examples(n):
-            return [
-                {
-                    'input': (input_grid := self.create_input(taskvars, {})),
-                    'output': self.transform_input(input_grid, taskvars)
-                }
-                for _ in range(n)
-            ]
-        
+
+        used_num_rectangles = set()  # Track used numbers for training
+
+        # Generate training examples
+        train_examples = []
+        for _ in range(num_train):
+            available = [x for x in range(1, 6) if x not in used_num_rectangles]
+            num_rectangles = random.choice(available)
+            used_num_rectangles.add(num_rectangles)
+
+            input_grid = self.create_input(taskvars, num_rectangles)
+            output_grid = self.transform_input(input_grid, taskvars)
+            train_examples.append({'input': input_grid, 'output': output_grid})
+
+        # Generate test example with a number not in training set
+        available_test = [x for x in range(1, 6) if x not in used_num_rectangles]
+        num_rectangles_test = random.choice(available_test)
+
+        test_input = self.create_input(taskvars, num_rectangles_test)
+        test_output = self.transform_input(test_input, taskvars)
+        test_examples = [{'input': test_input, 'output': test_output}]
+
         return taskvars, {
-            'train': generate_examples(num_train),
-            'test': generate_examples(1)
+            'train': train_examples,
+            'test': test_examples
         }
+
     
-    def create_input(self, taskvars, gridvars):
+    def create_input(self, taskvars, num_rectangles):
         rows = taskvars['rows']
         cols = taskvars['cols']
         
         # Create an empty grid
         grid = np.zeros((rows, cols), dtype=int)
         
-        # Define how many rectangles to place (2-5 depending on grid size)
-        num_rectangles = min(5, max(2, (rows * cols) // 100 + 2))
-        
         # Available colors (1-9, avoiding 0 which is background)
         available_colors = list(range(1, 10))
         random.shuffle(available_colors)
         
         # Place rectangles one by one
-        for i in range(num_rectangles):
+        for _ in range(num_rectangles):
             if not available_colors:
                 break
                 
