@@ -23,55 +23,55 @@ class Task3ac3eb23Generator(ARCTaskGenerator):
     def create_grids(self) -> tuple[dict[str, any], TrainTestData]:
         # Initialize task variables (rows) with even value between 5 and 30
         taskvars = {'rows': random.randrange(4, 28, 2)}  # ensure even number
-        
-        # Create 3-5 training examples
+
+        # Create 3-5 training examples (plus 1 test) -> total 4-6 examples
         num_train_examples = random.randint(3, 5)
         train_examples = []
-        
-        # Choose one example index to have exactly one colored cell
-        singleton_example_index = random.randint(0, num_train_examples - 1)
-        
+
+        total_examples = num_train_examples + 1  # include the test example
+
+        # Sample unique numbers of colored cells between 1 and 6 for each example
+        # This guarantees strictly different counts across all examples
+        counts = random.sample(list(range(1, 7)), total_examples)
+
+        # Create train examples with assigned unique counts
         for i in range(num_train_examples):
-            # Decide if this should be the singleton example
-            force_single_color = (i == singleton_example_index)
-            
-            # For non-singleton examples, ensure they have more than one colored cell
-            force_multiple_colors = not force_single_color
-            
-            # Create random grid dimensions with columns between 5 and 30
-            cols = random.randint(5, 30)
-            
-            # Create grid variables for this example
+            desired_colored = counts[i]
+
+            # Ensure columns chosen can fit the desired number of colored cells
+            min_cols_needed = max(5, 4 * desired_colored - 1)  # derived from spacing rules
+            cols = random.randint(min_cols_needed, 30)
+
             gridvars = {
-                'cols': cols, 
-                'force_single_color': force_single_color,
-                'force_multiple_colors': force_multiple_colors
+                'cols': cols,
+                'desired_colored': desired_colored
             }
-            
-            # Create input and output grids
+
             input_grid = self.create_input(taskvars, gridvars)
             output_grid = self.transform_input(input_grid, taskvars)
-            
+
             train_examples.append({
                 'input': input_grid,
                 'output': output_grid
             })
-        
-        # Create one test example with multiple colored cells
-        test_cols = random.randint(5, 30)
+
+        # Create one test example with the remaining unique count
+        desired_colored_test = counts[-1]
+        min_cols_needed = max(5, 4 * desired_colored_test - 1)
+        test_cols = random.randint(min_cols_needed, 30)
+
         gridvars = {
-            'cols': test_cols, 
-            'force_single_color': False,
-            'force_multiple_colors': True  # Ensure test has multiple colors
+            'cols': test_cols,
+            'desired_colored': desired_colored_test
         }
         test_input = self.create_input(taskvars, gridvars)
         test_output = self.transform_input(test_input, taskvars)
-        
+
         test_examples = [{
             'input': test_input,
             'output': test_output
         }]
-        
+
         return taskvars, {
             'train': train_examples,
             'test': test_examples
@@ -81,46 +81,57 @@ class Task3ac3eb23Generator(ARCTaskGenerator):
         # Extract variables
         rows = taskvars['rows']
         cols = gridvars['cols']
-        force_single_color = gridvars.get('force_single_color', False)
-        force_multiple_colors = gridvars.get('force_multiple_colors', False)
+        desired_colored = gridvars.get('desired_colored', None)
         
         # Create empty grid
         grid = np.zeros((rows, cols), dtype=int)
         
-        # Determine number of colored cells based on grid width
-        if force_single_color:
-            num_colored_cells = 1
-        elif force_multiple_colors:
-            max_cells = min(5, (cols - 4) // 4)  # Need at least 3 spaces between cells
-            num_colored_cells = random.randint(2, max(2, max_cells))  # At least 2 cells
+        # Determine desired number of colored cells. If provided, use it.
+        if desired_colored is not None:
+            num_colored_cells = int(desired_colored)
         else:
-            max_cells = min(5, (cols - 4) // 4)
+            # Fallback: compute a sensible number based on grid width
+            max_cells = min(6, (cols - 4) // 4 + 1)
             num_colored_cells = random.randint(1, max(1, max_cells))
         
         # Available columns (exclude first and last)
         available_columns = list(range(1, cols - 1))
-        
+
         # Available colors (1-9)
         available_colors = list(range(1, 10))
         random.shuffle(available_colors)
-        
-        # Place colored cells in first row
+
+        # Place colored cells in first row ensuring at least 3 empty cells between any two
         placed_columns = []
-        for i in range(num_colored_cells):
-            def valid_column(col):
-                # Check if column is at least 3 cells away from any placed column
-                return all(abs(col - placed_col) > 3 for placed_col in placed_columns)
-            
-            valid_columns = [col for col in available_columns if valid_column(col)]
-            if not valid_columns:
-                break  # No valid columns left
-                
-            col = random.choice(valid_columns)
+
+        # Try randomized sampling a few times to get well-separated columns
+        success = False
+        attempts = 0
+        while not success and attempts < 200:
+            attempts += 1
+            if num_colored_cells == 1:
+                candidate = [random.choice(available_columns)]
+            else:
+                candidate = random.sample(available_columns, num_colored_cells)
+            candidate.sort()
+            if all(abs(candidate[i] - candidate[i - 1]) > 3 for i in range(1, len(candidate))):
+                placed_columns = candidate
+                success = True
+
+        # If randomized attempts fail (shouldn't if cols >= minimal), fall back to greedy placement
+        if not success:
+            placed_columns = []
+            col = available_columns[0]
+            for _ in range(num_colored_cells):
+                if col > available_columns[-1]:
+                    break
+                placed_columns.append(col)
+                col += 4
+
+        # Assign colors to placed columns
+        for i, col in enumerate(placed_columns):
             color = available_colors[i % len(available_colors)]
-            
             grid[0, col] = color
-            placed_columns.append(col)
-            available_columns.remove(col)
         
         return grid
     

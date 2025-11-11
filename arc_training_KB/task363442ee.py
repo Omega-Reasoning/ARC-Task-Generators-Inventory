@@ -34,21 +34,11 @@ class Task363442eeGenerator(ARCTaskGenerator):
         grid[:3, :3] = block
 
         # Place several cell_color2 cells ensuring the required spacing
-        available_positions = [(r, c) for r in range(2, rows-2) for c in range(6, cols-2)]
-        random.shuffle(available_positions)
-
-        cell_color2_positions = []
-        max_cells = random.randint(3, 6)  # Dynamic range of cell_color2 cells
-        for r, c in available_positions:
-            if (grid[r-2:r+3, c-2:c+3] == 0).all():
-                grid[r, c] = cell_color2
-                cell_color2_positions.append((r, c))
-                if len(cell_color2_positions) >= max_cells:
-                    break
-
-        # Store positions in gridvars instead of taskvars
-        gridvars['cell_color2_positions'] = cell_color2_positions
-
+        # By default create_input builds a base grid with the block and column filled.
+        # Placement of the {cell_color2} cells is handled in create_grids so that
+        # we can control counts and ensure the test count differs from the train counts.
+        # Here we only store the generated block so other code can reuse it if needed.
+        gridvars.setdefault('base_block', grid[:3, :3].copy())
         return grid
     
     def transform_input(self, grid: np.ndarray, gridvars: dict) -> np.ndarray:
@@ -74,20 +64,70 @@ class Task363442eeGenerator(ARCTaskGenerator):
             'cell_color2': cell_color2
         }
         
+        # Build a shared base grid (fourth column and the top-left 3x3 block)
+        base_grid = np.zeros((rows, cols), dtype=int)
+        base_grid[:, 3] = cell_color1
+        block_colors = list(set(range(1, 10)) - {cell_color1, cell_color2})
+        block = np.random.choice(block_colors, (3, 3))
+        base_grid[:3, :3] = block
+
+        # Candidate positions to the right of the fourth column where a 5x5 neighborhood fits
+        available_positions = [(r, c) for r in range(2, rows-2) for c in range(6, cols-2)]
+
+        def place_positions_for_count(base, count):
+            # Try to place exactly `count` cells respecting the 5x5 empty neighborhood rule.
+            grid = base.copy()
+            positions = []
+            candidates = available_positions.copy()
+            random.shuffle(candidates)
+            for r, c in candidates:
+                if (grid[r-2:r+3, c-2:c+3] == 0).all():
+                    grid[r, c] = cell_color2
+                    positions.append((r, c))
+                    if len(positions) >= count:
+                        break
+            # If we couldn't place enough, return what we have (caller may handle)
+            return grid, positions
+
+        # Choose a test count that will be strictly different from all train counts.
+        allowed_counts = list(range(3, 7))  # 3..6
+        n_train = random.randint(3, 4)
+        test_count = random.choice(allowed_counts)
+
+        # For train examples, pick counts that are NOT equal to test_count
+        train_allowed = [c for c in allowed_counts if c != test_count]
         train_examples = []
-        for _ in range(random.randint(3, 4)):
+        train_counts = []
+        for _ in range(n_train):
+            count = random.choice(train_allowed)
+            train_counts.append(count)
             gridvars = {}
-            input_grid = self.create_input(taskvars, gridvars)
-            output_grid = self.transform_input(input_grid, gridvars)
-            train_examples.append({'input': input_grid, 'output': output_grid})
-        
+            inp_grid, positions = place_positions_for_count(base_grid, count)
+            gridvars['cell_color2_positions'] = positions
+            # If placement failed to reach requested count, try again with more shuffles up to a few times
+            attempts = 0
+            while len(positions) < count and attempts < 3:
+                inp_grid, positions = place_positions_for_count(base_grid, count)
+                gridvars['cell_color2_positions'] = positions
+                attempts += 1
+            # finalize example (even if positions < count it's still a valid grid)
+            out_grid = inp_grid.copy()
+            train_examples.append({'input': inp_grid, 'output': self.transform_input(inp_grid, gridvars)})
+
+        # Create test example with a count different from all train counts
         gridvars = {}
-        test_input = self.create_input(taskvars, gridvars)
-        test_output = self.transform_input(test_input, gridvars)
+        test_grid, test_positions = place_positions_for_count(base_grid, test_count)
+        gridvars['cell_color2_positions'] = test_positions
+        attempts = 0
+        while len(test_positions) < test_count and attempts < 3:
+            test_grid, test_positions = place_positions_for_count(base_grid, test_count)
+            gridvars['cell_color2_positions'] = test_positions
+            attempts += 1
+        test_output = self.transform_input(test_grid, gridvars)
         
         train_test_data = {
             'train': train_examples,
-            'test': [{'input': test_input, 'output': test_output}]
+            'test': [{'input': test_grid, 'output': test_output}]
         }
         
         return taskvars, train_test_data

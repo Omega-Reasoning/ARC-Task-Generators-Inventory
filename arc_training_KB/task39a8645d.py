@@ -28,15 +28,35 @@ class Task39a8645dGenerator(ARCTaskGenerator):
         
         # Randomize number of training examples
         num_train = random.randint(3, 6)
-        
+
+        # Ensure every grid (train + test) has a different number of objects,
+        # and each grid must contain more than three objects (i.e., >= 4).
+        total_examples = num_train + 1  # include one test example
+
+        # Conservative estimate for how many 3x3 objects can fit with spacing
+        max_possible = max(4, (grid_size // 4) ** 2)
+        upper = max(4, min(max_possible, 12))
+
+        # If range is too small, expand the upper bound so we can pick distinct counts
+        if (upper - 4 + 1) < total_examples:
+            upper = max(4 + total_examples - 1, upper)
+
+        possible_counts = list(range(4, upper + 1))
+        if len(possible_counts) < total_examples:
+            # fallback incremental distinct counts
+            desired_counts = [4 + i for i in range(total_examples)]
+        else:
+            desired_counts = random.sample(possible_counts, total_examples)
+
         train_examples = []
-        for _ in range(num_train):
-            input_grid = self.create_input(taskvars, {})
+        for i in range(num_train):
+            desired = desired_counts[i]
+            input_grid = self.create_input(taskvars, {'desired_total_objects': desired})
             output_grid = self.transform_input(input_grid, taskvars)
             train_examples.append({'input': input_grid, 'output': output_grid})
-        
+
         test_examples = []
-        test_input = self.create_input(taskvars, {})
+        test_input = self.create_input(taskvars, {'desired_total_objects': desired_counts[-1]})
         test_output = self.transform_input(test_input, taskvars)
         test_examples.append({'input': test_input, 'output': test_output})
         
@@ -81,60 +101,84 @@ class Task39a8645dGenerator(ARCTaskGenerator):
     
     def create_input(self, taskvars, gridvars):
         grid_size = taskvars['grid_size']
-        
+
+        # Determine desired total number of objects for this grid (must be >=4)
+        desired_total = gridvars.get('desired_total_objects')
+        if desired_total is None or desired_total < 4:
+            # pick a reasonable default if none provided
+            desired_total = random.randint(4, max(4, min(12, (grid_size // 4) ** 2)))
+
         # Determine number of colors (exactly 2 or 3)
         num_colors = random.randint(2, 3)
         color_choices = random.sample([1, 2, 3, 4, 5, 6, 7, 8, 9], num_colors)
-        
+
         # Create template objects for each color
         object_templates = {}
         for color in color_choices:
             object_templates[color] = self.create_object_template(color)
-        
-        # Choose the most frequent color
-        most_frequent_color = random.choice(color_choices)
-        
-        # Distribute objects to ensure a clear frequency pattern
-        # We'll use at least 3 objects of the most frequent color and 1-2 of the others
-        min_objects_per_color = 1
-        min_lead = 2  # The most frequent color should have at least this many more than any other
-        
-        # Set the counts for each color
-        color_counts = {}
-        
-        # First, assign the minimum count to each color
-        for color in color_choices:
-            color_counts[color] = min_objects_per_color
-        
-        # Set an appropriate count for the most frequent color
-        other_max = 0
-        for color in color_choices:
-            if color != most_frequent_color:
-                # Randomly decide how many objects to add (beyond the minimum)
-                extra = random.randint(0, 1)
-                color_counts[color] += extra
-                other_max = max(other_max, color_counts[color])
-        
-        # Make sure the most frequent color has a clear lead
-        color_counts[most_frequent_color] = other_max + min_lead
-        
+
+        # We need to split desired_total into positive integers for each color
+        # such that there is a unique maximum (one most frequent color).
+        color_counts = None
+        attempts = 0
+        while attempts < 200:
+            attempts += 1
+            if desired_total < num_colors:
+                # impossible to give at least 1 to each color; increase grid and retry
+                taskvars['grid_size'] = min(30, grid_size + 4)
+                return self.create_input(taskvars, gridvars)
+
+            # random composition: choose (num_colors - 1) cut points
+            if num_colors == 1:
+                parts = [desired_total]
+            else:
+                cuts = sorted(random.sample(range(1, desired_total), num_colors - 1))
+                parts = []
+                prev = 0
+                for cut in cuts:
+                    parts.append(cut - prev)
+                    prev = cut
+                parts.append(desired_total - prev)
+
+            # require a unique maximum so there is a clear most frequent color
+            if parts.count(max(parts)) == 1:
+                # map the largest part to a chosen most frequent color
+                max_idx = parts.index(max(parts))
+                most_frequent_color = random.choice(color_choices)
+                # reorder color_choices so that index max_idx maps to most_frequent_color
+                ordered_colors = [most_frequent_color] + [c for c in color_choices if c != most_frequent_color]
+                # rotate parts so that parts[0] corresponds to most_frequent_color
+                if max_idx != 0:
+                    parts = parts[max_idx:] + parts[:max_idx]
+
+                color_counts = {ordered_colors[i]: parts[i] for i in range(num_colors)}
+                break
+
+        if color_counts is None:
+            # fallback: simple distribution with one clear leader
+            leader = random.choice(color_choices)
+            color_counts = {c: 1 for c in color_choices}
+            remaining = desired_total - num_colors
+            color_counts[leader] += remaining
+
         # Create a grid filled with zeros
         grid = np.zeros((grid_size, grid_size), dtype=int)
-        
+
         # Place objects on the grid
         successful_placements = {color: 0 for color in color_choices}
-        
+
         for color in color_choices:
             template = object_templates[color]
-            for _ in range(color_counts[color]):
+            target = color_counts.get(color, 0)
+            for _ in range(target):
                 # Try to place the object until successful
                 placed = False
-                attempts = 0
-                while not placed and attempts < 100:
+                attempts_place = 0
+                while not placed and attempts_place < 200:
                     # Choose a random position ensuring a 1-cell border around object
                     r = random.randint(1, grid_size - 4)
                     c = random.randint(1, grid_size - 4)
-                    
+
                     # Check if the area (including surrounding cells) is clear
                     clear = True
                     for check_r in range(r-1, r+4):  # check 5x5 area (3x3 object + surrounding cells)
@@ -145,7 +189,7 @@ class Task39a8645dGenerator(ARCTaskGenerator):
                                     break
                         if not clear:
                             break
-                    
+
                     if clear:
                         # Place the template
                         for tr in range(3):
@@ -154,21 +198,28 @@ class Task39a8645dGenerator(ARCTaskGenerator):
                                     grid[r+tr, c+tc] = template[tr, tc]
                         placed = True
                         successful_placements[color] += 1
-                    
-                    attempts += 1
-        
-        # Verify we have the correct frequency pattern with at least 3 objects
-        if (sum(successful_placements.values()) < 3 or 
-            successful_placements[most_frequent_color] <= max(successful_placements[c] for c in color_choices if c != most_frequent_color)):
-            # Try again with a larger grid if we couldn't achieve the desired pattern
+
+                    attempts_place += 1
+
+        # Verify we placed the desired total and that there is a clear most frequent color
+        placed_total = sum(successful_placements.values())
+        if placed_total != desired_total:
+            # Increase grid size and retry to try to achieve the requested pattern
             taskvars['grid_size'] = min(30, grid_size + 4)
             return self.create_input(taskvars, gridvars)
-        
+
+        # ensure the mode is unique (one most frequent color)
+        counts_list = list(successful_placements.values())
+        max_count = max(counts_list) if counts_list else 0
+        if counts_list.count(max_count) != 1:
+            taskvars['grid_size'] = min(30, grid_size + 4)
+            return self.create_input(taskvars, gridvars)
+
         # Verify we have both color options present
         if len([c for c, count in successful_placements.items() if count > 0]) < 2:
             # Try again if we don't have at least 2 colors
             return self.create_input(taskvars, gridvars)
-        
+
         return grid
     
     def transform_input(self, grid, taskvars):

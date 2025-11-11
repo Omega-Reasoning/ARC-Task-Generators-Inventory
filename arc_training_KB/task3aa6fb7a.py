@@ -31,8 +31,82 @@ class Task3aa6fb7aGenerator(ARCTaskGenerator):
         
         nr_train_examples = random.randint(3, 5)
         nr_test_examples = 1
-        
+
+        # Helper to count L-shaped objects (size 3, occupying a 2x2 bounding box)
+        def count_L_objects(grid, color):
+            seen = set()
+            h, w = grid.shape
+            def neighbors(r, c):
+                for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                    nr, nc = r + dr, c + dc
+                    if 0 <= nr < h and 0 <= nc < w:
+                        yield nr, nc
+
+            def flood(r, c):
+                stack = [(r, c)]
+                comp = []
+                seen.add((r, c))
+                while stack:
+                    cr, cc = stack.pop()
+                    comp.append((cr, cc))
+                    for nr, nc in neighbors(cr, cc):
+                        if (nr, nc) not in seen and grid[nr, nc] == color:
+                            seen.add((nr, nc))
+                            stack.append((nr, nc))
+                return comp
+
+            count = 0
+            for r in range(h):
+                for c in range(w):
+                    if grid[r, c] == color and (r, c) not in seen:
+                        comp = flood(r, c)
+                        if len(comp) == 3:
+                            rows = [p[0] for p in comp]
+                            cols = [p[1] for p in comp]
+                            if (max(rows) - min(rows) == 1) and (max(cols) - min(cols) == 1):
+                                # occupies a 2x2 bounding box with one empty cell -> L-shape
+                                count += 1
+            return count
+
         train_test_data = self.create_grids_default(nr_train_examples, nr_test_examples, taskvars)
+
+        # Ensure the number of L-shaped objects in each test example is strictly different
+        # from the counts seen in all training examples.
+        train_counts = set(count_L_objects(ex['input'], taskvars['object_color']) for ex in train_test_data['train'])
+
+        # For each test example regenerate it until its count differs from training counts.
+        for i in range(len(train_test_data['test'])):
+            attempts = 0
+            while True:
+                test_input = train_test_data['test'][i]['input']
+                test_count = count_L_objects(test_input, taskvars['object_color'])
+                if test_count not in train_counts:
+                    break
+
+                # regenerate single test example
+                attempts += 1
+                if attempts <= 200:
+                    new_input = self.create_input(taskvars, {})
+                    new_output = self.transform_input(new_input, taskvars)
+                    train_test_data['test'][i] = {'input': new_input, 'output': new_output}
+                    continue
+
+                # If single-regeneration fails repeatedly, regenerate the whole dataset a few times
+                regenerated = False
+                for _ in range(5):
+                    train_test_data = self.create_grids_default(nr_train_examples, nr_test_examples, taskvars)
+                    train_counts = set(count_L_objects(ex['input'], taskvars['object_color']) for ex in train_test_data['train'])
+                    test_input = train_test_data['test'][i]['input']
+                    test_count = count_L_objects(test_input, taskvars['object_color'])
+                    if test_count not in train_counts:
+                        regenerated = True
+                        break
+
+                if regenerated:
+                    break
+                # As a fallback, break to avoid infinite loop — the dataset is likely pathological
+                break
+
         return taskvars, train_test_data
 
     def create_input(self, taskvars, gridvars):

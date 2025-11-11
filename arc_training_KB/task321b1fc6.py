@@ -12,16 +12,16 @@ class Task321b1fc6Generator(ARCTaskGenerator):
         # Input reasoning chain
         input_reasoning_chain = [
             "Input grids can have different sizes.",
-            "They contain four objects, each completely separated from the others by empty (0) cells.",
-            "Three objects are made of {color('object_color')} color, while one object is made of multi-colored (1-9) cells.",
+            "They contain a variable number of objects (between 3 and 6, depending on grid size), each completely separated from the others by empty (0) cells.",
+            "Exactly one object is multi-colored (cells 1-9) and the remaining objects are monochromatic with color {color('object_color')}",
             "All objects have the exact same shape."
         ]
 
         # Transformation reasoning chain
         transformation_reasoning_chain = [
             "The output grids have the same size as the input grids.",
-            "Identify the three {color('object_color')} objects and one multi-colored object.",
-            "Change the color of the three {color('object_color')} objects to exactly match the colors of the multi-colored object, while keeping their positions unchanged.",
+            "Identify the monochromatic objects (color {color('object_color')}) and the single multi-colored object.",
+            "Change the color of each monochromatic object to exactly match the colors of the multi-colored object, while keeping their positions unchanged.",
             "Remove the original multi-colored object."
         ]
 
@@ -31,7 +31,7 @@ class Task321b1fc6Generator(ARCTaskGenerator):
     def create_input(self, taskvars: dict, gridvars: dict) -> np.ndarray:
         """
         Generates an input grid ensuring:
-        - 4 objects (1 multi-colored, 3 monochromatic)
+        - A variable number of objects (3-6 depending on grid size), with one multi-colored and the rest monochromatic
         - No 4-way or 8-way connectivity between objects
         - Each object contains at least 2 cells
         - Objects are randomly placed with spacing constraints
@@ -66,10 +66,10 @@ class Task321b1fc6Generator(ARCTaskGenerator):
         def generate_multicolored_shape():
             """Generate a multi-colored shape ensuring at least 2 distinct colors."""
             candidate = np.zeros((shape_h, shape_w), dtype=int)
-            
+
             # Get color choices excluding the object's color
             color_choices = [c for c in range(1, 10) if c != object_color]
-            
+
             # Ensure at least two distinct colors
             primary_color, secondary_color = random.sample(color_choices, 2) if len(color_choices) > 1 else (color_choices[0], color_choices[0])
 
@@ -85,8 +85,12 @@ class Task321b1fc6Generator(ARCTaskGenerator):
 
         multi_colored_shape = generate_multicolored_shape()
 
-        # 4) Create three monochromatic copies
+        # 4) Create monochromatic copies (we'll create N-1 of these, where N is chosen below)
         mono_shape = np.where(shape_pattern, object_color, 0)
+
+        # Decide how many objects to place: at least 3, up to 6, limited by grid size
+        max_possible = min(6, max(3, base_size // 3))
+        num_objects = random.randint(3, max_possible)
 
         # 5) Ensure separated object placement
         max_attempts = 100
@@ -116,8 +120,8 @@ class Task321b1fc6Generator(ARCTaskGenerator):
                     return True
             return False  # If placement fails
 
-        # Shuffle object order to ensure variety
-        objects = [mono_shape, mono_shape, mono_shape, multi_colored_shape]
+        # Build object list: one multi-colored, rest monochromatic, then shuffle
+        objects = [mono_shape] * (num_objects - 1) + [multi_colored_shape]
         random.shuffle(objects)
 
         for obj in objects:
@@ -132,8 +136,8 @@ class Task321b1fc6Generator(ARCTaskGenerator):
     def transform_input(self, grid: np.ndarray, taskvars: dict) -> np.ndarray:
         """
         Transforms the input grid according to the given reasoning:
-        - Matches the three monochromatic objects' colors to the multi-colored object.
-        - Removes the multi-colored object.
+    - Matches the monochromatic objects' colors to the multi-colored object.
+    - Removes the multi-colored object.
         """
         out_grid = np.copy(grid)
         objects = find_connected_objects(out_grid, diagonal_connectivity=False, background=0, monochromatic=False)
@@ -147,7 +151,8 @@ class Task321b1fc6Generator(ARCTaskGenerator):
             else:
                 mono_objs.append(obj)
 
-        if multi_colored_obj is None or len(mono_objs) < 3:
+        # Require at least one multi-colored object and at least one monochromatic object
+        if multi_colored_obj is None or len(mono_objs) < 1:
             return out_grid
 
         multi_box = multi_colored_obj.bounding_box
@@ -168,7 +173,7 @@ class Task321b1fc6Generator(ARCTaskGenerator):
 
 
 
-    def create_grids(self) -> (dict, TrainTestData):
+    def create_grids(self) -> tuple[dict, TrainTestData]:
         """
         Generates training and test data.
         """
