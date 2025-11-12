@@ -9,16 +9,17 @@ class Task543a7ed5Generator(ARCTaskGenerator):
         input_reasoning_chain = [
             "Input grids are of size {vars['grid_size']}x{vars['grid_size']}.",
             "The background of the grid is completely filled with {color('background')} color.",
-            "They contain exactly three rectangular blocks of {color('block_color')} color.",
+            "They contain several rectangular blocks of {color('block_color')} color.",
             "One of the blocks is a one-cell wide {color('block_color')} frame with all interior cells filled with {color('background')} color.",
-            "The remaining two blocks may be completely filled with {color('block_color')} color or may have a one-cell wide {color('background')} colored rectangle in the interior of the block.",
-            "The three {color('block_color')} blocks are always positioned within the interior of the grid and never overlap the grid border.",
+            "The remaining blocks may be completely filled with {color('block_color')} color or may have a one-cell wide {color('background')} colored rectangle in the interior of the block.",
+            "The {color('block_color')} blocks are always positioned within the interior of the grid and never overlap the grid border.",
             "All blocks should be completely separated from each other by at least two rows or columns."
         ]
         
-        transformation_reasoning_chain = [ "Output grids are constructed by copying the input grids and identifying the three rectangular blocks of {color('block_color')} color, which may or may not be completely filled with {color('block_color')} color but always have at least a {color('block_color')} frame around them.",
+        transformation_reasoning_chain = [
+            "Output grids are constructed by copying the input grids and identifying the rectangular blocks of {color('block_color')} color, which may or may not be completely filled with {color('block_color')} color but always have at least a {color('block_color')} frame around them.",
             "Once identified, add a one-cell wide {color('frame_color')} colored frame around each block.",
-            "Incase, if the rectangular blocks consist of any {color('background')} cells within their interior, change the color of those {color('background')} cells to {color('new_color')}."
+            "If any of the rectangular blocks consist of {color('background')} cells within their interior, change the color of those {color('background')} cells to {color('new_color')} within the framed area."
         ]
         
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
@@ -44,29 +45,45 @@ class Task543a7ed5Generator(ARCTaskGenerator):
             'new_color': new_color
         }
         
-        # Create 3 training grids and 1 test grid
+        # Decide maximum number of blocks allowed based on grid size (between 2 and 5)
+        if grid_size < 15:
+            max_blocks = 2
+        elif grid_size < 17:
+            max_blocks = 3
+        elif grid_size < 19:
+            max_blocks = 4
+        else:
+            max_blocks = 5
+
+        # Create 3 training grids and 1 test grid; num_blocks may vary per grid
         train_grids = []
-        
-        # Create first grid: two blocks completely filled, one block with frame
-        grid_1 = self.create_input(taskvars, {'interior_blocks': 0})
+
+        # First training grid: interior_blocks = 0, choose a random number of blocks
+        num_blocks_1 = random.randint(2, max_blocks)
+        grid_1 = self.create_input(taskvars, {'interior_blocks': 0, 'num_blocks': num_blocks_1})
         output_1 = self.transform_input(grid_1, taskvars)
         train_grids.append({'input': grid_1, 'output': output_1})
-        
-        # Create second grid: one block with interior empty rectangle
-        grid_2 = self.create_input(taskvars, {'interior_blocks': 1})
+
+        # Second training grid: one interior block if possible
+        num_blocks_2 = random.randint(2, max_blocks)
+        interior_2 = 1 if num_blocks_2 > 1 else 0
+        grid_2 = self.create_input(taskvars, {'interior_blocks': interior_2, 'num_blocks': num_blocks_2})
         output_2 = self.transform_input(grid_2, taskvars)
         train_grids.append({'input': grid_2, 'output': output_2})
-        
-        # Create third grid: two blocks with interior empty rectangles (if possible)
-        grid_3 = self.create_input(taskvars, {'interior_blocks': 2})
+
+        # Third training grid: two interior blocks (bounded by available blocks)
+        num_blocks_3 = random.randint(2, max_blocks)
+        interior_3 = min(2, max(0, num_blocks_3 - 1))
+        grid_3 = self.create_input(taskvars, {'interior_blocks': interior_3, 'num_blocks': num_blocks_3})
         output_3 = self.transform_input(grid_3, taskvars)
         train_grids.append({'input': grid_3, 'output': output_3})
-        
+
         # Create test grid: random configuration
-        interior_blocks = random.randint(0, 2)
-        test_grid = self.create_input(taskvars, {'interior_blocks': interior_blocks})
+        num_blocks_t = random.randint(2, max_blocks)
+        interior_t = random.randint(0, max(0, num_blocks_t - 1))
+        test_grid = self.create_input(taskvars, {'interior_blocks': interior_t, 'num_blocks': num_blocks_t})
         test_output = self.transform_input(test_grid, taskvars)
-        
+
         return taskvars, {
             'train': train_grids,
             'test': [{'input': test_grid, 'output': test_output}]
@@ -74,7 +91,7 @@ class Task543a7ed5Generator(ARCTaskGenerator):
     
     def create_input(self, taskvars, gridvars):
         """
-        Create an input grid with three rectangular blocks according to the specifications
+        Create an input grid with a variable number of rectangular blocks (2..5) according to the specifications
         """
         grid_size = taskvars['grid_size']
         block_color = taskvars['block_color']
@@ -82,27 +99,42 @@ class Task543a7ed5Generator(ARCTaskGenerator):
         
         # Number of blocks that have interior gaps
         interior_blocks = gridvars.get('interior_blocks', random.randint(0, 2))
+
+        # Number of blocks to place (allow 2..5 depending on gridvars or grid_size)
+        num_blocks = gridvars.get('num_blocks', None)
+        if num_blocks is None:
+            # Derive reasonable max based on grid size
+            if grid_size < 15:
+                max_blocks = 2
+            elif grid_size < 17:
+                max_blocks = 3
+            elif grid_size < 19:
+                max_blocks = 4
+            else:
+                max_blocks = 5
+            num_blocks = random.randint(2, max_blocks)
         
         # Initialize grid with background color
         grid = np.full((grid_size, grid_size), background, dtype=int)
         
         def _generate_block_sizes():
-            """Generate three different block sizes"""
+            """Generate num_blocks different block sizes"""
             # Minimum size needed for a block (to potentially have interior)
             min_size = 5
             
             # Maximum size (to ensure blocks can fit with separation)
             effective_size = grid_size - 2  # Account for 1-cell border
-            max_size = max(min_size + 2, (effective_size - 4) // 2)  # Allow for at least 2 blocks + separation
+            # Heuristic: allow more smaller blocks on larger grids
+            max_size = max(min_size + 2, max( (effective_size - 4) // max(1, num_blocks - 1), min_size))
             
             if max_size <= min_size:
                 max_size = min_size + 1  # Ensure a valid range
             
-            # Generate three sets of block dimensions ensuring they're different
+            # Generate num_blocks sets of block dimensions ensuring they're different
             sizes = []
             size_attempts = 0
             
-            while len(sizes) < 3 and size_attempts < 100:
+            while len(sizes) < num_blocks and size_attempts < 200:
                 size_attempts += 1
                 
                 # Range of dimensions for this block
@@ -114,30 +146,13 @@ class Task543a7ed5Generator(ARCTaskGenerator):
                 if new_size not in sizes:
                     sizes.append(new_size)
             
-            # If we couldn't get 3 different sizes, make some adjustments
-            if len(sizes) < 3:
+            # If we couldn't get enough different sizes, make some adjustments
+            if len(sizes) < num_blocks:
                 # Add fixed sizes that are different
-                if len(sizes) == 0:
-                    sizes = [(min_size, min_size), (min_size+1, min_size), (min_size, min_size+1)]
-                elif len(sizes) == 1:
-                    h, w = sizes[0]
-                    sizes.append((h+1, w))
-                    sizes.append((h, w+1))
-                elif len(sizes) == 2:
-                    h1, w1 = sizes[0]
-                    h2, w2 = sizes[1]
-                    # Find a size different from both
-                    for h in range(min_size, max_size+1):
-                        for w in range(min_size, max_size+1):
-                            if (h, w) not in sizes:
-                                sizes.append((h, w))
-                                break
-                        if len(sizes) == 3:
-                            break
-                    
-                    # If still not enough, add a simple different size
-                    if len(sizes) < 3:
-                        sizes.append((min_size+2, min_size+2))
+                base = (min_size, min_size)
+                sizes = []
+                for i in range(num_blocks):
+                    sizes.append((min_size + (i % 3), min_size + ((i // 3) % 3)))
             
             return sizes
         
@@ -252,23 +267,23 @@ class Task543a7ed5Generator(ARCTaskGenerator):
         sizes = _generate_block_sizes()
         
         # Try to place blocks
-        max_attempts = 50
+        max_attempts = 200
         for attempt in range(max_attempts):
             temp_grid, blocks = _try_place_blocks(sizes)
             
-            if blocks and len(blocks) == 3:
-                # Successfully placed all three blocks
+            if blocks and len(blocks) == num_blocks:
+                # Successfully placed all blocks
                 # Decide which block is the frame and which have interiors
-                frame_block_idx = random.randint(0, 2)
+                frame_block_idx = random.randint(0, num_blocks - 1)
                 
                 # Decide which blocks have interior spaces
                 blocks_with_interior = []
-                remaining_blocks = [i for i in range(3) if i != frame_block_idx]
+                remaining_blocks = [i for i in range(num_blocks) if i != frame_block_idx]
                 
                 # Ensure we don't try to add more interior blocks than available
-                interior_blocks = min(interior_blocks, len(remaining_blocks))
-                if interior_blocks > 0:
-                    blocks_with_interior = random.sample(remaining_blocks, interior_blocks)
+                interior_count = min(interior_blocks, len(remaining_blocks))
+                if interior_count > 0:
+                    blocks_with_interior = random.sample(remaining_blocks, interior_count)
                 
                 # Create each block on the grid
                 grid = _create_blocks_on_grid(temp_grid, blocks, frame_block_idx, blocks_with_interior)
@@ -279,13 +294,16 @@ class Task543a7ed5Generator(ARCTaskGenerator):
         grid_size = max(grid_size, 20)
         grid = np.full((grid_size, grid_size), background, dtype=int)
         
-        # Create three blocks with different sizes in fixed positions
+        # Create a simple fallback arrangement with num_blocks placed in fixed-ish positions
         # Ensure these positions are far enough apart
-        simple_blocks = [
-            (2, 2, 5, 5),                   # Top-left: 5x5
-            (2, grid_size-8, 5, 6),         # Top-right: 5x6
-            (grid_size-8, 2, 6, 5)          # Bottom-left: 6x5
-        ]
+        simple_blocks = []
+        spacing = max(3, grid_size // (num_blocks + 1))
+        for i in range(num_blocks):
+            row = 2 + (i % 2) * (grid_size // 2 - 3)
+            col = 2 + (i // 2) * (grid_size // max(2, num_blocks//2) - 3)
+            h = 5
+            w = 5 + (i % 2)
+            simple_blocks.append((row, col, h, w))
         
         # Ensure blocks fit in the grid
         valid_blocks = []
@@ -293,29 +311,28 @@ class Task543a7ed5Generator(ARCTaskGenerator):
             if row + height < grid_size and col + width < grid_size:
                 valid_blocks.append((row, col, height, width))
         
-        # If we don't have enough valid blocks, adjust sizes
-        if len(valid_blocks) < 3:
-            simple_blocks = [
-                (2, 2, 4, 4),                  # Top-left: 4x4
-                (2, grid_size-7, 4, 5),        # Top-right: 4x5
-                (grid_size-7, 2, 5, 4)         # Bottom-left: 5x4
-            ]
+        # If we don't have enough valid blocks, adjust sizes to create num_blocks small blocks
+        if len(valid_blocks) < num_blocks:
             valid_blocks = []
-            for row, col, height, width in simple_blocks:
-                if row + height < grid_size and col + width < grid_size:
-                    valid_blocks.append((row, col, height, width))
-        
-        # First block is always a frame
-        frame_block_idx = 0
-        
+            for i in range(num_blocks):
+                row = 2 + (i // 2) * 5
+                col = 2 + (i % 2) * (grid_size - 8)
+                h = 4 + (i % 2)
+                w = 4 + ((i+1) % 2)
+                if row + h < grid_size and col + w < grid_size:
+                    valid_blocks.append((row, col, h, w))
+
+        # Choose a frame block index among valid blocks
+        frame_block_idx = random.randint(0, len(valid_blocks) - 1) if valid_blocks else 0
+
         # Determine which blocks have interiors
-        remaining_blocks = list(range(1, len(valid_blocks)))
+        remaining_blocks = [i for i in range(len(valid_blocks)) if i != frame_block_idx]
         interior_count = min(interior_blocks, len(remaining_blocks))
         blocks_with_interior = random.sample(remaining_blocks, interior_count) if interior_count > 0 else []
-        
+
         # Create the blocks on the grid
         grid = _create_blocks_on_grid(grid, valid_blocks, frame_block_idx, blocks_with_interior)
-        
+
         return grid
     
     def transform_input(self, grid, taskvars):

@@ -54,8 +54,36 @@ class Taska5f85a15Generator(ARCTaskGenerator):
             grid_configs.append({"size": grid_sizes[3], "line_color": line_colors[3], "has_main_diag": random.choice([True, False]), "num_diags": random.randint(1, 3)})
         
         # Test grid configuration
-        test_config = {"size": random.randint(15, 30), "line_color": random.choice(line_colors), "has_main_diag": random.choice([True, False]), "num_diags": random.randint(1, 3)}
-        
+        # Ensure test num_diags is strictly different from all training grids
+        # and the test line color is different from all training grid colors.
+        training_num_diags = {cfg["num_diags"] for cfg in grid_configs}
+
+        # pick a num_diags for test that is not used in training; prefer 1..3
+        possible_num_diags = [n for n in range(1, 4) if n not in training_num_diags]
+        if possible_num_diags:
+            test_num_diags = random.choice(possible_num_diags)
+        else:
+            # if all 1..3 are present in training (rare), use 4 to keep it distinct
+            test_num_diags = 4
+
+        # Determine colors actually used in training (grid_configs may be shorter than line_colors)
+        used_training_colors = {cfg["line_color"] for cfg in grid_configs}
+
+        # pick a test color not used in training and not equal to fill_color
+        available_colors = [c for c in range(1, 10) if c not in used_training_colors and c != fill_color]
+        if not available_colors:
+            # As a safe fallback (extremely unlikely given color range), choose any color not equal to fill_color
+            available_colors = [c for c in range(1, 10) if c != fill_color]
+
+        test_color = random.choice(available_colors)
+
+        test_config = {
+            "size": random.randint(15, 30),
+            "line_color": test_color,
+            "has_main_diag": random.choice([True, False]),
+            "num_diags": test_num_diags,
+        }
+
         # Generate train grids
         train_pairs = []
         for config in grid_configs:
