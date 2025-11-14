@@ -12,7 +12,7 @@ class Taskfcc82909(ARCTaskGenerator):
             "Input grids are of size {vars['n']} x {vars['n']}",
             "A random number of 2×2 squares is placed in the grid. The number of such squares is randomly chosen between 2 and {vars['n']} // 2.",
             "Each 2×2 square contains between 1 and 4 different colors, selected randomly.",
-            "Squares are positioned such that: All cells in the same columns directly beneath the square are empty (contain 0). The number of empty rows below each square is at least equal to the number of colors used in that square."
+            "Squares are positioned such that: All cells in the same columns directly beneath the square are empty (contain 0). The number of empty rows below each square is at least equal to the number of colors used in that square. Squares do not touch one another (including diagonally)."
         ]
         
         transformation_reasoning_chain = [
@@ -115,11 +115,23 @@ class Taskfcc82909(ARCTaskGenerator):
                             continue
                         
                         # Check if this position conflicts with existing squares
+                        # Squares should not touch (including diagonally)
                         conflict = False
                         for existing_row, existing_col, _ in placed_squares:
-                            # Check if squares overlap
-                            if (row < existing_row + 2 and row + 2 > existing_row and
-                                col < existing_col + 2 and col + 2 > existing_col):
+                            # The new square occupies rows [row, row+1] and cols [col, col+1]
+                            # The existing square occupies rows [existing_row, existing_row+1] and cols [existing_col, existing_col+1]
+                            
+                            # For squares not to touch, there must be at least 1 empty cell between them
+                            # This means the bounding boxes with 1-cell padding should not overlap
+                            
+                            # Check if they're separated horizontally (at least 1 cell gap)
+                            horizontally_separated = (col + 1 < existing_col - 1) or (existing_col + 1 < col - 1)
+                            
+                            # Check if they're separated vertically (at least 1 cell gap)
+                            vertically_separated = (row + 1 < existing_row - 1) or (existing_row + 1 < row - 1)
+                            
+                            # If neither separated horizontally nor vertically, they touch
+                            if not (horizontally_separated or vertically_separated):
                                 conflict = True
                                 break
                         
@@ -183,7 +195,7 @@ class Taskfcc82909(ARCTaskGenerator):
     def transform_input(self, grid: np.ndarray, taskvars: Dict[str, Any]) -> np.ndarray:
         output_grid = grid.copy()
         output_color = taskvars['output_color']
-        n = taskvars['n']
+        n = grid.shape[0]
         
         # Find all 2x2 squares by checking each possible position
         squares = []

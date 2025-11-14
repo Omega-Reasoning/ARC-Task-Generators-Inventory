@@ -16,7 +16,7 @@ class Taskd23f8c26(ARCTaskGenerator):
         transformation_reasoning_chain = [
             "The output grid has the same size as the input grid.",
             "The output grid is constructed by copying the input grid.",
-            "Any cell aside from the cells on the middle column is converted to empty(0)."
+            "All cells except those in column {vars['target_col']} are set to empty (0)."
         ]
         
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
@@ -35,16 +35,29 @@ class Taskd23f8c26(ARCTaskGenerator):
         # Generate 3-6 training examples and 1 test example
         num_train = random.randint(3, 6)
         
-        train_examples = []
-        for _ in range(num_train):
+        # First pass: generate all grids to find minimum size
+        all_grids = []
+        min_grid_size = float('inf')
+        
+        for _ in range(num_train + 1):
             input_grid = self.create_input(taskvars, {})
-            output_grid = self.transform_input(input_grid, taskvars)
-            train_examples.append({'input': input_grid, 'output': output_grid})
+            all_grids.append(input_grid)
+            min_grid_size = min(min_grid_size, input_grid.shape[0])
+        
+        # Set target_col based on smallest grid size
+        target_col = random.randint(0, min_grid_size - 1)
+        taskvars['target_col'] = target_col
+        taskvars['min_grid_size'] = min_grid_size
+        
+        # Second pass: transform all grids using the same target_col
+        train_examples = []
+        for i in range(num_train):
+            output_grid = self.transform_input(all_grids[i], taskvars)
+            train_examples.append({'input': all_grids[i], 'output': output_grid})
         
         test_examples = []
-        input_grid = self.create_input(taskvars, {})
-        output_grid = self.transform_input(input_grid, taskvars)
-        test_examples.append({'input': input_grid, 'output': output_grid})
+        output_grid = self.transform_input(all_grids[num_train], taskvars)
+        test_examples.append({'input': all_grids[num_train], 'output': output_grid})
         
         train_test_data = {
             'train': train_examples,
@@ -92,16 +105,14 @@ class Taskd23f8c26(ARCTaskGenerator):
         # Copy the input grid
         output_grid = grid.copy()
         
-        # Get grid dimensions
+        # Get target column from taskvars
+        target_col = taskvars.get('target_col', 0)
+        
+        # Set all cells except target column to empty (0)
         n = grid.shape[0]
-        
-        # Calculate middle column index
-        middle_col = n // 2
-        
-        # Set all cells except middle column to empty (0)
         for r in range(n):
             for c in range(n):
-                if c != middle_col:
+                if c != target_col:
                     output_grid[r, c] = 0
         
         return output_grid

@@ -10,16 +10,16 @@ class Taskf8ff0b80(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
             "Input grids are of size {vars['n']} x {vars['n']}.",
-            "Every grid contains exactly three objects, each differing in size.",
+            "Every grid contains exactly {vars['objects_num']} objects, each differing in size.",
             "Each object is uniformly filled with a randomly selected color.",
             "The objects are completely isolated—none of them touch or overlap with any other object.",
             "The sizes and colors of the objects vary across different grids."
         ]
         
         transformation_reasoning_chain = [
-            "The output grid is of size 3 x 1.",
-            "The output grid is constructed by first identifying the three objects in the input grid and determining the number of cells occupied by each.",
-            "The cells of the output grid are then colored based on object size: the first cell is filled with the color of the largest object, the second with that of the medium-sized object, and the third with that of the smallest."
+            "The output grid is of size {vars['objects_num']} x 1.",
+            "The output grid is constructed by first identifying all the objects in the input grid and determining the number of cells occupied by each.",
+            "The objects are then sorted from largest to smallest. Each row of the output grid is filled with the color of the corresponding object in this sorted order: the top cell represents the largest object, and the bottom cell represents the smallest."
         ]
         
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
@@ -42,10 +42,10 @@ class Taskf8ff0b80(ARCTaskGenerator):
             grid[start_r, start_c] = color
             
             # Grow the object by adding neighboring cells
-            for _ in range(target_size - 1):
+            for _ in range(max(0, target_size - 1)):
                 # Get all possible expansion positions
                 candidates = []
-                for r, c in object_cells:
+                for r, c in list(object_cells):
                     for dr, dc in [(0, 1), (0, -1), (1, 0), (-1, 0)]:
                         nr, nc = r + dr, c + dc
                         if (0 <= nr < n and 0 <= nc < n and 
@@ -83,29 +83,24 @@ class Taskf8ff0b80(ARCTaskGenerator):
     
     def create_input(self, taskvars: Dict[str, Any], gridvars: Dict[str, Any]) -> np.ndarray:
         n = taskvars['n']
+        objects_num = taskvars.get('objects_num', 3)
         grid = np.zeros((n, n), dtype=int)
         
-        # Generate three objects with different target sizes
-        colors = random.sample(range(1, 10), 3)
+        # Generate distinct colors for each object
+        colors = random.sample(range(1, 10), objects_num)
         
-        # Define target sizes based on grid size
+        # Define target sizes based on grid size and number of objects
         total_cells = n * n
-        max_obj_size = min(total_cells // 6, 25)  # Leave room for all objects + spacing
+        max_obj_size = max(1, min(total_cells // (objects_num * 2), 25))
         
-        # Create three different size ranges
-        small_size = random.randint(1, max(2, max_obj_size // 4))
-        medium_size = random.randint(max(3, max_obj_size // 3), max(4, max_obj_size // 2))
-        large_size = random.randint(max(5, max_obj_size // 2), max_obj_size)
+        # Generate unique sizes (sample without replacement when possible)
+        if max_obj_size >= objects_num:
+            sizes = random.sample(range(1, max_obj_size + 1), objects_num)
+        else:
+            # fallback: generate increasing sizes and then shuffle to avoid predictability
+            sizes = list(range(1, objects_num + 1))
         
-        # Ensure sizes are different
-        sizes = [small_size, medium_size, large_size]
-        while len(set(sizes)) != 3:
-            small_size = random.randint(1, max(2, max_obj_size // 4))
-            medium_size = random.randint(max(3, max_obj_size // 3), max(4, max_obj_size // 2))
-            large_size = random.randint(max(5, max_obj_size // 2), max_obj_size)
-            sizes = [small_size, medium_size, large_size]
-        
-        # Shuffle the order of creation
+        # Shuffle the order of creation so sizes/colors are mixed
         creation_order = list(zip(colors, sizes))
         random.shuffle(creation_order)
         
@@ -113,16 +108,21 @@ class Taskf8ff0b80(ARCTaskGenerator):
         for color, target_size in creation_order:
             success = self.create_single_object(grid, color, target_size)
             if not success:
+                # On failure, try a few more times with a reduced size
+                reduced = max(1, target_size // 2)
+                success = self.create_single_object(grid, color, reduced)
+            if not success:
                 raise ValueError(f"Could not create object with color {color} and size {target_size}")
         
         return grid
     
     def transform_input(self, grid: np.ndarray, taskvars: Dict[str, Any]) -> np.ndarray:
+        objects_num = taskvars.get('objects_num', 3)
         # Find all objects in the grid
         objects = find_connected_objects(grid, diagonal_connectivity=False, background=0, monochromatic=True)
         
-        if len(objects) != 3:
-            raise ValueError(f"Expected 3 objects, found {len(objects)}")
+        if len(objects) != objects_num:
+            raise ValueError(f"Expected {objects_num} objects, found {len(objects)}")
         
         # Get size and color for each object
         object_info = []
@@ -134,18 +134,19 @@ class Taskf8ff0b80(ARCTaskGenerator):
         # Sort by size (largest first)
         object_info.sort(key=lambda x: x[0], reverse=True)
         
-        # Create 3x1 output grid
-        output = np.zeros((3, 1), dtype=int)
-        output[0, 0] = object_info[0][1]  # Largest object color
-        output[1, 0] = object_info[1][1]  # Medium object color  
-        output[2, 0] = object_info[2][1]  # Smallest object color
+        # Create output grid of shape objects_num x 1
+        output = np.zeros((objects_num, 1), dtype=int)
+        for idx, (_, color) in enumerate(object_info):
+            output[idx, 0] = color
         
         return output
     
     def create_grids(self) -> Tuple[Dict[str, Any], TrainTestData]:
         # Random grid size between 8 and 30 
         n = random.randint(8, 30)
-        taskvars = {'n': n}
+        # Number of objects per input grid (choose a feasible range)
+        objects_num = random.randint(2, 6)
+        taskvars = {'n': n, 'objects_num': objects_num}
         
         # Generate 3-6 training examples and 1 test example
         num_train = random.randint(3, 6)
@@ -156,8 +157,8 @@ class Taskf8ff0b80(ARCTaskGenerator):
                 # Use retry to ensure we can generate valid grids
                 input_grid = retry(
                     lambda: self.create_input(taskvars, {}),
-                    lambda g: len(find_connected_objects(g, diagonal_connectivity=False, background=0, monochromatic=True)) == 3,
-                    max_attempts=20
+                    lambda g: len(find_connected_objects(g, diagonal_connectivity=False, background=0, monochromatic=True)) == objects_num,
+                    max_attempts=30
                 )
                 output_grid = self.transform_input(input_grid, taskvars)
                 examples.append({'input': input_grid, 'output': output_grid})
@@ -170,4 +171,3 @@ class Taskf8ff0b80(ARCTaskGenerator):
             'train': train_examples,
             'test': test_examples
         }
-

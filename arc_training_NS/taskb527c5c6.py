@@ -24,7 +24,7 @@ class taskb527c5c6(ARCTaskGenerator):
         ]
         
         transformation_reasoning_chain = [
-            "The output grid is constructed by copying the input grid and identifying the two rectangles and their differently colored cells, hereafter referred to as single_cell.”",
+            "The output grid is constructed by copying the input grid and identifying the two rectangles and their differently colored cells, hereafter referred to as single_cell.",
             "If the single_cell of a vertical rectangle lies in the leftmost column, then for all rows in the range [j – (width – 1), j + (width – 1)], the cells in the columns to the left of the rectangle (up to the left boundary of the grid) must be filled as follows: the cells in row j take the same color as the single_cell, while the cells in all other rows of this range take the same color as the overall rectangle.",
             "If the single_cell of a vertical rectangle lies in the rightmost column, then for all rows in the range [j – (width – 1), j + (width – 1)], the cells in the columns to the right of the rectangle (up to the right boundary of the grid) must be filled as follows: the cells in row j take the same color as the single_cell, while the cells in all other rows of this range take the same color as the overall rectangle.",
             "If the single_cell of a horizontal rectangle lies in the bottommost row, then for all columns in the range [i – (width – 1), i + (width – 1)], the cells in the rows below the rectangle (up to the bottom boundary of the grid) must be filled as follows: the cells in column i take the same color as the single_cell, while the cells in all other columns of this range take the same color as the overall rectangle.",
@@ -61,31 +61,17 @@ class taskb527c5c6(ARCTaskGenerator):
         return taskvars, {'train': train_examples, 'test': test_examples}
 
     def _get_rectangle_params(self, size: int) -> dict:
-        """Get appropriate rectangle parameters based on grid size."""
-        if size <= 10:
-            # Small grids: rectangles can be width 2, length 5-6
-            return {
-                'width_range': (2, 2),
-                'max_length': min(6, size - 4)
-            }
-        elif size <= 15:
-            # Medium grids: rectangles can be width 2-3, length 5-8
-            return {
-                'width_range': (2, 3),
-                'max_length': min(8, size // 2)
-            }
-        elif size <= 20:
-            # Medium-large grids: rectangles can be width 2-3, length 5-10
-            return {
-                'width_range': (2, 3),
-                'max_length': min(10, size // 2)
-            }
-        else:
-            # Large grids: rectangles can be width 2-4, length 5-12
-            return {
-                'width_range': (2, 4),
-                'max_length': min(12, size // 2)
-            }
+        """Get appropriate rectangle parameters based on grid size with maximum variation."""
+        # Allow full range of widths from 2 to a reasonable maximum
+        max_width = min(6, size // 4)  # Cap at 6 or quarter of grid size
+        
+        # Allow full range of lengths up to a significant portion of the grid
+        max_length = size - 4  # Leave some margin for positioning
+        
+        return {
+            'width_range': (2, max(2, max_width)),  # At least (2, 2)
+            'max_length': max(5, max_length)  # At least 5
+        }
 
     def create_input(self, taskvars: Dict[str, Any], gridvars: Dict[str, Any]) -> np.ndarray:
         def generate_valid_grid():
@@ -109,19 +95,19 @@ class taskb527c5c6(ARCTaskGenerator):
             # Get appropriate rectangle parameters for this grid size
             rect_params = self._get_rectangle_params(size)
             
-            # Generate vertical rectangle
+            # Generate vertical rectangle with full width variation
             v_width = random.randint(*rect_params['width_range'])
             min_v_length = 2 * v_width + 1  # Constraint: length ≥ 2 × width + 1
-            max_v_length = rect_params['max_length']
+            max_v_length = min(rect_params['max_length'], size - 4)
             
             if min_v_length > max_v_length:
                 return None
-                
+            
+            # Allow full length variation
             v_length = random.randint(min_v_length, max_v_length)
             
             # Calculate minimum margins needed for constraints
-            # We need space for range [j - (width-1), j + (width-1)] plus some buffer
-            min_margin = max(v_width + 1, 2)  # At least width+1 or 2
+            min_margin = max(v_width + 1, 2)
             
             # Position vertical rectangle with adequate margins
             min_row = min_margin
@@ -176,14 +162,15 @@ class taskb527c5c6(ARCTaskGenerator):
                     for c in range(v_start_col + v_width, size):
                         v_constraint_region.add((r, c))
             
-            # Generate horizontal rectangle
+            # Generate horizontal rectangle with independent width variation
             h_width = random.randint(*rect_params['width_range'])
             min_h_length = 2 * h_width + 1
-            max_h_length = rect_params['max_length']
+            max_h_length = min(rect_params['max_length'], size - 4)
             
             if min_h_length > max_h_length:
                 return None
-                
+            
+            # Allow full length variation independently
             h_length = random.randint(min_h_length, max_h_length)
             
             # Try to place horizontal rectangle
@@ -418,4 +405,3 @@ class taskb527c5c6(ARCTaskGenerator):
                 })
         
         return rectangles_info
-
