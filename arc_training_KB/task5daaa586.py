@@ -30,8 +30,8 @@ class Task5daaa586Generator(ARCTaskGenerator):
     def create_grids(self) -> Tuple[Dict[str, Any], TrainTestData]:
         # Initialize task variables
         taskvars = {
-            'rows': random.randint(10, 20),
-            'cols': random.randint(10, 20)
+            'rows': random.randint(10, 30),
+            'cols': random.randint(10, 30)
         }
         
         # Generate 3-6 train examples

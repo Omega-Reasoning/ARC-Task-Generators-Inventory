@@ -7,18 +7,17 @@ from transformation_library import find_connected_objects
 class Task60b61512Generator(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
-            "Input grids are of size {vars['grid_size']} x {vars['grid_size']}.",
+            "Input grids vary in size.",
             "They contain several {color('object_color')} colored objects along with empty (0) cells.",
             "Each {color('object_color')} object is made of 8-way connected cells and has a distinct shape.",
-            "Every object is confined within a 3x3 subgrid and is completely surrounded by empty (0) cells.",
-            "Each row and column within each 3x3 subgrid must contain at least one {color('object_color')} cell."
+            "Objects are separated from one another by empty (0) cells."
         ]
         
         transformation_reasoning_chain = [
-            "The output grid is constructed by copying the input grid and identifying all {color('object_color')} colored objects (there may be a different number in each grid).",
-            "Each object is confined within its own 3x3 subgrid.",
-            "Once all objects and their respective 3x3 subgrids are identified, fill all empty (0) cells within the 3x3 subgrid of each object using {color('fill_color')} color."
-        ]
+           "The output grid is constructed by copying the input grid and identifying all {color('object_color')} colored objects, which may differ in number across grids.",
+    "For each object, determine its tight axis-aligned bounding box.",
+    "Fill all empty (0) cells inside the bounding box of each object using {color('fill_color')} color."
+]
         
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
     
@@ -47,11 +46,16 @@ class Task60b61512Generator(ARCTaskGenerator):
         grid = np.zeros((grid_size, grid_size), dtype=int)
         # Generate a valid object using create_object and making sure it's 8-way connected
         def generate_valid_object():
-            # Create an object with specified color
-            obj = np.zeros((3, 3), dtype=int)
+            # Create an object with a random rectangular bounding box (not limited to 3x3)
+            # Height and width chosen so object is reasonably small but variable
+            max_dim = max(2, min(8, grid_size // 3))
+            h = random.randint(2, max_dim)
+            w = random.randint(2, max_dim)
 
-            # Random starting point
-            r, c = random.randint(0, 2), random.randint(0, 2)
+            obj = np.zeros((h, w), dtype=int)
+
+            # Random starting point inside object's local coords
+            r, c = random.randint(0, h - 1), random.randint(0, w - 1)
             obj[r, c] = object_color
 
             # List of cells we've filled and their neighbors
@@ -64,11 +68,11 @@ class Task60b61512Generator(ARCTaskGenerator):
                     if dr == 0 and dc == 0:
                         continue
                     nr, nc = r + dr, c + dc
-                    if 0 <= nr < 3 and 0 <= nc < 3:
+                    if 0 <= nr < h and 0 <= nc < w:
                         candidates.append((nr, nc))
 
             # Add 2-6 more cells to create a connected object
-            num_to_add = random.randint(2, 6)
+            num_to_add = random.randint(2, min(6, h * w - 1))
             for _ in range(num_to_add):
                 if not candidates:
                     break
@@ -88,20 +92,34 @@ class Task60b61512Generator(ARCTaskGenerator):
                         if dr == 0 and dc == 0:
                             continue
                         nnr, nnc = nr + dr, nc + dc
-                        if 0 <= nnr < 3 and 0 <= nnc < 3 and obj[nnr, nnc] == 0 and (nnr, nnc) not in candidates:
+                        if 0 <= nnr < h and 0 <= nnc < w and obj[nnr, nnc] == 0 and (nnr, nnc) not in candidates:
                             candidates.append((nnr, nnc))
 
             # Ensure each row and column has at least one colored cell
-            for i in range(3):
+            for i in range(h):
                 if np.all(obj[i, :] == 0):  # Empty row
-                    obj[i, random.randint(0, 2)] = object_color
-                if np.all(obj[:, i] == 0):  # Empty column
-                    obj[random.randint(0, 2), i] = object_color
+                    obj[i, random.randint(0, w - 1)] = object_color
+            for j in range(w):
+                if np.all(obj[:, j] == 0):  # Empty column
+                    obj[random.randint(0, h - 1), j] = object_color
 
             # Check if it's 8-way connected
             from scipy.ndimage import label
             binary = np.where(obj != 0, 1, 0)
             labeled, num = label(binary, structure=np.ones((3, 3)))
+
+            # Reject shapes that are perfect filled rectangles (including squares).
+            # Compute tight bounding box of the filled cells and ensure it's not completely filled.
+            if num == 1:
+                ys, xs = np.where(binary == 1)
+                if ys.size == 0:
+                    return None
+                min_r, max_r = ys.min(), ys.max()
+                min_c, max_c = xs.min(), xs.max()
+                sub = binary[min_r:max_r+1, min_c:max_c+1]
+                if np.all(sub == 1):
+                    # object is a perfect rectangle/square — reject
+                    return None
 
             return obj if num == 1 else None
 
@@ -147,23 +165,28 @@ class Task60b61512Generator(ARCTaskGenerator):
             objects.append(obj)
 
         # Place objects with enough separation
-        min_distance = 3  # minimum separation between subgrid origins
+        # minimum separation between object origins (adapt to object size later)
+        base_min_distance = 3
         placed_positions = []
 
         for obj in objects:
+            h, w = obj.shape
+            min_distance = max(base_min_distance, max(h, w))
+
             placed = False
             attempts = 0
             while not placed and attempts < 300:
-                r = random.randint(1, grid_size - 5)
-                c = random.randint(1, grid_size - 5)
+                # pick a top-left start so the object fits
+                r = random.randint(0, grid_size - h)
+                c = random.randint(0, grid_size - w)
 
                 # Ensure region is empty
-                region_empty = np.all(grid[r:r+3, c:c+3] == 0)
+                region_empty = np.all(grid[r:r+h, c:c+w] == 0)
                 # Ensure distance from previously placed objects
                 far_enough = all(max(abs(r - pr), abs(c - pc)) > min_distance for pr, pc in placed_positions)
 
                 if region_empty and far_enough:
-                    grid[r:r+3, c:c+3] = obj
+                    grid[r:r+h, c:c+w] = obj
                     placed_positions.append((r, c))
                     placed = True
 
@@ -172,12 +195,12 @@ class Task60b61512Generator(ARCTaskGenerator):
             if not placed:
                 # Try a systematic scan for a fitting location
                 found = False
-                for rr in range(1, grid_size - 4):
+                for rr in range(0, grid_size - h + 1):
                     if found:
                         break
-                    for cc in range(1, grid_size - 4):
-                        if np.all(grid[rr:rr+3, cc:cc+3] == 0) and all(max(abs(rr - pr), abs(cc - pc)) > min_distance for pr, pc in placed_positions):
-                            grid[rr:rr+3, cc:cc+3] = obj
+                    for cc in range(0, grid_size - w + 1):
+                        if np.all(grid[rr:rr+h, cc:cc+w] == 0) and all(max(abs(rr - pr), abs(cc - pc)) > min_distance for pr, pc in placed_positions):
+                            grid[rr:rr+h, cc:cc+w] = obj
                             placed_positions.append((rr, cc))
                             found = True
                             break
@@ -187,12 +210,12 @@ class Task60b61512Generator(ARCTaskGenerator):
                     for rr in range(1, grid_size - 4):
                         if found:
                             break
-                        for cc in range(1, grid_size - 4):
-                            if np.all(grid[rr:rr+3, cc:cc+3] == 0):
-                                grid[rr:rr+3, cc:cc+3] = obj
-                                placed_positions.append((rr, cc))
-                                found = True
-                                break
+                            for cc in range(0, grid_size - w + 1):
+                                if np.all(grid[rr:rr+h, cc:cc+w] == 0):
+                                    grid[rr:rr+h, cc:cc+w] = obj
+                                    placed_positions.append((rr, cc))
+                                    found = True
+                                    break
 
         return grid
     

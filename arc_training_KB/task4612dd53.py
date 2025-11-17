@@ -8,12 +8,12 @@ class Task4612dd53Generator(ARCTaskGenerator):
     def __init__(self):
         # 1) Input reasoning chain
         input_reasoning_chain = [
-            "Input grids are of size {vars['rows']}x{vars['cols']}.",
+            "Input grids have {vars['rows']} rows; the number of columns varies between examples.",
             "They contain {color('object_color')} and empty (0) cells.",
             "To construct the input grids, first create a one-cell-wide {color('object_color')} rectangular frame and sometimes add a horizontal or vertical line that extends from one edge to the other.",
             "The vertical or horizontal lines should always be separated from the rectangular frame by at least one empty column or row, respectively.",
             "Next, create holes by emptying (0) several {color('object_color')} cells from the structure, ensuring that it still maintains the appearance of a frame.",
-            "The rectangular frame always covers more than two rows and columns but is always smaller than {vars['rows']-1}x{vars['cols']-1} and its position varys across examples."
+            "The rectangular frame always covers more than three rows and more than three columns, and its position varies across examples."
         ]
 
         # 2) Transformation reasoning chain
@@ -29,11 +29,12 @@ class Task4612dd53Generator(ARCTaskGenerator):
     def create_grids(self) -> Tuple[Dict[str, Any], TrainTestData]:
         """
         Create 3-5 training examples and 2 test examples with varying frame sizes.
+        Rows are fixed across all examples for the task; columns vary per example.
         One test grid always has a vertical or horizontal line inside the frame.
         """
         # Basic task-wide random variables
+        # Number of rows is fixed for all examples in this task; columns will vary per example
         rows = random.randint(8, 30)
-        cols = random.randint(8, 30)
 
         # object_color and fill_color must be different
         object_color = random.randint(1, 9)
@@ -42,17 +43,19 @@ class Task4612dd53Generator(ARCTaskGenerator):
 
         taskvars = {
             'rows': rows,
-            'cols': cols,
             'object_color': object_color,
             'fill_color': fill_color,
         }
 
         # Make each example with its own unique frame
         def make_example(example_type):
+            # Choose the number of columns for this specific example (columns vary across examples)
+            cols_local = random.randint(8, 30)
             # Create frame dimensions for this specific example
-            # Frame size constraints - ensuring minimum 3 rows/cols, maximum rows-2/cols-2
-            frame_height = random.randint(3, rows - 2)
-            frame_width = random.randint(3, cols - 2)
+            # Frame size constraints - ensure the frame always occupies more than three rows and more than three columns
+            # (i.e., minimum size is 4). Ensure it fits within grid bounds (rows fixed, cols vary per-example).
+            frame_height = random.randint(4, rows - 2)
+            frame_width = random.randint(4, cols_local - 2)
             
             # For examples with lines, ensure frame is big enough
             if example_type in ["frame_hline", "frame_vline"]:
@@ -63,11 +66,11 @@ class Task4612dd53Generator(ARCTaskGenerator):
                 
                 # Ensure we don't exceed grid boundaries
                 frame_height = min(frame_height, rows - 2)
-                frame_width = min(frame_width, cols - 2)
+                frame_width = min(frame_width, cols_local - 2)
             
-            # Calculate frame position (centered)
+            # Calculate frame position (centered) within the per-example grid
             top = (rows - frame_height) // 2
-            left = (cols - frame_width) // 2
+            left = (cols_local - frame_width) // 2
             bottom = top + frame_height - 1
             right = left + frame_width - 1
             
@@ -79,9 +82,15 @@ class Task4612dd53Generator(ARCTaskGenerator):
                 'bottom': bottom,
                 'right': right
             }
-            
-            input_grid = self.create_input(taskvars, gridvars)
-            output_grid = self.transform_input(input_grid, taskvars)
+            # Pass per-example cols through a copy of taskvars so create_input/transform_input
+            # see the correct grid shape for this example.
+            taskvars_local = dict(taskvars)
+            taskvars_local['cols'] = cols_local
+
+            gridvars['cols'] = cols_local
+
+            input_grid = self.create_input(taskvars_local, gridvars)
+            output_grid = self.transform_input(input_grid, taskvars_local)
             return GridPair(input=input_grid, output=output_grid)
 
         # Required examples for training

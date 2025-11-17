@@ -7,7 +7,7 @@ from transformation_library import find_connected_objects, GridObject, GridObjec
 class Task7468f01aGenerator(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
-            "Input grids are of size {vars['rows']}x{vars['cols']}.",
+            "Input grids have a fixed number of columns {vars['cols']}; the number of rows varies across examples.",
             "They contain a colored rectangular object, with all remaining cells being empty (0).",
             "The rectangular object is located within the interior of the grid and never touches the grid border.",
             "The rectangular object contains one or more small colored objects inside it.",
@@ -26,28 +26,30 @@ class Task7468f01aGenerator(ARCTaskGenerator):
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
 
     def create_grids(self) -> tuple[dict[str, any], TrainTestData]:
-        # Generate random grid dimensions between 10 and 30
-        rows = random.randint(10, 30)
+        # Choose a fixed number of columns for all examples; rows will vary per-example
         cols = random.randint(10, 30)
-        
-        taskvars = {'rows': rows, 'cols': cols}
+        taskvars = {'cols': cols}
         
         # Create train and test data
         train_examples = []
         
         # Ensure we have at least one example with multiple inner objects
-        has_multiple_inner_objects = False
+        # track counts used in training so test can be different
+        training_counts = set()
         
         for i in range(3):  # 3 training examples
-            # For the second example, ensure multiple inner objects
+            # For the second example, bias toward multiple inner objects
             if i == 1:
-                gridvars = {'num_inner_objects': random.randint(2, 4)}
-                has_multiple_inner_objects = True
+                num_inners = random.randint(2, 4)
             else:
-                # First and third examples can have any number
-                gridvars = {'num_inner_objects': random.randint(1, 3)}
-                if gridvars['num_inner_objects'] >= 2:
-                    has_multiple_inner_objects = True
+                # First and third examples can have any number 1..3
+                num_inners = random.randint(1, 3)
+
+            # pick rows for this example (rows vary across examples)
+            rows_i = random.randint(10, 30)
+
+            gridvars = {'rows': rows_i, 'num_inner_objects': num_inners}
+            training_counts.add(num_inners)
             
             input_grid = self.create_input(taskvars, gridvars)
             output_grid = self.transform_input(input_grid, taskvars)
@@ -57,10 +59,56 @@ class Task7468f01aGenerator(ARCTaskGenerator):
                 'output': output_grid
             })
         
-        # If we still don't have an example with multiple inner objects, make the test case have multiple
-        test_gridvars = {'num_inner_objects': random.randint(2, 4) if has_multiple_inner_objects else random.randint(1, 3)}
-        
-        test_input = self.create_input(taskvars, test_gridvars)
+        # Compute actual inner-object counts for training examples (creation can fail to place requested number)
+        def _count_inner_objects(grid: np.ndarray) -> int:
+            objs = find_connected_objects(grid, diagonal_connectivity=False, background=0)
+            if len(objs) == 0:
+                return 0
+            rectangle = objs.sort_by_size(reverse=True)[0]
+            box = rectangle.bounding_box
+            rect_region = grid[box[0], box[1]]
+            vals, counts = np.unique(rect_region, return_counts=True)
+            nz = [(v, c) for v, c in zip(vals, counts) if v != 0]
+            if not nz:
+                return 0
+            outer_color = max(nz, key=lambda x: x[1])[0]
+            mask = (rect_region != outer_color).astype(int)
+            inner_objs = find_connected_objects(mask, diagonal_connectivity=False, background=0)
+            return len(inner_objs)
+
+        actual_training_counts = set()
+        for ex in train_examples:
+            actual_training_counts.add(_count_inner_objects(ex['input']))
+
+        # Choose a test count different from actual training counts
+        possible_nums = [1, 2, 3, 4]
+        test_num = None
+        for n in possible_nums:
+            if n not in actual_training_counts:
+                test_num = n
+                break
+        if test_num is None:
+            # fallback to a number just beyond possible range
+            test_num = max(possible_nums) + 1
+
+        # Generate a test input that actually contains `test_num` inner objects.
+        test_rows = random.randint(10, 30)
+        test_gridvars = {'rows': test_rows, 'num_inner_objects': test_num}
+        max_test_attempts = 30
+        for attempt in range(max_test_attempts):
+            test_input = self.create_input(taskvars, test_gridvars)
+            actual = _count_inner_objects(test_input)
+            if actual == test_num:
+                break
+            # if not matched, try again; after many failures, pick a different available number
+            remaining = [n for n in possible_nums if n not in actual_training_counts]
+            if attempt == max_test_attempts - 1 and remaining:
+                test_num = remaining[0]
+                test_gridvars = {'num_inner_objects': test_num}
+        else:
+            # if all attempts failed, accept the last generated grid
+            pass
+
         test_output = self.transform_input(test_input, taskvars)
         
         return taskvars, {
@@ -72,7 +120,9 @@ class Task7468f01aGenerator(ARCTaskGenerator):
         }
 
     def create_input(self, taskvars: dict[str, any], gridvars: dict[str, any]) -> np.ndarray:
-        rows, cols = taskvars['rows'], taskvars['cols']
+        # rows vary per-grid and are passed via gridvars; columns are fixed in taskvars
+        rows = gridvars.get('rows', random.randint(10, 30))
+        cols = taskvars['cols']
         
         # Create empty grid
         grid = np.zeros((rows, cols), dtype=int)
@@ -113,7 +163,8 @@ class Task7468f01aGenerator(ARCTaskGenerator):
             inner_width = random.randint(1, max(1, min(rect_width // 3, 3)))
             
             # Try to place inner object without overlapping
-            max_attempts = 20
+            # increase attempts to reduce chance of failing to place requested number
+            max_attempts = 200
             for _ in range(max_attempts):
                 # Place within the rectangle with padding
                 inner_row = random.randint(row_start + 1, row_start + rect_height - inner_height - 1)
@@ -123,8 +174,20 @@ class Task7468f01aGenerator(ARCTaskGenerator):
                 overlap = False
                 for pos in inner_positions:
                     pos_row, pos_col, pos_height, pos_width = pos
-                    if (inner_row < pos_row + pos_height and inner_row + inner_height > pos_row and
-                        inner_col < pos_col + pos_width and inner_col + inner_width > pos_col):
+                    # enforce at least one-cell separation (no touching orthogonally or diagonally)
+                    # expanded area of the existing object by 1 cell on all sides
+                    exp_top = pos_row - 1
+                    exp_bottom = pos_row + pos_height
+                    exp_left = pos_col - 1
+                    exp_right = pos_col + pos_width
+
+                    cand_top = inner_row
+                    cand_bottom = inner_row + inner_height - 1
+                    cand_left = inner_col
+                    cand_right = inner_col + inner_width - 1
+
+                    # if candidate intersects expanded existing box, it's too close
+                    if not (cand_bottom < exp_top or cand_top > exp_bottom or cand_right < exp_left or cand_left > exp_right):
                         overlap = True
                         break
                 

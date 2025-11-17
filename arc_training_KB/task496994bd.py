@@ -7,139 +7,137 @@ class Task496994bdGenerator(ARCTaskGenerator):
     def __init__(self):
         # Input reasoning chain from requirements
         input_reasoning_chain = [
-            "Input grids are of size {vars['rows']}x{vars['cols']}.",
-            "They contain two or three completely filled rows, with the remaining cells being empty (0).",
-            "Each row must be completely filled with the same colored cells, with two distinct colors used in each grid, and the colors varying across grids.",
-            "The colored rows should occupy the first two or three rows of the input grids as required."
+            "Input grids are of different sizes.",
+            "Each input contains a small number of completely filled horizontal stripes occupying the top rows; the rest of the grid is empty (0).",
+            "The number of colored stripes varies between 2 and 4 across grids, and each stripe is filled with a single color.",
+            "Each grid uses between 2 and 4 distinct colors (colors vary across grids)."
         ]
         
         # Transformation reasoning chain from requirements
         transformation_reasoning_chain = [
-            "The output grids are constructed by copying the input grids and identifying the colored rows.",
-            "The identified colored rows are then duplicated and placed at the bottom of the grid.",
-            "When placing the rows at the bottom, their order is swapped, meaning the row that was on top in the input grid now appears at the bottom, and the row that was at the bottom now appears on top."
+            "The output grids are constructed by copying the input grids and identifying the colored top stripes.",
+            "The identified colored stripes are duplicated and appended at the bottom of the grid.",
+            "When appending the duplicated stripes the order is reversed (the topmost stripe appears at the very bottom)."
         ]
         
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
     
     def create_grids(self) -> tuple[dict[str, any], TrainTestData]:
-        # Define rows and cols as specified in constraints
-        rows = random.randint(10, 30)
-        cols = random.randint(10, 30)
-        
-        # Define task variables
-        taskvars = {
-            'rows': rows,
-            'cols': cols,
-        }
+        # Grid sizes will vary across examples; do not set rows/cols in taskvars
+        taskvars = {}
         
         # Generate 3-4 train examples and 1 test example
         num_train_examples = random.randint(3, 4)
         train_examples = []
         
         # Keep track of color pairs used to ensure variety
-        used_color_pairs = set()
+        used_color_sets = set()
         
         for _ in range(num_train_examples):
-            # Select two different colors for each example
-            objectcol1 = random.randint(1, 9)
-            objectcol2 = random.randint(1, 9)
-            
-            # Make sure colors are different from each other and the pair wasn't used before
-            while objectcol2 == objectcol1 or (objectcol1, objectcol2) in used_color_pairs:
-                objectcol1 = random.randint(1, 9)
-                objectcol2 = random.randint(1, 9)
-                if objectcol2 == objectcol1:
-                    objectcol2 = (objectcol2 % 9) + 1  # Ensure different colors
-            
-            used_color_pairs.add((objectcol1, objectcol2))
-            
-            # Create input grid with specified colors
+            # For each example choose rows/cols independently so grid size varies
+            rows = random.randint(6, 30)
+            cols = random.randint(6, 30)
+
+            # Number of colored stripes (top rows) varies between 2 and 4
+            num_stripes = random.randint(2, 4)
+
+            # Number of distinct colors used in this grid varies between 2 and 4
+            num_colors = random.randint(2, 4)
+
+            # Pick distinct colors (1-9)
+            colors = random.sample(list(range(1, 10)), num_colors)
+
+            # Ensure color set hasn't been used before (variety across grids)
+            colors_key = tuple(sorted(colors))
+            # try a few times to get a different color set if collision occurs
+            attempts = 0
+            while colors_key in used_color_sets and attempts < 10:
+                colors = random.sample(list(range(1, 10)), num_colors)
+                colors_key = tuple(sorted(colors))
+                attempts += 1
+            used_color_sets.add(colors_key)
+
+            # Prepare gridvars including per-grid size and color info
             gridvars = {
-                'objectcol1': objectcol1,
-                'objectcol2': objectcol2,
+                'rows': rows,
+                'cols': cols,
+                'num_stripes': num_stripes,
+                'colors': colors,
             }
             
             input_grid = self.create_input(taskvars, gridvars)
             output_grid = self.transform_input(input_grid, taskvars)
             train_examples.append({'input': input_grid, 'output': output_grid})
         
-        # Create test example with different colors from all training examples
-        test_objectcol1 = random.randint(1, 9)
-        test_objectcol2 = random.randint(1, 9)
-        while test_objectcol2 == test_objectcol1 or (test_objectcol1, test_objectcol2) in used_color_pairs:
-            test_objectcol1 = random.randint(1, 9)
-            test_objectcol2 = random.randint(1, 9)
-            if test_objectcol2 == test_objectcol1:
-                test_objectcol2 = (test_objectcol2 % 9) + 1
-        
+        # Create test example with a color set different from training examples
+        test_rows = random.randint(6, 30)
+        test_cols = random.randint(6, 30)
+        test_num_stripes = random.randint(2, 4)
+        test_num_colors = random.randint(2, 4)
+        test_colors = random.sample(list(range(1, 10)), test_num_colors)
+        attempts = 0
+        while tuple(sorted(test_colors)) in used_color_sets and attempts < 20:
+            test_colors = random.sample(list(range(1, 10)), test_num_colors)
+            attempts += 1
+
         test_gridvars = {
-            'objectcol1': test_objectcol1,
-            'objectcol2': test_objectcol2,
+            'rows': test_rows,
+            'cols': test_cols,
+            'num_stripes': test_num_stripes,
+            'colors': test_colors,
         }
-        
+
         test_input = self.create_input(taskvars, test_gridvars)
-        test_output = self.transform_input(test_input, taskvars)
+        test_output = self.transform_input(test_input)
         test_examples = [{'input': test_input, 'output': test_output}]
         
         return taskvars, {'train': train_examples, 'test': test_examples}
     
     def create_input(self, taskvars: dict[str, any], gridvars: dict[str, any]) -> np.ndarray:
-        rows = taskvars['rows']
-        cols = taskvars['cols']
-        objectcol1 = gridvars['objectcol1']
-        objectcol2 = gridvars['objectcol2']
-        
+        # Read per-grid size and color configuration from gridvars
+        rows = gridvars.get('rows', random.randint(6, 30))
+        cols = gridvars.get('cols', random.randint(6, 30))
+        num_stripes = gridvars.get('num_stripes', random.randint(2, 4))
+        colors = gridvars.get('colors', random.sample(list(range(1, 10)), random.randint(2, 4)))
+
         # Create empty grid
         grid = np.zeros((rows, cols), dtype=int)
-        
-        # Decide how many rows to color (2 or 3)
-        num_colored_rows = random.choice([2, 3]) if rows >= 6 else 2  # Ensure there's enough room
-        
-        if num_colored_rows == 2:
-            # Simple case: two different colored rows
-            grid[0, :] = objectcol1
-            grid[1, :] = objectcol2
-        else:  # 3 rows
-            # Choose one of the valid patterns for three rows where same-colored rows are adjacent
-            pattern = random.choice([
-                # Pattern 1: [A, A, B] - First two rows same color
-                [objectcol1, objectcol1, objectcol2],
-                
-                # Pattern 2: [A, B, B] - Last two rows same color
-                [objectcol1, objectcol2, objectcol2]
-                
-                # Pattern [A, B, A] is NOT valid as it places the different colored row between same colored rows
-            ])
-            
-            # Apply the pattern
-            for i in range(3):
-                grid[i, :] = pattern[i]
+
+        # Build a sequence of colors to assign to the top stripes.
+        # Ensure each color in `colors` is used at least once when num_stripes >= len(colors)
+        stripe_colors = []
+        stripe_colors.extend(colors)
+        remaining = num_stripes - len(stripe_colors)
+        if remaining > 0:
+            stripe_colors.extend(random.choices(colors, k=remaining))
+        # If there are more colors than stripes, sample a subset
+        if len(stripe_colors) > num_stripes:
+            stripe_colors = random.sample(stripe_colors, num_stripes)
+
+        # If the list is shorter than required (shouldn't be), pad with first color
+        while len(stripe_colors) < num_stripes:
+            stripe_colors.append(colors[0])
+
+        # Apply the stripe colors to the top rows
+        for i in range(num_stripes):
+            grid[i, :] = stripe_colors[i]
         
         return grid
     
-    def transform_input(self, grid: np.ndarray, taskvars: dict[str, any]) -> np.ndarray:
-        rows = taskvars['rows']
-        
+    def transform_input(self, grid: np.ndarray, taskvars: dict[str, any] = None) -> np.ndarray:
+        # Work from the grid itself to determine rows; taskvars is unused for size
+        rows = grid.shape[0]
+
         # Create a copy of the input grid to modify
         output_grid = grid.copy()
-        
+
         # Find the rows that contain colored cells (non-zero values)
-        colored_rows = []
-        for r in range(rows):
-            if np.any(grid[r] != 0):  # Check if row contains any non-zero (colored) values
-                colored_rows.append(r)
-                
-            # We only need to check the first few rows as per the requirements
-            if r > 4:  # Practical limit to check for rows with colors
-                break
-        
+        colored_rows = [r for r in range(rows) if np.any(grid[r] != 0)]
+
         # Duplicate the colored rows in reverse order at the bottom of the grid
-        # Position the duplicated rows at the bottom, maintaining enough space
         bottom_position = rows - len(colored_rows)
-        
         for i, row_idx in enumerate(reversed(colored_rows)):
             output_grid[bottom_position + i] = grid[row_idx].copy()
-        
+
         return output_grid
 
