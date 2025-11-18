@@ -27,7 +27,7 @@ class Task63613498Generator(ARCTaskGenerator):
     
     def create_grids(self):
         # Define task variables
-        grid_size = random.randint(9, 20)  # Keeping slightly smaller than max for performance
+        grid_size = random.randint(9, 30)  # Keeping slightly smaller than max for performance
         
         # Now new_color and frame_color are the same
         frame_color = random.randint(1, 9)
@@ -42,22 +42,49 @@ class Task63613498Generator(ARCTaskGenerator):
         # Create 4 training and 1 test example
         num_train = 4
         num_test = 1
-        
+
+        # Choose a count of colored objects outside the 3x3 region for train (2..6)
+        train_outside_count = random.randint(2, 6)
+        # Choose a different count for test within the same bounds
+        possible_test_counts = [c for c in range(2, 7) if c != train_outside_count]
+        test_outside_count = random.choice(possible_test_counts)
+
+        # Helper to count colored objects outside the 3x3 region (ignoring frame_color)
+        def count_outside_objects(grid):
+            objs = find_connected_objects(grid, diagonal_connectivity=False)
+            count = 0
+            for obj in objs:
+                # Ignore any object that is the frame (has frame_color)
+                if taskvars['frame_color'] in obj.colors:
+                    continue
+
+                # If the object is entirely within top-left 3x3, skip
+                if all(r < 3 and c < 3 for r, c, _ in obj.cells):
+                    continue
+
+                count += 1
+            return count
+
         train_examples = []
         for _ in range(num_train):
-            input_grid = self.create_input(taskvars, {})
+            # Generate grids until we get exactly train_outside_count objects outside the 3x3
+            input_grid = retry(lambda: self.create_input(taskvars, {}, desired_outside_count=train_outside_count),
+                               lambda g: count_outside_objects(g) == train_outside_count,
+                               max_attempts=200)
             output_grid = self.transform_input(input_grid, taskvars)
             train_examples.append({'input': input_grid, 'output': output_grid})
-        
+
         test_examples = []
         for _ in range(num_test):
-            input_grid = self.create_input(taskvars, {})
+            input_grid = retry(lambda: self.create_input(taskvars, {}, desired_outside_count=test_outside_count),
+                               lambda g: count_outside_objects(g) == test_outside_count,
+                               max_attempts=200)
             output_grid = self.transform_input(input_grid, taskvars)
             test_examples.append({'input': input_grid, 'output': output_grid})
         
         return taskvars, {'train': train_examples, 'test': test_examples}
     
-    def create_input(self, taskvars, gridvars):
+    def create_input(self, taskvars, gridvars, desired_outside_count=None):
         grid_size = taskvars['grid_size']
         frame_color = taskvars['frame_color']
         
@@ -121,9 +148,12 @@ class Task63613498Generator(ARCTaskGenerator):
         # Create a list of all available colors (except frame_color and corner_obj_color)
         available_colors = [c for c in range(1, 10) if c != frame_color and c != corner_obj_color]
         
-        # Calculate how many objects to add based on grid size
-        # Let's use a formula that scales with grid size but limit it to ensure we have enough space
-        num_objects = max(4, min(grid_size // 3, (grid_size * grid_size) // 30))
+        # Calculate how many objects to add based on grid size or use the desired value
+        if desired_outside_count is not None:
+            num_objects = desired_outside_count
+        else:
+            # Let's use a formula that scales with grid size but limit it to ensure we have enough space
+            num_objects = max(4, min(grid_size // 3, (grid_size * grid_size) // 30))
         
         # We'll need one object with the same shape as the corner object
         # Let's pick a random color for it

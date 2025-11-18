@@ -62,8 +62,8 @@ class Task6455b5f5Generator(ARCTaskGenerator):
     
     def create_input(self, taskvars, gridvars):
         # Determine grid size (randomized but reasonable)
-        height = random.randint(9, 20)
-        width = random.randint(9, 20)
+        height = random.randint(9, 30)
+        width = random.randint(9, 30)
         
         # Initialize empty grid
         grid = np.zeros((height, width), dtype=int)

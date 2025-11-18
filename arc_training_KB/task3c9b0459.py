@@ -10,7 +10,7 @@ class Task3c9b0459Generator(ARCTaskGenerator):
         input_reasoning_chain = [
             "Input grids are of size {vars['grid_size']}x{vars['grid_size']}.",
             "They contain a completely filled grid with 8-way connected colored objects, with one object always being L-shaped in the form [[L, 0], [L, 0], [L, L]].",
-            "Each input grid contains exactly three different colors, which vary across examples.",
+            "Each input grid contains between two and four different colors, which vary across examples.",
             "The L-shaped object can vary in size and orientation, including rotations.",
             "Each input grid contains multiple colored objects with different shapes, though some objects may share the same color."
         ]
@@ -27,16 +27,17 @@ class Task3c9b0459Generator(ARCTaskGenerator):
         
     def create_grids(self) -> Tuple[Dict[str, Any], TrainTestData]:
         # Initialize task variables
-        taskvars = {"grid_size": random.randint(5, 10)}
+        taskvars = {"grid_size": random.randint(5, 30)}
         
         # Generate 3-5 train examples
         num_train_examples = random.randint(3, 5)
         train_examples = []
         
         for _ in range(num_train_examples):
-            # Always use exactly 3 colors for each training example
+            # Use between 2 and 4 colors for each training example
             # Randomly select colors (1-9) without replacement
-            colors = random.sample(range(1, 10), 3)
+            num_colors = random.randint(2, 4)
+            colors = random.sample(range(1, 10), num_colors)
             
             # Create grid variables specific to this training example
             gridvars = {"colors": colors}
@@ -50,14 +51,14 @@ class Task3c9b0459Generator(ARCTaskGenerator):
             })
         
         # Create test example
-        # For test example, allow 2-3 colors to add variety
-        num_colors_test = random.randint(2, 3)
+        # For test example, allow 2-4 colors to add variety
+        num_colors_test = random.randint(2, 4)
         test_colors = random.sample(range(1, 10), num_colors_test)
         test_gridvars = {"colors": test_colors}
-        
+
         test_input = self.create_input(taskvars, test_gridvars)
         test_output = self.transform_input(test_input, taskvars)
-        
+
         test_examples = [{
             'input': test_input,
             'output': test_output
@@ -72,9 +73,13 @@ class Task3c9b0459Generator(ARCTaskGenerator):
         size = taskvars['grid_size']
         colors = gridvars['colors']
         
-        # Ensure we have exactly 3 distinct colors in the grid
-        if len(colors) < 3:
-            colors = random.sample(range(1, 10), 3)
+        # Ensure we have between 2 and 4 distinct colors in the grid
+        if len(colors) < 2:
+            num_colors = random.randint(2, 4)
+            colors = random.sample(range(1, 10), num_colors)
+        # Trim or enforce an upper bound of 4 colors if input was larger
+        if len(colors) > 4:
+            colors = colors[:4]
         
         # Step 1: Create an empty grid
         grid = np.zeros((size, size), dtype=int)
@@ -156,30 +161,34 @@ class Task3c9b0459Generator(ARCTaskGenerator):
         # Keep track of L shape positions
         l_positions = {(r + r_start, c + c_start) for r in range(l_height) for c in range(l_width) if l_shape[r, c] == 1}
         
-        # Step 3: Fill some areas with the second color and some with the third color
-        # To ensure all three colors are used, divide the remaining space
-        color2, color3 = other_colors
-        
-        # Determine how many cells to fill with color2 (roughly half of remaining cells)
+        # Step 3: Fill the remaining space with the other colors (1..n)
         remaining_cells = [(r, c) for r in range(size) for c in range(size) if (r, c) not in l_positions]
         random.shuffle(remaining_cells)
-        color2_count = len(remaining_cells) // 2
-        
-        # Fill color2 cells
-        for i in range(color2_count):
-            r, c = remaining_cells[i]
-            grid[r, c] = color2
-        
-        # Fill color3 cells
-        for i in range(color2_count, len(remaining_cells)):
-            r, c = remaining_cells[i]
-            grid[r, c] = color3
+
+        # Distribute remaining cells roughly evenly among the other colors
+        n_other = len(other_colors)
+        if n_other == 0:
+            # If there are no other colors (shouldn't happen since min colors=2), fill with l_color
+            for r, c in remaining_cells:
+                grid[r, c] = l_color
+        else:
+            base = len(remaining_cells) // n_other
+            remainder = len(remaining_cells) % n_other
+            idx = 0
+            for k in range(n_other):
+                count = base + (1 if k < remainder else 0)
+                for _ in range(count):
+                    if idx >= len(remaining_cells):
+                        break
+                    r, c = remaining_cells[idx]
+                    grid[r, c] = other_colors[k]
+                    idx += 1
         
         # Step 4: Ensure each color is represented in at least one continuous object
         # Verify each color has a connected component
         objects = find_connected_objects(grid, diagonal_connectivity=True, background=0)
         
-        # Check if all three colors are present in at least one object
+        # Check if all specified colors are present in at least one object
         color_presence = {color: False for color in colors}
         
         for obj in objects:
@@ -199,10 +208,10 @@ class Task3c9b0459Generator(ARCTaskGenerator):
                     if not present:
                         break
         
-        # Final verification to ensure all three colors are used
+        # Final verification to ensure all specified colors are used
         used_colors = set(grid.flatten())
-        if len(used_colors.intersection(set(colors))) != 3:
-            # This is a safety check - at this point all three colors should be used
+        if len(used_colors.intersection(set(colors))) != len(colors):
+            # This is a safety check - at this point all colors in 'colors' should be used
             # If not, force them to be used
             for color in colors:
                 if color not in used_colors:

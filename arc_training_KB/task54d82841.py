@@ -20,8 +20,8 @@ class Task54d82841Generator(ARCTaskGenerator):
         ]
         
         taskvars_definitions = {
-            'rows': lambda: random.randint(5, 15),
-            'cols': lambda: random.randint(5, 15),
+            'rows': lambda: random.randint(5, 30),
+            'cols': lambda: random.randint(5, 30),
             'fill_color': lambda: random.randint(1, 9)
         }
         
@@ -30,50 +30,85 @@ class Task54d82841Generator(ARCTaskGenerator):
     def create_grids(self):
         # Initialize task variables
         taskvars = {
-            'rows': random.randint(5, 15),
-            'cols': random.randint(5, 15),
+            'rows': random.randint(5, 30),
+            'cols': random.randint(5, 30),
             'fill_color': random.randint(1, 9)
         }
         
         # Number of train examples
         nr_train_examples = 3
-        
-        # Generate train and test examples
+
+        # Determine maximum possible objects and allowed counts
+        max_objects = taskvars['cols'] // 3
+        possible_counts = list(range(1, max(1, min(5, max_objects)) + 1))
+
+        # Generate train examples, retry a few times if they accidentally cover all possible counts
         train_examples = []
-        for _ in range(nr_train_examples):
-            # Create input grid with random number of N-shaped objects
-            input_grid = self.create_input(taskvars, {})
-            
-            # Ensure fill_color is different from any color in the grid
-            unique_colors = np.unique(input_grid)
-            unique_colors = unique_colors[unique_colors != 0]  # Exclude background
-            
-            # If fill_color is among the grid colors, choose a different one
-            if taskvars['fill_color'] in unique_colors:
-                available_colors = [c for c in range(1, 10) if c not in unique_colors]
-                if available_colors:
-                    taskvars['fill_color'] = random.choice(available_colors)
-                else:
-                    # If all colors are used, just pick a different one
-                    new_fill_color = random.randint(1, 9)
-                    while new_fill_color in unique_colors:
+        for attempt in range(10):
+            train_examples = []
+            for _ in range(nr_train_examples):
+                # Create input grid with random number of N-shaped objects
+                input_grid = self.create_input(taskvars, {})
+
+                # Ensure fill_color is different from any color in the grid
+                unique_colors = np.unique(input_grid)
+                unique_colors = unique_colors[unique_colors != 0]  # Exclude background
+
+                # If fill_color is among the grid colors, choose a different one
+                if taskvars['fill_color'] in unique_colors:
+                    available_colors = [c for c in range(1, 10) if c not in unique_colors]
+                    if available_colors:
+                        taskvars['fill_color'] = random.choice(available_colors)
+                    else:
+                        # If all colors are used, just pick a different one
                         new_fill_color = random.randint(1, 9)
-                    taskvars['fill_color'] = new_fill_color
-            
-            # Transform input grid to get output grid
-            output_grid = self.transform_input(input_grid.copy(), taskvars)
-            train_examples.append({
-                'input': input_grid,
-                'output': output_grid
-            })
-        
-        # Generate test example
-        test_input_grid = self.create_input(taskvars, {})
-        
+                        while new_fill_color in unique_colors:
+                            new_fill_color = random.randint(1, 9)
+                        taskvars['fill_color'] = new_fill_color
+
+                # Transform input grid to get output grid
+                output_grid = self.transform_input(input_grid.copy(), taskvars)
+                train_examples.append({
+                    'input': input_grid,
+                    'output': output_grid
+                })
+
+            # Compute train counts and ensure they don't cover all possible counts (so a distinct test count exists)
+            train_counts = [self._count_n_shapes(ex['input'], taskvars['fill_color']) for ex in train_examples]
+            if set(train_counts) != set(possible_counts):
+                break
+
+        # If after retries train examples still cover all possible counts, reduce nr_train_examples by 1
+        if set(train_counts) == set(possible_counts):
+            nr_train_examples = max(1, nr_train_examples - 1)
+            train_examples = train_examples[:nr_train_examples]
+
+        # Now pick a test count that's not present in any train example
+        train_counts = [self._count_n_shapes(ex['input'], taskvars['fill_color']) for ex in train_examples]
+        remaining_counts = [c for c in possible_counts if c not in train_counts]
+
+        if not remaining_counts:
+            # Fallback: regenerate a single test grid and ensure its count differs by regenerating one of the train examples
+            # (This is extremely unlikely given retries above)
+            test_input_grid = self.create_input(taskvars, {})
+            test_count = self._count_n_shapes(test_input_grid, taskvars['fill_color'])
+            if test_count in train_counts:
+                # Replace first train example with a regenerated one that doesn't match test_count
+                for _ in range(20):
+                    new_train_grid = self.create_input(taskvars, {})
+                    new_count = self._count_n_shapes(new_train_grid, taskvars['fill_color'])
+                    if new_count != test_count:
+                        new_output = self.transform_input(new_train_grid.copy(), taskvars)
+                        train_examples[0] = {'input': new_train_grid, 'output': new_output}
+                        break
+        else:
+            desired_count = random.choice(remaining_counts)
+            test_input_grid = self.create_input(taskvars, {'num_objects': desired_count})
+
         # Ensure fill_color is different from any color in test grid
         unique_colors = np.unique(test_input_grid)
         unique_colors = unique_colors[unique_colors != 0]  # Exclude background
-        
+
         if taskvars['fill_color'] in unique_colors:
             available_colors = [c for c in range(1, 10) if c not in unique_colors]
             if available_colors:
@@ -84,7 +119,7 @@ class Task54d82841Generator(ARCTaskGenerator):
                 while new_fill_color in unique_colors:
                     new_fill_color = random.randint(1, 9)
                 taskvars['fill_color'] = new_fill_color
-        
+
         test_output_grid = self.transform_input(test_input_grid.copy(), taskvars)
         test_examples = [{
             'input': test_input_grid,
@@ -105,7 +140,21 @@ class Task54d82841Generator(ARCTaskGenerator):
         
         # Determine number of N-shaped objects to place
         max_objects = cols // 3  # Each object needs 3 columns
-        num_objects = random.randint(1, max(1, min(5, max_objects)))
+        allowed_max = max(1, min(5, max_objects))
+
+        # Allow callers to force a specific number of objects via gridvars
+        if gridvars and 'num_objects' in gridvars:
+            try:
+                forced = int(gridvars.get('num_objects'))
+            except Exception:
+                forced = None
+            if forced is not None:
+                # Clamp to valid range
+                num_objects = max(1, min(forced, allowed_max))
+            else:
+                num_objects = random.randint(1, allowed_max)
+        else:
+            num_objects = random.randint(1, allowed_max)
         
         # Choose colors for the objects, ensuring they're different from fill_color
         fill_color = taskvars['fill_color']
@@ -185,6 +234,28 @@ class Task54d82841Generator(ARCTaskGenerator):
                         # Replace the color in the grid
                         for r, c, _ in obj2:
                             grid[r, c] = new_color
+
+    def _count_n_shapes(self, grid, fill_color):
+        """Count N-shaped objects in a grid using the same detection rules as transform_input.
+
+        An N-shaped object has the pattern:
+        [c,c,c]
+        [c,0,c]
+        and object color must not be the fill_color.
+        """
+        rows, cols = grid.shape
+        count = 0
+        for r in range(rows - 1):
+            for c in range(cols - 2):
+                if (c+2 < cols and r+1 < rows and
+                    grid[r, c] != 0 and grid[r, c] != fill_color and
+                    grid[r, c+1] == grid[r, c] and
+                    grid[r, c+2] == grid[r, c] and
+                    grid[r+1, c] == grid[r, c] and
+                    grid[r+1, c+1] == 0 and
+                    grid[r+1, c+2] == grid[r, c]):
+                    count += 1
+        return count
     
     def transform_input(self, grid, taskvars):
         # Copy the input grid

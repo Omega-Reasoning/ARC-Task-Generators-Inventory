@@ -26,7 +26,7 @@ class Task444801d8Generator(ARCTaskGenerator):
     def create_grids(self):
         # Define task variables
         taskvars = {
-            'grid_size': random.randint(11, 20),
+            'grid_size': random.randint(11, 30),
             'object_color': random.randint(1, 9)
         }
         

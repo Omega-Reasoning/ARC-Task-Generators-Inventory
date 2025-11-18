@@ -22,21 +22,31 @@ class Task31aa019cGenerator(ARCTaskGenerator):
     def create_grids(self) -> tuple[dict[str, any], TrainTestData]:
         # Set task variables
         taskvars = {
-            'rows': random.randint(5, 10),
-            'cols': random.randint(5, 10),
+            'rows': random.randint(5, 30),
+            'cols': random.randint(5, 30),
             'cell_color': random.randint(1, 9)
         }
         
         # Generate 3-5 training examples and 1 test example
         num_train_examples = random.randint(3, 5)
         
+        # Keep track of single-occurrence colors already used so each example
+        # (train + test) has a different single-occurrence color.
+        used_single_colors = set()
+
         train_pairs = []
         for _ in range(num_train_examples):
-            input_grid = self.create_input(taskvars, {})
+            gridvars = {'used_single_colors': used_single_colors}
+            input_grid = self.create_input(taskvars, gridvars)
+            # record the chosen single-occurrence color so it's not reused
+            used_single_colors.add(gridvars['single_occurrence_color'])
             output_grid = self.transform_input(input_grid, taskvars)
             train_pairs.append({'input': input_grid, 'output': output_grid})
-        
-        test_input = self.create_input(taskvars, {})
+
+        # Create test example with a single-occurrence color different from all train examples
+        gridvars = {'used_single_colors': used_single_colors}
+        test_input = self.create_input(taskvars, gridvars)
+        used_single_colors.add(gridvars['single_occurrence_color'])
         test_output = self.transform_input(test_input, taskvars)
         
         return taskvars, {
@@ -57,9 +67,29 @@ class Task31aa019cGenerator(ARCTaskGenerator):
         num_colors = min(random.randint(6, 9), len(available_colors))
         colors_to_use = random.sample(available_colors, num_colors)
         
-        # Randomly choose a color from the set to be the single occurrence color
-        single_occurrence_color = random.choice(colors_to_use)
-        colors_to_use.remove(single_occurrence_color)
+        # Choose a color from the set to be the single occurrence color.
+        # If the caller provided a set of used single-occurrence colors (via
+        # gridvars['used_single_colors']), avoid reusing them so each example
+        # has a different single-occurrence color.
+        used = set()
+        if isinstance(gridvars, dict):
+            used = set(gridvars.get('used_single_colors', set()))
+
+        candidates = [c for c in colors_to_use if c not in used]
+        if not candidates:
+            # Fallback: try any available color (excluding the reserved cell_color)
+            candidates = [c for c in available_colors if c not in used]
+        if not candidates:
+            raise ValueError("Not enough distinct colors available for unique single-occurrence assignments.")
+
+        single_occurrence_color = random.choice(candidates)
+        if single_occurrence_color in colors_to_use:
+            colors_to_use.remove(single_occurrence_color)
+
+        # Record the chosen single-occurrence color back into gridvars so the
+        # caller can mark it as used.
+        if isinstance(gridvars, dict):
+            gridvars['single_occurrence_color'] = single_occurrence_color
         
         # Add the single occurrence color to a non-border position
         while True:

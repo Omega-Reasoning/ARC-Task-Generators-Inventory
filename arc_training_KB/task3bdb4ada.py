@@ -7,7 +7,7 @@ from transformation_library import find_connected_objects
 class Task3bdb4adaGenerator(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
-            "Input grids are of size {vars['rows']}×{vars['cols']}.",
+            "Input grids have {vars['rows']} rows, but the number of columns varies from grid to grid.",
             "They contain several colored (1-9) rectangular blocks, each fully separated by empty (0) cells.",
             "Each rectangular block has a unique color, which varies across examples.",
             "The length of each rectangular block is fixed at 3, while the width is an odd number, always more than the length, and varies across examples."
@@ -22,23 +22,64 @@ class Task3bdb4adaGenerator(ARCTaskGenerator):
     
     def create_grids(self) -> tuple[dict[str, any], TrainTestData]:
         # Generate task variables
-        rows = random.randint(8, 12)
-        cols = rows * 2
-        taskvars = {'rows': rows, 'cols': cols}
+        # Choose rows but ensure there is room for at least two different block-count choices
+        rows = random.randint(8, 30)
+
+        # Compute how many blocks can fit for this height
+        usable_rows = rows - 1
+        max_blocks = usable_rows // 4
+        if usable_rows % 4 == 3:
+            max_blocks += 1
+
+        # If there aren't at least two feasible block counts (2 and 3), force rows to 12
+        # so we can create train vs test with different block counts. This keeps rows in the
+        # original allowed range while ensuring we can satisfy the requirement.
+        if max_blocks < 3:
+            rows = 12
+            usable_rows = rows - 1
+            max_blocks = usable_rows // 4
+            if usable_rows % 4 == 3:
+                max_blocks += 1
+
+        # We expose only rows as a task variable; columns will vary per example
+        taskvars = {'rows': rows}
+
+        # Define a reasonable per-example column range so columns vary from grid to grid
+        min_cols = max(8, rows + 5)
+        max_cols = rows * 2 + 2
 
         # Generate 3-5 training examples
         n_train = random.randint(3, 5)
         train_data = []
 
+        # Determine feasible block counts (cap at 5 as requested)
+        max_blocks_for_task = min(max_blocks, 5)
+        feasible_counts = list(range(2, max_blocks_for_task + 1))
+
+        # Pick a fixed number of blocks for all training examples
+        train_num_blocks = random.choice(feasible_counts)
+
         for _ in range(n_train):
-            gridvars = {'rows': rows, 'cols': cols}  # Ensure consistent size
+            cols_example = random.randint(min_cols, max_cols)
+            gridvars = {'rows': rows, 'cols': cols_example, 'num_blocks': train_num_blocks}  # Ensure consistent size and block count
             input_grid = self.create_input(gridvars, {})
             output_grid = self.transform_input(input_grid, gridvars)
 
             train_data.append({'input': input_grid, 'output': output_grid})
 
-        # Generate 1 test example
-        test_gridvars = {'rows': rows, 'cols': cols}  # Match train grid sizes
+        # Generate 1 test example with a different number of blocks than the training grids
+        test_feasible = [c for c in feasible_counts if c != train_num_blocks]
+        # If for some reason there's no alternative (shouldn't happen because we forced rows),
+        # fall back to the nearest different valid count.
+        if not test_feasible:
+            # Attempt to pick a different count within 2..5
+            alt = 2 if train_num_blocks != 2 else min(5, max_blocks_for_task)
+            test_num_blocks = alt
+        else:
+            test_num_blocks = random.choice(test_feasible)
+
+        test_cols = random.randint(min_cols, max_cols)
+        test_gridvars = {'rows': rows, 'cols': test_cols, 'num_blocks': test_num_blocks}  # Match train grid sizes but different block count
         test_input = self.create_input(test_gridvars, {})
         test_output = self.transform_input(test_input, test_gridvars)
 
@@ -60,8 +101,16 @@ class Task3bdb4adaGenerator(ARCTaskGenerator):
         if usable_rows % 4 == 3:
             max_blocks += 1
 
-        # Ensure at least 2 blocks but not more than 9 (colors 1-9)
-        num_blocks = max(2, min(max_blocks, 9))
+        # Cap at 5 as per requirement; allow caller to request a specific number via gridvars['num_blocks']
+        max_blocks = min(max_blocks, 5)
+
+        if 'num_blocks' in gridvars:
+            requested = int(gridvars['num_blocks'])
+            # Ensure requested is within feasible bounds [2, max_blocks]
+            num_blocks = max(2, min(requested, max_blocks))
+        else:
+            # Default behavior: choose at least 2 blocks but not more than max_blocks
+            num_blocks = max(2, min(max_blocks, 5))
 
         # Choose different colors for blocks
         colors = random.sample(range(1, 10), num_blocks)

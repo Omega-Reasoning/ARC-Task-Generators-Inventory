@@ -5,7 +5,7 @@ import random
 class Task67a423a3Generator(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
-            "Input grids are of size {vars['grid_size']}x{vars['grid_size']}.",
+            "Input grids are square and vary in size.",
             "They contain one completely filled row and one completely filled column, with all remaining cells being empty (0).",
             "The filled row and column use different colors, which vary across examples.",
             "The filled row and column can be placed at any position except the first and last rows or columns.",
@@ -25,7 +25,6 @@ class Task67a423a3Generator(ARCTaskGenerator):
     def create_grids(self) -> tuple[dict[str, any], TrainTestData]:
         # Initialize task variables
         taskvars = {
-            'grid_size': random.randint(7, 12),
             'frame_color': random.randint(1, 9)
         }
         
@@ -34,6 +33,7 @@ class Task67a423a3Generator(ARCTaskGenerator):
         train_examples = []
         
         # Track used positions and color combinations to ensure diversity
+        # store (grid_size, row_pos, col_pos) to avoid accidental reuse across different sizes
         used_positions = set()
         used_color_pairs = set()
         
@@ -52,14 +52,14 @@ class Task67a423a3Generator(ARCTaskGenerator):
             else:
                 row_priority = random.choice([True, False])
             
-            # Generate row and column positions
-            grid_size = taskvars['grid_size']
+            # Generate row and column positions (grid size chosen per-example)
+            grid_size = random.randint(7, 30)
             while True:
                 row_pos = random.randint(1, grid_size-2)  # Avoid first and last
                 col_pos = random.randint(1, grid_size-2)  # Avoid first and last
-                
-                if (row_pos, col_pos) not in used_positions:
-                    used_positions.add((row_pos, col_pos))
+
+                if (grid_size, row_pos, col_pos) not in used_positions:
+                    used_positions.add((grid_size, row_pos, col_pos))
                     break
             
             # Generate unique colors for row and column
@@ -77,6 +77,7 @@ class Task67a423a3Generator(ARCTaskGenerator):
             
             # Create grid variables for this example
             gridvars = {
+                'grid_size': grid_size,
                 'row_pos': row_pos,
                 'col_pos': col_pos,
                 'row_color': row_color,
@@ -87,19 +88,20 @@ class Task67a423a3Generator(ARCTaskGenerator):
             # Create input and output grids
             input_grid = self.create_input(taskvars, gridvars)
             output_grid = self.transform_input(input_grid, taskvars)
-            
+
             train_examples.append({'input': input_grid, 'output': output_grid})
-        
+
         # Create test example
-        # Generate new unique position
-        grid_size = taskvars['grid_size']
+        # Generate a grid size and new unique position for the test
+        test_grid_size = random.randint(7, 30)
         while True:
-            test_row_pos = random.randint(1, grid_size-2)
-            test_col_pos = random.randint(1, grid_size-2)
-            
-            if (test_row_pos, test_col_pos) not in used_positions:
+            test_row_pos = random.randint(1, test_grid_size-2)
+            test_col_pos = random.randint(1, test_grid_size-2)
+
+            if (test_grid_size, test_row_pos, test_col_pos) not in used_positions:
+                used_positions.add((test_grid_size, test_row_pos, test_col_pos))
                 break
-        
+
         # Generate new unique colors
         frame_color = taskvars['frame_color']
         while True:
@@ -107,33 +109,35 @@ class Task67a423a3Generator(ARCTaskGenerator):
             test_row_color = random.choice(available_colors)
             available_colors.remove(test_row_color)
             test_col_color = random.choice(available_colors)
-            
+
             color_pair = (test_row_color, test_col_color)
             if color_pair not in used_color_pairs and (test_col_color, test_row_color) not in used_color_pairs:
                 break
-        
+
         # Create test grid variables
         test_gridvars = {
+            'grid_size': test_grid_size,
             'row_pos': test_row_pos,
             'col_pos': test_col_pos,
             'row_color': test_row_color,
             'col_color': test_col_color,
             'row_priority': random.choice([True, False])
         }
-        
+
         test_input = self.create_input(taskvars, test_gridvars)
         test_output = self.transform_input(test_input, taskvars)
-        
+
         # Prepare train/test data
         train_test_data = {
             'train': train_examples,
             'test': [{'input': test_input, 'output': test_output}]
         }
-        
+
         return taskvars, train_test_data
     
     def create_input(self, taskvars, gridvars) -> np.ndarray:
-        grid_size = taskvars['grid_size']
+        # Prefer per-example grid size; fall back to taskvars bounds if not present
+        grid_size = gridvars.get('grid_size', taskvars.get('grid_size', taskvars.get('min_grid_size', 7)))
         
         # Create empty grid
         grid = np.zeros((grid_size, grid_size), dtype=int)

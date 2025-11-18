@@ -23,7 +23,7 @@ class Task46442a0eGenerator(ARCTaskGenerator):
     def create_grids(self) -> tuple[dict[str, any], TrainTestData]:
         # Define task variables
         taskvars = {
-            'grid_size': random.randint(3, 10)
+            'grid_size': random.randint(3, 15)
         }
         
         # Create train examples

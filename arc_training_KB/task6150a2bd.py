@@ -3,7 +3,7 @@ import numpy as np
 import random
 from input_library import retry
 
-class Task5614dbcfGenerator(ARCTaskGenerator):
+class Task6150a2bdGenerator(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
             "Input grids are of size {vars['grid_size']} x {vars['grid_size']}.",

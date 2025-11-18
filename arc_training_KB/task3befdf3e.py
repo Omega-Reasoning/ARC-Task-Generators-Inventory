@@ -8,10 +8,10 @@ class Task3befdf3eGenerator(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
             "Input grids are of size {vars['grid_size']}x{vars['grid_size']}.",
-            "They contain one or two colored square blocks, each with a frame and an interior.",
+            "They contain between 1 and 4 colored square blocks, each with a frame and an interior.",
             "Each square block consists of two unique colors: the first color forms the interior block, while the second color creates a one-cell-wide frame around it.",
             "The square blocks can be either 3x3 or 4x4 in size; for a 3x3 block, the interior is 1x1, while for a 4x4 block, the interior is a 2x2 square.",
-            "If there are two colored blocks in a grid, they must have the same colors but different sizes, and the colors should vary across all examples.",
+            "If there are multiple colored blocks in a grid, they share the same two colors (interior and frame) but may vary in size; when there are exactly two blocks they will have different sizes.",
             "The square blocks are positioned so that if the block is 3x3, it has a one-cell wide frame made of empty (0) cells around it, and if it is 4x4, it has a two-cell wide frame made of empty (0) cells around it."
         ]
         
@@ -26,21 +26,30 @@ class Task3befdf3eGenerator(ARCTaskGenerator):
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
     
     def create_grids(self):
-        # Initialize task variables
-        taskvars = {'grid_size': random.randint(12, 30)}
-        
+        # Initialize task variables: choose a train grid size and a different test grid size
+        train_size = random.randint(12, 30)
+        test_size = random.randint(12, 30)
+        # ensure test grid size is different from train grid size
+        while test_size == train_size:
+            test_size = random.randint(12, 30)
+
+        taskvars = {'grid_size': train_size}
+
         # Determine how many train examples to create (3-5)
         num_train = random.randint(3, 5)
-        
-        # We need at least one example with two blocks
-        double_block_index = random.randint(0, num_train - 1)
+
+        # Decide number of blocks for train examples (1..4), ensure test uses a different count
+        train_block_count = random.randint(1, 4)
+        # choose a test block count different from train_block_count
+        possible_test_counts = [n for n in range(1, 5) if n != train_block_count]
+        test_block_count = random.choice(possible_test_counts)
         
         train_pairs = []
         used_colors = set()
         
         for i in range(num_train):
-            # For the pre-selected example, create a grid with two blocks
-            has_two_blocks = (i == double_block_index)
+            # All train examples should have the same number of blocks
+            block_count = train_block_count
             
             # Generate unique colors for this example
             colors = self._get_unique_colors(used_colors)
@@ -48,7 +57,7 @@ class Task3befdf3eGenerator(ARCTaskGenerator):
             
             # Create grid variables for this specific example
             gridvars = {
-                'has_two_blocks': has_two_blocks,
+                'block_count': block_count,
                 'colors': colors
             }
             
@@ -61,15 +70,19 @@ class Task3befdf3eGenerator(ARCTaskGenerator):
                 'output': output_grid
             })
         
-        # Create one test example
+        # Create one test example: must have a different number of blocks than the train examples
         test_colors = self._get_unique_colors(used_colors)
         test_gridvars = {
-            'has_two_blocks': random.choice([True, False]),  # Randomly choose one or two blocks
+            'block_count': test_block_count,
             'colors': test_colors
         }
-        
-        test_input = self.create_input(taskvars, test_gridvars)
-        test_output = self.transform_input(test_input, taskvars)
+
+        # For the test example use a taskvars copy where grid_size is the test size
+        test_taskvars = taskvars.copy()
+        test_taskvars['grid_size'] = test_size
+
+        test_input = self.create_input(test_taskvars, test_gridvars)
+        test_output = self.transform_input(test_input, test_taskvars)
         
         test_pairs = [{
             'input': test_input,
@@ -94,17 +107,19 @@ class Task3befdf3eGenerator(ARCTaskGenerator):
         grid_size = taskvars['grid_size']
         grid = np.zeros((grid_size, grid_size), dtype=int)
         
-        has_two_blocks = gridvars['has_two_blocks']
+        block_count = gridvars.get('block_count', 1)
         interior_color, frame_color = gridvars['colors']
-        
-        # Decide on block sizes
-        if has_two_blocks:
-            # If we have two blocks, they must have different sizes
-            block_sizes = [3, 4]
-            random.shuffle(block_sizes)  # Randomize order
-        else:
-            # If we have one block, randomly choose its size
+
+        # Decide on block sizes. Blocks are 3x3 or 4x4.
+        if block_count == 1:
             block_sizes = [random.choice([3, 4])]
+        elif block_count == 2:
+            # When exactly two blocks, prefer different sizes (3 and 4)
+            block_sizes = [3, 4]
+            random.shuffle(block_sizes)
+        else:
+            # For 3 or 4 blocks, choose sizes randomly (allow repeats) from [3,4]
+            block_sizes = [random.choice([3, 4]) for _ in range(block_count)]
         
         # Track placed blocks for separation validation
         placed_blocks = []  # List of (top_left_r, top_left_c, bottom_right_r, bottom_right_c)
