@@ -3,7 +3,7 @@ import numpy as np
 import random
 from input_library import retry
 
-class Taskd13f3404(ARCTaskGenerator):
+class taskd13f3404(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
             "Input grid is of size {vars['n']} x {vars['n']}.",
@@ -115,7 +115,7 @@ class Taskd13f3404(ARCTaskGenerator):
     
     def create_grids(self):
         # Set taskvars
-        taskvars = {'n': random.randint(3, 4)}
+        taskvars = {'n': random.randint(3, 9)}
         
         # Generate 3-6 train examples
         num_train = random.randint(3, 6)

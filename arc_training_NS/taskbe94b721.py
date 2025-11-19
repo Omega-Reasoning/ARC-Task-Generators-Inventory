@@ -11,7 +11,7 @@ class Taskbe94b721(ARCTaskGenerator):
             "Input grids are of size {vars['n']} × {vars['m']}.",
             "Each grid contains a random number of objects.",
             "Every object has a unique color and a unique size.",
-            "An object occupies k contiguous cells with 4-connectivity, where k ∈ [3, 8].",
+            "An object occupies k contiguous cells with 4-connectivity, where k ≥ 3.",
             "Objects do not touch, they share no edges or corners."
         ]
         
@@ -31,14 +31,12 @@ class Taskbe94b721(ARCTaskGenerator):
         used_colors = {0}  # background is already used
         used_sizes = set()
         
-        # Generate unique sizes for each object
-        available_sizes = list(range(3, 9))  # sizes 3-8
-        random.shuffle(available_sizes)
-        object_sizes = available_sizes[:num_objects]
-        
         placed_objects = []
         
-        for target_size in object_sizes:
+        # Calculate maximum possible object size (roughly half the grid)
+        max_possible_size = (n * m) // (num_objects + 1)
+        
+        for obj_idx in range(num_objects):
             # Find available color
             available_colors = [c for c in range(1, 10) if c not in used_colors]
             if not available_colors:
@@ -46,25 +44,34 @@ class Taskbe94b721(ARCTaskGenerator):
             color = random.choice(available_colors)
             used_colors.add(color)
             
-            # Try to place object with exact target size
+            # Try to place object
             max_attempts = 100
             placed = False
             
             for attempt in range(max_attempts):
-                # Generate object of roughly the right size
-                obj_height = random.randint(2, min(6, n-2))
-                obj_width = random.randint(2, min(6, m-2))
+                # Generate object dimensions - can be larger now
+                # Estimate dimensions based on remaining space
+                remaining_space = n * m - np.sum(grid != 0)
+                max_obj_size = min(max_possible_size, remaining_space // 2)
+                
+                # Random object dimensions (allowing for larger objects)
+                obj_height = random.randint(2, max(2, min(n - 2, int(np.sqrt(max_obj_size)))))
+                obj_width = random.randint(2, max(2, min(m - 2, int(np.sqrt(max_obj_size)))))
                 
                 # Create object and check its size
                 obj_grid = create_object(obj_height, obj_width, color, Contiguity.FOUR, background=0)
                 actual_size = np.sum(obj_grid != 0)
                 
-                # Accept if size is exactly what we want
-                if actual_size == target_size:
+                # Accept if size is at least 3 and not already used
+                if actual_size >= 3 and actual_size not in used_sizes:
                     # Try to place it in the grid without overlapping
                     placement_attempts = 50
                     for _ in range(placement_attempts):
                         # Random position
+                        if obj_height >= n - 2 or obj_width >= m - 2:
+                            # Object is too large, skip
+                            break
+                        
                         start_row = random.randint(1, n - obj_height - 1)
                         start_col = random.randint(1, m - obj_width - 1)
                         
@@ -80,7 +87,8 @@ class Taskbe94b721(ARCTaskGenerator):
                                     if obj_grid[r, c] != 0:
                                         grid[start_row + r, start_col + c] = obj_grid[r, c]
                             placed = True
-                            placed_objects.append((color, target_size))
+                            used_sizes.add(actual_size)
+                            placed_objects.append((color, actual_size))
                             break
                     
                     if placed:
@@ -164,4 +172,3 @@ class Taskbe94b721(ARCTaskGenerator):
             'train': train_examples,
             'test': test_examples
         }
-
