@@ -8,7 +8,7 @@ class ARCTask1190e5a7Generator(ARCTaskGenerator):
     def __init__(self):
         # Updated input reasoning chain with enhanced observations about the grid.
         input_reasoning_chain = [
-            "The input grid is an odd-dimensioned square grid.",
+            "The input grids are of size {vars['grid_size']} \u00d7 {vars['grid_size']}.",
             "Every cell in the grid is initially filled with color_1 (the background color).",
             "Specific rows and columns are then filled with color_2, with each filled row and filled column spaced apart by at least one cell.",
             "The filled rows and columns create visible boundaries, effectively dividing the grid into multiple sub-regions (subgrids) of varying sizes."
@@ -57,12 +57,18 @@ class ARCTask1190e5a7Generator(ARCTaskGenerator):
         return output_grid
 
     def create_grids(self) -> tuple:
-        # We use an empty task-level configuration because per-example parameters are provided via gridvars.
-        taskvars = {}
+        # Define a task-level variable 'grid_size' (range 5..30). This will be
+        # available as vars['grid_size'] in reasoning strings and is used as the
+        # grid dimension for every example generated in this task instance.
+        taskvars = {
+            'grid_size': random.randint(5, 30)
+        }
 
         def generate_gridvars():
-            # Choose a random odd number between 11 and 30 for grid size.
-            rows = random.choice([i for i in range(11, 31) if i % 2 == 1])
+            # Use the task-level 'grid_size' variable (random int between 5 and 30).
+            # This allows varying the input sizes via vars['grid_size'] while
+            # keeping other per-example parameters randomized.
+            rows = taskvars['grid_size']
             # Select color_1 (background) randomly from 1 to 9.
             color_1 = random.randint(1, 9)
             # Select color_2 (painted color) from 1 to 9, ensuring it is different from color_1.

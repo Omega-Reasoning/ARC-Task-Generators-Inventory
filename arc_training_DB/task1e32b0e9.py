@@ -7,11 +7,11 @@ from arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
 from transformation_library import find_connected_objects
 from input_library import Contiguity
 
-class ARCTask1e32b0e9Generator(ARCTaskGenerator):
+class Task1e32b0e9Generator(ARCTaskGenerator):
     def __init__(self):
         # 1. Initialize the input reasoning chain
         self.input_reasoning_chain = [
-                "The input grid has size {vars['rows']} X {vars['rows']}",
+                "The input grid has size {vars['rows']} X {vars['rows']}.",
                 "The grid is a raster with color(between 1-9) rows and columns as separators.",
                 "The first row and column are not a separator row/column.",
                 "The raster divides the input matrix into subgrids of size {(vars['rows']-2)//3} x {(vars['rows']-2)//3} all of which have the same dimension.",
@@ -74,16 +74,22 @@ class ARCTask1e32b0e9Generator(ARCTaskGenerator):
         subgrid_h = subgrid_bottom - subgrid_top + 1
         subgrid_w = subgrid_right - subgrid_left + 1
 
-        # The shape is either a square or a plus. We'll place it in the center.
-        shape_type = random.choice(["square", "plus"])
-        max_shape_dim = max(1, subgrid_h - 2)  # per instructions: (rows-2)/3 -2 is the maximum dimension.
-        shape_dim = random.randint(2, max_shape_dim)
+        # The shape can be one of several types. We'll place it in the center.
+        shape_types = ["square", "plus", "t", "l", "diamond", "line"]
+        # Allow the caller to request a specific shape via gridvars (so different
+        # examples can use different top-left shapes). Fall back to random.
+        shape_type = gridvars.get("shape_type", random.choice(shape_types))
+        # Allow caller to override shape size; otherwise choose randomly
+        max_shape_dim = max(2, subgrid_h - 2)  # ensure at least small shapes
+        shape_dim = gridvars.get('shape_dim') if gridvars and 'shape_dim' in gridvars else random.randint(2, max_shape_dim)
+        # Clamp shape_dim so it never exceeds available subgrid dimensions
+        shape_dim = min(shape_dim, subgrid_h, subgrid_w)
 
         subgrid_center_r = subgrid_top + subgrid_h // 2
         subgrid_center_c = subgrid_left + subgrid_w // 2
 
         def place_square(dim):
-            # Place a dim x dim square with center around subgrid_center_r,c
+            # Place a dim x dim filled square centered on the subgrid center
             r0 = subgrid_center_r - (dim // 2)
             c0 = subgrid_center_c - (dim // 2)
             for rr in range(dim):
@@ -91,17 +97,63 @@ class ARCTask1e32b0e9Generator(ARCTaskGenerator):
                     grid[r0 + rr, c0 + cc] = obj_color
 
         def place_plus(dim):
-            # Place a plus shape of 'dim' total arm length.
+            # Place a plus shape where 'dim' controls total arm length
             half = dim // 2
             for rr in range(subgrid_center_r - half, subgrid_center_r + half + 1):
                 grid[rr, subgrid_center_c] = obj_color
             for cc in range(subgrid_center_c - half, subgrid_center_c + half + 1):
                 grid[subgrid_center_r, cc] = obj_color
 
-        if shape_type == "square":
-            place_square(shape_dim)
-        else:
-            place_plus(shape_dim)
+        def place_t(dim):
+            # T-shape: vertical stem and a horizontal cap at the top
+            half = dim // 2
+            # vertical stem
+            for rr in range(subgrid_center_r - half, subgrid_center_r + half + 1):
+                grid[rr, subgrid_center_c] = obj_color
+            # horizontal cap at the top of the stem
+            cap_row = subgrid_center_r - half
+            for cc in range(subgrid_center_c - half, subgrid_center_c + half + 1):
+                grid[cap_row, cc] = obj_color
+
+        def place_l(dim):
+            # L-shape: vertical bar on the left of center and horizontal foot at bottom
+            half = dim // 2
+            # vertical bar
+            for rr in range(subgrid_center_r - half, subgrid_center_r + half + 1):
+                grid[rr, subgrid_center_c - half] = obj_color
+            # horizontal foot at the bottom
+            foot_row = subgrid_center_r + half
+            for cc in range(subgrid_center_c - half, subgrid_center_c + half + 1):
+                grid[foot_row, cc] = obj_color
+
+        def place_diamond(dim):
+            # Diamond in Manhattan metric: all cells where |dr|+|dc| <= radius
+            radius = dim // 2
+            for dr in range(-radius, radius + 1):
+                span = radius - abs(dr)
+                for dc in range(-span, span + 1):
+                    rr = subgrid_center_r + dr
+                    cc = subgrid_center_c + dc
+                    grid[rr, cc] = obj_color
+
+        def place_line(dim):
+            # Straight horizontal line centered on the subgrid center
+            half = dim // 2
+            for cc in range(subgrid_center_c - half, subgrid_center_c + half + 1):
+                grid[subgrid_center_r, cc] = obj_color
+
+        # Map shape types to functions
+        placer = {
+            "square": place_square,
+            "plus": place_plus,
+            "t": place_t,
+            "l": place_l,
+            "diamond": place_diamond,
+            "line": place_line,
+        }
+
+        # Place the chosen shape
+        placer[shape_type](shape_dim)
 
         # We'll now identify the shape's coordinates, then place partial subsets in the remaining subgrids.
         # We'll do a 4-way find of connected objects, find the one containing subgrid_center.
@@ -112,7 +164,19 @@ class ARCTask1e32b0e9Generator(ARCTaskGenerator):
                 shape_obj = obj
                 break
         if shape_obj is None:
-            # If something went wrong, just return the grid
+            # Fallback: try to force a minimal marker at the center so the
+            # detection logic always finds an object. This avoids returning an
+            # empty pattern in some rare placement failures.
+            grid[subgrid_center_r, subgrid_center_c] = obj_color
+            objects_4 = find_connected_objects(grid, diagonal_connectivity=False, background=0, monochromatic=False)
+            for obj in objects_4:
+                if (subgrid_center_r, subgrid_center_c) in obj.coords:
+                    shape_obj = obj
+                    break
+        if shape_obj is None:
+            # As a last resort give up and return the grid with at least the
+            # center marked; downstream code will still run but other
+            # subgrids are ensured to receive at least one colored cell below.
             return grid
 
         shape_coords = list(shape_obj.coords)
@@ -159,7 +223,27 @@ class ARCTask1e32b0e9Generator(ARCTaskGenerator):
                     new_c = cc + offset_c
                     if 0 <= new_r < rows and 0 <= new_c < rows:
                         grid[new_r, new_c] = obj_color
-
+        # Ensure every subgrid has at least one colored cell. Some subsets or
+        # placement near separators could leave a subgrid empty; guarantee at
+        # least one colored cell (prefer center) so downstream logic sees a
+        # colored cell in each subgrid.
+        for rindex in range(3):
+            for cindex in range(3):
+                bounds = get_subgrid_rc(rindex, cindex)
+                if bounds is None:
+                    continue
+                (rtop, rbot, cleft, cright) = bounds
+                # slice and check for any non-zero cell
+                if np.any(grid[rtop:rbot+1, cleft:cright+1] != 0):
+                    continue
+                # place one colored cell at the subgrid center
+                sub_h2 = rbot - rtop + 1
+                sub_w2 = cright - cleft + 1
+                if sub_h2 <= 0 or sub_w2 <= 0:
+                    continue
+                sub_ctr_r = rtop + sub_h2 // 2
+                sub_ctr_c = cleft + sub_w2 // 2
+                grid[sub_ctr_r, sub_ctr_c] = obj_color
         return grid
 
     def transform_input(self, grid: np.ndarray, taskvars: Dict[str, Any]) -> np.ndarray:
@@ -232,8 +316,6 @@ class ARCTask1e32b0e9Generator(ARCTaskGenerator):
                 if (rindex, cindex) == (0, 0):
                     continue
                 coords = get_subgrid_rc(rindex, cindex)
-                print(f"coordinates for subgrid {rindex},{cindex}:")
-                print(coords)
                 if coords is None:
                     continue
                 (rtop, rbot, cleft, cright) = coords
@@ -273,16 +355,26 @@ class ARCTask1e32b0e9Generator(ARCTaskGenerator):
 
         nr_train = random.choice([3, 4])
         train_data = []
-        for _ in range(nr_train):
+        # choose shape types for each example so the top-left object varies.
+        shape_types = ["square", "plus", "t", "l", "diamond", "line"]
+        total_needed = nr_train + 1  # train + test
+        if total_needed <= len(shape_types):
+            chosen_shapes = random.sample(shape_types, total_needed)
+        else:
+            # not enough unique shapes; allow repeats
+            chosen_shapes = [random.choice(shape_types) for _ in range(total_needed)]
+
+        for i in range(nr_train):
             sep_color, obj_color = random.sample(range(1, 10), 2)
-            gridvars = {"sep_color": sep_color, "obj_color": obj_color}
+            gridvars = {"sep_color": sep_color, "obj_color": obj_color, "shape_type": chosen_shapes[i]}
             inp = self.create_input(taskvars, gridvars)
             outp = self.transform_input(inp, taskvars)
             train_data.append({"input": inp, "output": outp})
 
         # Test pair
         sep_color, obj_color = random.sample(range(1, 10), 2)
-        gridvars = {"sep_color": sep_color, "obj_color": obj_color}
+        test_shape = chosen_shapes[-1]
+        gridvars = {"sep_color": sep_color, "obj_color": obj_color, "shape_type": test_shape}
         test_inp = self.create_input(taskvars, gridvars)
         test_outp = self.transform_input(test_inp, taskvars)
         test_data = [{"input": test_inp, "output": test_outp}]
