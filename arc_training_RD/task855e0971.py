@@ -77,6 +77,32 @@ class Task855e0971Generator(ARCTaskGenerator):
                         empty_col = random.randint(start_col, end_col - 1)
                         grid[empty_row, empty_col] = 0  # Empty cell
         
+        # Ensure at least one empty cell exists in the grid. If none were
+        # placed above (random choices), force one empty cell inside a
+        # randomly chosen stripe so the transformation always has at least
+        # one activation point to work with.
+        if not np.any(grid == 0):
+            stripe_idx = random.randrange(num_stripes)
+            if stripe_orientation == 'horizontal':
+                stripe_height = rows // num_stripes
+                start_row = stripe_idx * stripe_height
+                end_row = min((stripe_idx + 1) * stripe_height, rows)
+                # guard against degenerate ranges
+                if start_row >= end_row:
+                    start_row = max(0, end_row - 1)
+                empty_row = random.randint(start_row, end_row - 1)
+                empty_col = random.randint(0, columns - 1)
+            else:
+                stripe_width = columns // num_stripes
+                start_col = stripe_idx * stripe_width
+                end_col = min((stripe_idx + 1) * stripe_width, columns)
+                if start_col >= end_col:
+                    start_col = max(0, end_col - 1)
+                empty_row = random.randint(0, rows - 1)
+                empty_col = random.randint(start_col, end_col - 1)
+
+            grid[empty_row, empty_col] = 0
+
         return grid
 
     def transform_input(self, grid, taskvars):
@@ -176,8 +202,8 @@ class Task855e0971Generator(ARCTaskGenerator):
     def create_grids(self):
         """Create training and test grids with variety."""
         # Randomize grid dimensions as task variables
-        rows = random.randint(8, 15)
-        columns = random.randint(8, 15)
+        rows = random.randint(8, 30)
+        columns = random.randint(8, 30)
         
         # Store task variables
         taskvars = {
