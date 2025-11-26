@@ -332,9 +332,4 @@ class Task00d62c1bGenerator(ARCTaskGenerator):
         return out
 
 
-if __name__ == '__main__':
-    # Quick test and visualization
-    gen = Task00d62c1bGenerator()
-    taskvars, data = gen.create_grids()
-    print('taskvars:', taskvars)
-    ARCTaskGenerator.visualize_train_test_data(data)
+

@@ -138,9 +138,4 @@ class Task85c4e7cdGenerator(ARCTaskGenerator):
 		return out
 
 
-if __name__ == '__main__':
-	gen = Task85c4e7cdGenerator()
-	taskvars, data = gen.create_grids()
-	print('Created', len(data['train']), 'train examples and', len(data['test']), 'test examples')
-	ARCTaskGenerator.visualize_train_test_data(data)
 

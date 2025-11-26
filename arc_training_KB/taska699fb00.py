@@ -6,15 +6,15 @@ from input_library import retry
 class Taska699fb00Generator(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
-            "Input grids are squares and can have different sizes.",
-            "They contain horizontal lines of {color('object_color')} color and empty (0) cells.",
-            "The horizontal lines must have alternating cells filled with {color('object_color')} color and unfilled cells with empty (0) cells.",
-            "All other cells in the grid are empty (0) cells.",
-            "The horizontal lines with alternating pattern can appear in multiple rows of the grid."
+            "The input grids are of different sizes.",
+            "Some rows contain a horizontal line made of {color('object_color')} cells alternating with empty (0) cells.",
+            "All remaining cells in the grid are empty (0).",
+            "These alternating horizontal lines may appear in several rows, but each row contains at most one such horizontal line."
         ]
         
         transformation_reasoning_chain = [
-            "The output grid is constructed by copying the input grid but here the horizontal line whose alternating empty cells must be filled with {color('fill_color')} color."
+            "The output grid is created by copying the input grid and identifying the alternating horizontal lines of made of {color('object_color')} and empty (0) cells.",
+            "For each row, identify the alternating horizontal line of {color('object_color')} cells and fill every empty (0) cell that lies between two {color('object_color')} cells in that line with {color('fill_color')} cell."
         ]
         
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
@@ -22,14 +22,25 @@ class Taska699fb00Generator(ARCTaskGenerator):
     def create_input(self, taskvars: dict, gridvars: dict) -> np.ndarray:
         """Create input grid with alternating horizontal patterns."""
         object_color = taskvars['object_color']
-        grid_size = gridvars['grid_size']
-        
+        # Support rectangular grids: prefer explicit rows/cols, fall back to square grid_size
+        rows = gridvars.get('rows') or gridvars.get('height')
+        cols = gridvars.get('cols') or gridvars.get('width')
+        if rows is None and cols is None:
+            grid_size = gridvars.get('grid_size')
+            rows = cols = grid_size
+        elif rows is None:
+            rows = cols
+        elif cols is None:
+            cols = rows
+
         # Create an empty grid
-        grid = np.zeros((grid_size, grid_size), dtype=int)
-        
+        grid = np.zeros((rows, cols), dtype=int)
+
         # Determine number of alternating pattern segments to create
-        num_patterns = random.randint(1, 3 + grid_size // 5)
-        
+        # Keep scaling similar to previous square behaviour; use the larger dimension for scaling
+        scale_dim = max(rows, cols)
+        num_patterns = random.randint(1, 3 + scale_dim // 5)
+
         # Track which rows already have patterns
         used_rows = set()
         
@@ -42,7 +53,7 @@ class Taska699fb00Generator(ARCTaskGenerator):
             attempts += 1
             
             # Available rows are those with at least one empty row between them
-            available_rows = [r for r in range(grid_size) if all(abs(r - used_r) > 1 for used_r in used_rows)]
+            available_rows = [r for r in range(rows) if all(abs(r - used_r) > 1 for used_r in used_rows)]
             
             if not available_rows:
                 break  # No more suitable rows available
@@ -51,15 +62,15 @@ class Taska699fb00Generator(ARCTaskGenerator):
             row = random.choice(available_rows)
             used_rows.add(row)
             
-            # Now decide if we want to place multiple patterns on this row
-            num_patterns_for_row = random.randint(1, 2)  # Max 2 patterns per row
+            # Only one alternating horizontal pattern is allowed per row
+            num_patterns_for_row = 1
             
             for pattern_idx in range(num_patterns_for_row):
                 # Minimum pattern length (must have at least 2 alternating cells)
                 min_pattern_length = 3  # At least 2 colored cells with 1 empty between
                 
                 # Maximum pattern length (to ensure patterns don't take up the whole row)
-                max_pattern_length = min(grid_size // 2, 7)  # Up to 7 cells or half the row
+                max_pattern_length = min(cols // 2, 7)  # Up to 7 cells or half the row
                 
                 if max_pattern_length < min_pattern_length:
                     max_pattern_length = min_pattern_length
@@ -70,7 +81,7 @@ class Taska699fb00Generator(ARCTaskGenerator):
                 
                 # Track columns already used by patterns on this row
                 used_cols = set()
-                for c in range(grid_size):
+                for c in range(cols):
                     if grid[row, c] != 0:
                         used_cols.add(c)
                 
@@ -78,12 +89,12 @@ class Taska699fb00Generator(ARCTaskGenerator):
                 valid_start_positions = []
                 min_spacing = 3  # Minimum spacing between patterns on same row
                 
-                for start_col in range(grid_size - pattern_length + 1):
+                for start_col in range(cols - pattern_length + 1):
                     valid = True
                     
                     # Check if any part of the pattern or its buffer would overlap with existing patterns
                     for c in range(start_col - min_spacing, start_col + pattern_length + min_spacing):
-                        if 0 <= c < grid_size and c in used_cols:
+                        if 0 <= c < cols and c in used_cols:
                             valid = False
                             break
                     
@@ -99,7 +110,7 @@ class Taska699fb00Generator(ARCTaskGenerator):
                 # Place the alternating pattern
                 for offset in range(0, pattern_length, 2):
                     col = start_col + offset
-                    if col < grid_size:
+                    if col < cols:
                         grid[row, col] = object_color
                         used_cols.add(col)
                 
@@ -109,9 +120,9 @@ class Taska699fb00Generator(ARCTaskGenerator):
         
         # If no patterns were placed (rare but possible), add at least one
         if patterns_placed == 0:
-            row = random.randint(0, grid_size - 1)
-            start_col = random.randint(0, grid_size - 3)  # Ensure at least 3 cells fit
-            
+            row = random.randint(0, rows - 1)
+            start_col = random.randint(0, cols - 3)  # Ensure at least 3 cells fit
+
             grid[row, start_col] = object_color
             grid[row, start_col + 2] = object_color
         
@@ -157,15 +168,19 @@ class Taska699fb00Generator(ARCTaskGenerator):
         # Generate 3-5 training examples
         num_train_examples = random.randint(3, 5)
         train_examples = []
-        
-        # Generate unique grid sizes for all grids (training + test)
+        # Generate unique grid shapes for all grids (training + test)
         min_size = 8  # Minimum size to accommodate patterns
-        max_size = 20
-        all_sizes = [random.randint(min_size, max_size) for _ in range(num_train_examples + 1)]
-        
+        max_size = 30
+        # Use rectangular shapes: (rows, cols) pairs. Keep compatibility with square sizes.
+        all_shapes = [(
+            random.randint(min_size, max_size),
+            random.randint(min_size, max_size)
+        ) for _ in range(num_train_examples + 1)]
+
         # Create training examples
         for i in range(num_train_examples):
-            gridvars = {'grid_size': all_sizes[i]}
+            r, c = all_shapes[i]
+            gridvars = {'rows': r, 'cols': c}
             
             input_grid = self.create_input(taskvars, gridvars)
             output_grid = self.transform_input(input_grid, taskvars)
@@ -176,15 +191,16 @@ class Taska699fb00Generator(ARCTaskGenerator):
             })
         
         # Create test example
-        test_gridvars = {'grid_size': all_sizes[-1]}
+        tr, tc = all_shapes[-1]
+        test_gridvars = {'rows': tr, 'cols': tc}
         test_input = self.create_input(taskvars, test_gridvars)
         test_output = self.transform_input(test_input, taskvars)
-        
+
         test_examples = [{
             'input': test_input,
             'output': test_output
         }]
-        
+
         return taskvars, {
             'train': train_examples,
             'test': test_examples
