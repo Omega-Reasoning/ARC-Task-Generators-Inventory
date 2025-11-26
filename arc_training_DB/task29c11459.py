@@ -6,16 +6,19 @@ class ARCTask29c11459Generator(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
             "The input grid has size {vars['rows']} X {vars['cols']}.",
-            "Only two cells are placed along a single row, one cell is of color {color('cell1')} and another cell with color {color('cell2')}.",
+            "Only two cells are placed along a single row, each with different colors.",
             "The first cell is placed in the first column and the second cell is placed in the last column.",
-            "The remaining cells are empty(0)."
+            "The remaining cells are empty(0).",
+            "Different rows may have different color combinations."
         ]
 
         transformation_reasoning_chain = [
             "The output grid has the same size as the input grid.",
             "Copy the input grid to the output grid.",
-            "The middle cell along the same row where the two cells are placed should be colored {color('cell3')}.",
-            "All the cells between the first cell and the middle cell should be colored {color('cell1')} and the cells between middle cell and second cell should be colored {color('cell2')}."
+            "For each row with the pattern:",
+            "- The middle cell along the same row should be colored {color('cell3')}.",
+            "- All the cells between the first cell and the middle cell should be colored with the same color as the first cell.",
+            "- All the cells between the middle cell and the last cell should be colored with the same color as the last cell."
         ]
 
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
@@ -31,10 +34,21 @@ class ARCTask29c11459Generator(ARCTaskGenerator):
         available_rows = list(range(rows))
         pattern_rows = random.sample(available_rows, num_pattern_rows)
         
-        # Place cells in each selected row
+        # Place cells in each selected row with varying colors
         for row in pattern_rows:
-            grid[row, 0] = taskvars['cell1']
-            grid[row, cols - 1] = taskvars['cell2']
+            cell1 = random.randint(1, 9)
+            cell2 = random.randint(1, 9)
+            while cell2 == cell1:
+                cell2 = random.randint(1, 9)
+            
+            # Make sure the colors are different from the fixed middle color
+            while cell1 == taskvars['cell3']:
+                cell1 = random.randint(1, 9)
+            while cell2 == taskvars['cell3'] or cell2 == cell1:
+                cell2 = random.randint(1, 9)
+            
+            grid[row, 0] = cell1
+            grid[row, cols - 1] = cell2
         
         return grid
 
@@ -48,9 +62,13 @@ class ARCTask29c11459Generator(ARCTaskGenerator):
         
         # Apply transformation to each pattern row
         for row in pattern_rows:
+            cell1 = grid[row, 0]  # Read the color from the grid
+            cell2 = grid[row, -1]  # Read the color from the grid
+            
+            # Use the fixed middle color from taskvars
             output_grid[row, mid_col] = taskvars['cell3']
-            output_grid[row, 1:mid_col] = taskvars['cell1']
-            output_grid[row, mid_col + 1:-1] = taskvars['cell2']
+            output_grid[row, 1:mid_col] = cell1
+            output_grid[row, mid_col + 1:-1] = cell2
         
         return output_grid
 
@@ -58,14 +76,8 @@ class ARCTask29c11459Generator(ARCTaskGenerator):
         taskvars = {
             'rows': random.randint(10, 21),
             'cols': random.choice([i for i in range(5, 31, 2)]),
-            'cell1': random.randint(1, 9),
-            'cell2': random.randint(1, 9),
-            'cell3': random.randint(1, 9)
+            'cell3': random.randint(1, 9)  # Fixed middle color across all examples
         }
-
-        while taskvars['cell1'] == taskvars['cell2'] or taskvars['cell2'] == taskvars['cell3'] or taskvars['cell1'] == taskvars['cell3']:
-            taskvars['cell2'] = random.randint(1, 9)
-            taskvars['cell3'] = random.randint(1, 9)
 
         train_test_data = self.create_grids_default(nr_train_examples=random.randint(2, 3), nr_test_examples=1, taskvars=taskvars)
 

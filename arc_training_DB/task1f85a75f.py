@@ -38,13 +38,27 @@ class ARCTask1f85a75fGenerator(ARCTaskGenerator):
         # Determine random position ensuring buffer zone
         max_row = rows - obj_height - (2 * buffer)
         max_col = rows - obj_width - (2 * buffer)
-        top_left_row = random.randint(buffer, max_row)
-        top_left_col = random.randint(buffer, max_col)
+        
+        # Ensure valid range
+        if max_row < buffer or max_col < buffer:
+            # If grid is too small, place object with minimal buffer
+            buffer = 1
+            max_row = rows - obj_height - buffer
+            max_col = rows - obj_width - buffer
+            top_left_row = max(0, buffer)
+            top_left_col = max(0, buffer)
+        else:
+            top_left_row = random.randint(buffer, max_row)
+            top_left_col = random.randint(buffer, max_col)
 
         # Create a mask for the object's area including buffer zone
         object_area = np.zeros_like(grid, dtype=bool)
-        object_area[top_left_row-buffer:top_left_row+obj_height+buffer, 
-                   top_left_col-buffer:top_left_col+obj_width+buffer] = True
+        buffer_top = max(0, top_left_row - buffer)
+        buffer_left = max(0, top_left_col - buffer)
+        buffer_bottom = min(rows, top_left_row + obj_height + buffer)
+        buffer_right = min(rows, top_left_col + obj_width + buffer)
+        
+        object_area[buffer_top:buffer_bottom, buffer_left:buffer_right] = True
 
         # Paste the object into the grid
         grid[top_left_row:top_left_row + obj_height, 
@@ -84,8 +98,12 @@ class ARCTask1f85a75fGenerator(ARCTaskGenerator):
         return subgrid
 
     def create_grids(self):
+        # Calculate minimum grid size needed
+        # Max object size is 6x6, max buffer is 2, so minimum is 6 + 2*2 + 2 = 12
+        min_grid_size = 12
+        
         taskvars = {
-            'rows': 30,
+            'rows': random.randint(min_grid_size, 30),
         }
 
         # Generate training and test grids
@@ -110,5 +128,3 @@ class ARCTask1f85a75fGenerator(ARCTaskGenerator):
         test_output = self.transform_input(test_input, taskvars)
 
         return taskvars, TrainTestData(train=train_data, test=[GridPair(input=test_input, output=test_output)])
-
-

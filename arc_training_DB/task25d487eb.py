@@ -13,6 +13,7 @@ class ARCTask25d487ebGenerator(ARCTaskGenerator):
             "The triangle is rotated anticlockwise by multiple of 90 degrees in some examples.",
             "The triangles has color input_color(between 1 and 9), except for the center cell of the last row in the triangle, which is of color cell_color(between 1 and 9).",
             "The triangle color varies between the examples.",
+            "The cell color varies between the examples.",
             "All remaining cells in the grid are empty (0)."
         ]
         
@@ -29,13 +30,15 @@ class ARCTask25d487ebGenerator(ARCTaskGenerator):
     
     def create_input(self, taskvars, gridvars):
         rows, cols = taskvars['rows'], taskvars['cols']
+        cell_color = gridvars['cell_color']
+        
         def generate_valid_grid():
             grid = np.zeros((rows, cols), dtype=int)
             rotation_angle = random.choice([0, 90, 180, 270])
 
             # Define triangle properties
             triangle_color = random.randint(1, 9)
-            while triangle_color == taskvars['cell_color']:
+            while triangle_color == cell_color:
                 triangle_color = random.randint(1, 9)
             
             height = random.randint(2, rows // 3)
@@ -58,7 +61,7 @@ class ARCTask25d487ebGenerator(ARCTaskGenerator):
                     subgrid[row, col] = triangle_color
             
             # Set the center cell color
-            subgrid[0 , center] = taskvars['cell_color']
+            subgrid[center - height + 1, center] = cell_color
             
             # Rotate subgrid if needed
             if rotation_angle == 90:
@@ -167,18 +170,18 @@ class ARCTask25d487ebGenerator(ARCTaskGenerator):
         taskvars = {
             'rows': random.randint(10, 30),
             'cols': random.randint(10, 30),
-            'x': random.choice([90, 180, 270]),
-            'cell_color': random.randint(1, 9)
+            'x': random.choice([90, 180, 270])
         }
         
-        train_examples = [
-            {'input': (input_grid := self.create_input(taskvars, {})),
-             'output': self.transform_input(input_grid, taskvars)}
-            for _ in range(random.randint(3, 4))
-        ]
+        train_examples = []
+        for _ in range(random.randint(3, 4)):
+            gridvars = {'cell_color': random.randint(1, 9)}
+            input_grid = self.create_input(taskvars, gridvars)
+            output_grid = self.transform_input(input_grid, taskvars)
+            train_examples.append({'input': input_grid, 'output': output_grid})
         
-        test_input = self.create_input(taskvars, {})
+        test_gridvars = {'cell_color': random.randint(1, 9)}
+        test_input = self.create_input(taskvars, test_gridvars)
         test_output = self.transform_input(test_input, taskvars)
         
         return taskvars, {'train': train_examples, 'test': [{'input': test_input, 'output': test_output}]}
-    
