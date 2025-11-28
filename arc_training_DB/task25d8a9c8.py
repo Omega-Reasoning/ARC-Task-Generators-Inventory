@@ -13,15 +13,15 @@ class ARCTask25d8a9c8Generator(ARCTaskGenerator):
         input_reasoning_chain = [
             "The input grid has size {vars['rows']} X {vars['rows']}",
             "All the cells in the input grid have color(between 1-9).",
-            "Exactly one row has all the cells of the same color.",
+            "A random number of rows have all the cells of the same color.",
             "No cells in the input grid are empty(0)."
         ]
         
         # 2) Transformation reasoning chain
         transformation_reasoning_chain = [
             "The output grid has the same size as the input grid.",
-            "First identify the row where all the cells have the same color.",
-            "Change all the cells found in the above row to the color {color('output_color')}",
+            "First identify all the rows where all the cells have the same color.",
+            "Change all the cells found in the above rows to the color {color('output_color')}",
             "Remaining all the colors are empty(0) in the output grid."
         ]
 
@@ -30,9 +30,9 @@ class ARCTask25d8a9c8Generator(ARCTaskGenerator):
 
     def create_grids(self):
         # 1. Create task variables
-        # We want rows in [10..20]
-        rows = random.randint(10, 20)
+        rows = random.randint(5, 30)
         output_color = random.randint(1, 9)
+        
         taskvars = {
             'rows': rows,
             'output_color': output_color
@@ -48,17 +48,21 @@ class ARCTask25d8a9c8Generator(ARCTaskGenerator):
 
     def create_input(self, taskvars, gridvars):
         rows = taskvars['rows']
-        # We'll create an NxN grid, no zeros, exactly one uniform row.
+        
+        # We'll create an NxN grid, no zeros, with multiple uniform rows.
         grid = np.zeros((rows, rows), dtype=int)
 
-        # 1) Choose which row to be uniform.
-        uniform_row_index = random.randrange(rows)
-        uniform_color = random.randint(1, 9)
-
-        # 2) For each row:
+        # 1) Choose how many rows to be uniform (random between 1 and rows-1)
+        num_uniform_rows = random.randint(1, rows - 1)
+        
+        # 2) Choose which rows to be uniform (without replacement)
+        uniform_row_indices = random.sample(range(rows), num_uniform_rows)
+        
+        # 3) For each row:
         for r in range(rows):
-            if r == uniform_row_index:
-                # fill entire row with uniform_color
+            if r in uniform_row_indices:
+                # fill entire row with a random uniform color
+                uniform_color = random.randint(1, 9)
                 grid[r, :] = uniform_color
             else:
                 # fill row with random colors, ensuring it's not uniform
@@ -85,25 +89,18 @@ class ARCTask25d8a9c8Generator(ARCTaskGenerator):
         rows = grid.shape[0]
         out_grid = np.zeros_like(grid)
 
-        # 2) Identify the row where all cells have the same color.
-        # We'll find exactly one such row per constraints.
-        found_uniform_row = None
+        # 2) Identify all the rows where all cells have the same color.
+        uniform_rows = []
         for r in range(rows):
             row_vals = grid[r, :]
             if np.all(row_vals == row_vals[0]):
-                found_uniform_row = r
-                break
+                uniform_rows.append(r)
 
-        if found_uniform_row is None:
-            # According to constraints, it should never happen. But just in case, do no changes.
-            return out_grid
-
-        # 3) Change the entire row to output_color in out_grid.
+        # 3) Change all the uniform rows to output_color in out_grid.
         out_color = taskvars['output_color']
-        out_grid[found_uniform_row, :] = out_color
+        for r in uniform_rows:
+            out_grid[r, :] = out_color
 
         # 4) All remaining cells in out_grid are 0 (already done by initialization).
 
         return out_grid
-
-

@@ -12,6 +12,7 @@ class Taskb94a9452Generator(ARCTaskGenerator):
             "The grid consists of exactly one square block.", 
             "The square block is usually greater than or equal to 3x3.",
             "These blocks form two parts: an outer boundary region and inner block region always a square.",
+            "The boundary region can vary in thickness from 1 to several pixels.",
             "Each input grid uses different color combinations for the boundary and inner regions."
         ]
         
@@ -31,9 +32,12 @@ class Taskb94a9452Generator(ARCTaskGenerator):
         block_color = taskvars["block_color"]
         grid_height = taskvars["grid_height"]
         grid_width = taskvars["grid_width"]
+        boundary_thickness = taskvars["boundary_thickness"]
         
         # Randomly determine block size (at least 3x3 but smaller than grid)
-        block_size = random.randint(3, min(grid_height-2, grid_width-2, 10))
+        # Minimum size should accommodate boundary thickness
+        min_block_size = max(3, boundary_thickness * 2 + 1)
+        block_size = random.randint(min_block_size, min(grid_height-2, grid_width-2, 10))
         
         # Create empty grid
         grid = np.zeros((grid_height, grid_width), dtype=int)
@@ -50,9 +54,9 @@ class Taskb94a9452Generator(ARCTaskGenerator):
                 grid[r, c] = bound_color
         
         # Calculate inner square dimensions and position
-        inner_size = block_size - 2  # Inner square is boundary-2
-        inner_start_row = start_row + 1
-        inner_start_col = start_col + 1
+        inner_size = block_size - (2 * boundary_thickness)  # Inner square shrinks by boundary thickness on each side
+        inner_start_row = start_row + boundary_thickness
+        inner_start_col = start_col + boundary_thickness
         
         # Fill the inner square with the block color (only if inner_size > 0)
         if inner_size > 0:
@@ -142,7 +146,7 @@ class Taskb94a9452Generator(ARCTaskGenerator):
             "grid_width": grid_width,
         }
         
-        # Generate 3-5 training examples with different colors for each
+        # Generate 3-5 training examples with different colors and boundary thickness for each
         num_train_examples = random.randint(3, 5)
         train_examples = []
         
@@ -167,11 +171,15 @@ class Taskb94a9452Generator(ARCTaskGenerator):
                 colors = random.sample(available_colors, 2)
                 bound_color, block_color = colors
             
+            # Randomly choose boundary thickness for this example (1 to 3 pixels)
+            boundary_thickness = random.randint(1, 3)
+            
             # Create taskvars for this specific example
             example_taskvars = general_taskvars.copy()
             example_taskvars.update({
                 "bound_color": bound_color,
-                "block_color": block_color
+                "block_color": block_color,
+                "boundary_thickness": boundary_thickness
             })
             
             gridvars = {}
@@ -183,7 +191,7 @@ class Taskb94a9452Generator(ARCTaskGenerator):
                 'output': output_grid
             })
         
-        # Generate test example with different colors
+        # Generate test example with different colors and boundary thickness
         attempts = 0
         while attempts < 50:
             colors = random.sample(available_colors, 2)
@@ -198,10 +206,14 @@ class Taskb94a9452Generator(ARCTaskGenerator):
             colors = random.sample(available_colors, 2)
             test_bound_color, test_block_color = colors
         
+        # Random boundary thickness for test
+        test_boundary_thickness = random.randint(1, 3)
+        
         test_taskvars = general_taskvars.copy()
         test_taskvars.update({
             "bound_color": test_bound_color,
-            "block_color": test_block_color
+            "block_color": test_block_color,
+            "boundary_thickness": test_boundary_thickness
         })
         
         test_gridvars = {}
@@ -218,10 +230,3 @@ class Taskb94a9452Generator(ARCTaskGenerator):
             'test': test_examples
         }
 
-# Test code
-if __name__ == "__main__":
-    generator = Taskb94a9452Generator()
-    taskvars, train_test_data = generator.create_grids()
-    
-    print("Task Variables:", taskvars)
-    ARCTaskGenerator.visualize_train_test_data(train_test_data)

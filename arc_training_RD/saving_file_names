@@ -1,0 +1,29 @@
+import os
+import csv
+
+def list_python_files(base_folder, output_csv):
+    # List to hold file names (without .py)
+    file_names = []
+
+    # Walk through all folders and subfolders
+    for root, dirs, files in os.walk(base_folder):
+        for file in files:
+            if file.endswith(".py"):
+                # Remove .py extension
+                name_without_ext = os.path.splitext(file)[0]
+                file_names.append(name_without_ext)
+
+    # Write results to CSV
+    with open(output_csv, mode='w', newline='', encoding='utf-8') as csv_file:
+        writer = csv.writer(csv_file)
+        writer.writerow(["filename"])  # column header
+        for name in file_names:
+            writer.writerow([name])
+
+    print(f"✅ Saved {len(file_names)} Python file names to '{output_csv}'")
+
+# Example usage:
+if __name__ == "__main__":
+    base_folder = "arc_training_DB"  
+    output_csv = "python_files_DB.csv"
+    list_python_files(base_folder, output_csv)

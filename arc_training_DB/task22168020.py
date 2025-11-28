@@ -8,7 +8,8 @@ class ARCTask22168020Generator(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
             "The input grid has size {vars['rows']} X {vars['rows']}",
-            "There are one, two or max three 8-way connected objects present which have color(between 1-9).",
+            "There are a random number of 8-way connected objects present which have color(between 1-9).",
+            "Each object has a unique color - no two objects share the same color.",
             "The object has two components: a square of dimension 2x2 and the arms.",
             "The arms are created by extending the top left and the top right cells of the object diagonally by 1, 2, or 3 cells and the color of these cells are the same as the 2x2 square.",
             "Both the arms lengths should be the same in the object.",
@@ -30,13 +31,24 @@ class ARCTask22168020Generator(ARCTaskGenerator):
         rows = taskvars['rows']
         grid = np.zeros((rows, rows), dtype=int)
         
-        num_objects = random.randint(1, 3)
+        # Try to place as many objects as possible (up to 9, limited by available colors)
+        max_possible_objects = min(9, rows // 5)  # Rough estimate based on grid size
+        num_objects = random.randint(1, max_possible_objects)
+        
         used_positions = set()
         filled_areas = set()  # Track areas that will be filled in transformation
+        used_colors = set()  # Track colors already used
         
         max_attempts = 100
+        objects_placed = 0
+        
         for _ in range(num_objects):
-            color = random.randint(1, 9)
+            # Select a color that hasn't been used yet
+            available_colors = [c for c in range(1, 10) if c not in used_colors]
+            if not available_colors:
+                break  # No more unique colors available
+            
+            color = random.choice(available_colors)
             arm_length = random.randint(1, 3)
             
             valid = False
@@ -62,8 +74,8 @@ class ARCTask22168020Generator(ARCTaskGenerator):
                     right_arm = (start_row - i, start_col + 1 + i)
                     
                     # Verify arms are within grid bounds
-                    if (min(left_arm[0], right_arm[0]) < 0 or 
-                        max(left_arm[1], right_arm[1]) >= rows):
+                    if (left_arm[0] < 0 or left_arm[1] < 0 or 
+                        right_arm[0] < 0 or right_arm[1] >= rows):
                         valid_arms = False
                         break
                     
@@ -74,6 +86,15 @@ class ARCTask22168020Generator(ARCTaskGenerator):
                     for c in range(left_arm[1], right_arm[1] + 1):
                         area_cells.add((left_arm[0], c))
                 
+                # Add filled area for the 2x2 square rows
+                for r in range(start_row, start_row + 2):
+                    row_cells_in_obj = [c for row, c in object_cells if row == r]
+                    if row_cells_in_obj:
+                        min_c = min(row_cells_in_obj)
+                        max_c = max(row_cells_in_obj)
+                        for c in range(min_c, max_c + 1):
+                            area_cells.add((r, c))
+                
                 if not valid_arms:
                     continue
                 
@@ -83,11 +104,14 @@ class ARCTask22168020Generator(ARCTaskGenerator):
                     valid = True
                     used_positions.update(object_cells)
                     filled_areas.update(area_cells)
+                    used_colors.add(color)  # Mark this color as used
                     for r, c in object_cells:
                         grid[r, c] = color
+                    objects_placed += 1
             
             if attempts >= max_attempts:
-                break
+                # If we can't place this object, continue trying with other colors
+                continue
         
         return grid
 
@@ -99,20 +123,22 @@ class ARCTask22168020Generator(ARCTaskGenerator):
             coords = list(obj.coords)
             color = list(obj.colors)[0]
             
-            # Find the base (2x2 square) and arms
+            # Find min and max row
             min_row = min(r for r, c in coords)
             max_row = max(r for r, c in coords)
             
-            # For each row from top (arms) to bottom (square)
+            # For each row in the object
             for row in range(min_row, max_row + 1):
-                # Find leftmost and rightmost points in this row
-                points_in_row = [(r, c) for r, c in coords if r == row]
-                if len(points_in_row) >= 2:  # Only fill if we have at least 2 points in the row
-                    left_col = min(c for r, c in points_in_row)
-                    right_col = max(c for r, c in points_in_row)
+                # Find all points in this row
+                points_in_row = [c for r, c in coords if r == row]
+                
+                if points_in_row:
+                    # Find leftmost and rightmost columns
+                    left_col = min(points_in_row)
+                    right_col = max(points_in_row)
                     
-                    # Fill between the points
-                    for col in range(left_col + 1, right_col):
+                    # Fill all cells between left and right (inclusive)
+                    for col in range(left_col, right_col + 1):
                         output_grid[row, col] = color
         
         return output_grid
@@ -133,4 +159,3 @@ class ARCTask22168020Generator(ARCTaskGenerator):
         test_data = [{'input': test_input_grid, 'output': test_output_grid}]
         
         return taskvars, {'train': train_data, 'test': test_data}
-

@@ -10,12 +10,12 @@ class ARCTask99b1bc43Generator(ARCTaskGenerator):
             "The input grid has dimension {vars['rows']} X {vars['cols']}.",
             "The grid is divided into two parts by a row which has cells of color {color('divider')}.",
             "The top part of the grid has a 4-way connected object of color {color('top_color')}.",
-            "The top part of the grid has a 4-way connected object of color {color('bottom_color')}.",
+            "The bottom part of the grid has a 4-way connected object of color {color('bottom_color')}.",
             "The remaining cells are empty(0)."
         ]
         
         transformation_reasoning_chain = [
-            "The output grid has dimensions {vars['rows']}/2 - 1 * {vars['cols']}.",
+            "The output grid has dimensions {vars['output_rows']} X {vars['cols']}.",
             "The output grid cell is assigned {color('fill')} exactly when its top and bottom half colors differ (i.e., top half is colored and bottom half is not, or vice versa)—in other words, the coloring is determined by the XOR of the top and bottom halves.",
             "The remaining cells are empty(0)."
         ]
@@ -24,8 +24,11 @@ class ARCTask99b1bc43Generator(ARCTaskGenerator):
     
     def create_grids(self) -> tuple[dict[str, any], TrainTestData]:
         # Initialize task variables with random values
+        rows = random.choice([11, 13, 15])  # Odd numbers between 10-15
+        
         taskvars = {
-            'rows': random.choice([11, 13, 15]),  # Odd numbers between 10-15
+            'rows': rows,
+            'output_rows': rows // 2,  # Store the calculated output rows
             'cols': random.randint(10, 15),
             'divider': random.choice([5, 6, 7, 8, 9]),  # Different color for divider
             'top_color': random.choice([1, 2, 3, 4]),  # Color for top object
@@ -123,8 +126,8 @@ class ARCTask99b1bc43Generator(ARCTaskGenerator):
             # Fallback if divider row not found
             divider_row = rows // 2
         
-        # Calculate output grid dimensions - rows/2 - 1 * cols
-        output_rows = (rows // 2) - 1
+        # Calculate output grid dimensions - floor(rows/2) X cols
+        output_rows = rows // 2
         output_grid = np.zeros((output_rows, cols), dtype=int)
         
         # Apply XOR logic between top and bottom halves
