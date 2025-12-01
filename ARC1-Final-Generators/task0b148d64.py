@@ -80,23 +80,31 @@ class Task0b148d64Generator(ARCTaskGenerator):
     def transform_input(self, grid, taskvars):
         # Find connected objects
         objects = find_connected_objects(grid, diagonal_connectivity=True)
-        
-        # Find the unique color that appears only once among all objects
+        # Count how many objects contain each color
         color_counts = {}
         for obj in objects:
             for color in obj.colors:
                 color_counts[color] = color_counts.get(color, 0) + 1
-        
-        # The color that appears only once is color_2
-        color_2 = [color for color, count in color_counts.items() if count == 1][0]
 
-        # Locate the object with color_2 and extract its bounding box
+        # Prefer the color that appears exactly once. If none, pick the least
+        # frequent color as a fallback (this avoids IndexError when none appear
+        # exactly once due to unexpected grid compositions).
+        candidates = [color for color, count in color_counts.items() if count == 1]
+        if candidates:
+            color_2 = candidates[0]
+        else:
+            if not color_counts:
+                raise ValueError("No non-background objects found in the grid.")
+            # Choose the color with minimal object count (tie-breaker arbitrary)
+            color_2 = min(color_counts.items(), key=lambda kv: kv[1])[0]
+
+        # Locate the object with color_2 and return its cropped array
         for obj in objects:
             if color_2 in obj.colors:
-                box = obj.bounding_box
-                return grid[box[0], box[1]]
+                # Use GridObject.to_array() which returns the minimal bounding array
+                return obj.to_array()
 
-        raise ValueError("Object with specified color_2 not found in the grid.")
+        raise ValueError("Object with specified color not found in the grid.")
 
     def create_grids(self):
         # Base task variables

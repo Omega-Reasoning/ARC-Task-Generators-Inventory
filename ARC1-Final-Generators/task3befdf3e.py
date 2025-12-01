@@ -163,15 +163,23 @@ class Task3befdf3eGenerator(ARCTaskGenerator):
                 # Check if this location works
                 valid = True
                 
-                # Check for proper separation from other blocks (at least 2 empty rows/cols)
+                # Check for proper separation from other blocks (require at least 2 empty rows/cols)
+                # Use a padded-box non-overlap test: pad previous block by `pad` cells
+                # and ensure this block's bounding box does not intersect that padded box.
+                pad = 2
                 for prev_top, prev_left, prev_bottom, prev_right in placed_blocks:
-                    # Check horizontal separation (at least 2 empty columns)
-                    if not (block_right + 2 <= prev_left or prev_right + 2 <= block_left):
-                        valid = False
-                        break
-                        
-                    # Check vertical separation (at least 2 empty rows)
-                    if not (block_bottom + 2 <= prev_top or prev_bottom + 2 <= block_top):
+                    padded_prev_top = prev_top - pad
+                    padded_prev_left = prev_left - pad
+                    padded_prev_bottom = prev_bottom + pad
+                    padded_prev_right = prev_right + pad
+
+                    # If this block's bounding box intersects the padded previous box -> invalid
+                    if not (
+                        block_top > padded_prev_bottom or
+                        block_bottom < padded_prev_top or
+                        block_left > padded_prev_right or
+                        block_right < padded_prev_left
+                    ):
                         valid = False
                         break
                 

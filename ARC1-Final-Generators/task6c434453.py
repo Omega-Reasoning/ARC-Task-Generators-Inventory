@@ -128,9 +128,8 @@ class Task6c434453Generator(ARCTaskGenerator):
         num_crosses = gridvars['num_crosses']
         num_frames = gridvars['num_frames']
         num_other_objects = gridvars['num_other_objects']
-        
-        # Initialize empty grid
-        grid = np.zeros((grid_size, grid_size), dtype=int)
+        # Try creating a valid grid multiple times (avoid recursion)
+        max_creation_attempts = 200
         
         # Define object shapes
         cross_shape = np.array([
@@ -151,63 +150,76 @@ class Task6c434453Generator(ARCTaskGenerator):
             np.array([[object_color], [object_color]]),  # 2x1 rectangle
             np.array([[object_color, object_color], [object_color, object_color]])  # 2x2 square
         ]
-        
-        # Place objects ensuring they don't overlap
-        def place_object(shape, attempts=100):
-            for _ in range(attempts):
-                # Find a random position where shape fits
-                max_row = grid.shape[0] - shape.shape[0]
-                max_col = grid.shape[1] - shape.shape[1]
-                
-                if max_row <= 0 or max_col <= 0:
-                    continue
-                
-                row = random.randint(0, max_row)
-                col = random.randint(0, max_col)
-                
-                # Check if the area and its border is clear
-                region_height = shape.shape[0] + 2
-                region_width = shape.shape[1] + 2
-                
-                # Ensure we stay within grid bounds for checking
-                if (row > 0 and col > 0 and 
-                    row + shape.shape[0] < grid.shape[0] and 
-                    col + shape.shape[1] < grid.shape[1]):
-                    
+        # Attempt to build the grid up to max_creation_attempts times
+        for attempt in range(max_creation_attempts):
+            # Initialize empty grid for this attempt
+            grid = np.zeros((grid_size, grid_size), dtype=int)
+
+            # place_object is defined per-attempt so it captures the current grid
+            def place_object(shape, attempts=100):
+                for _ in range(attempts):
+                    # Find a random position where shape fits
+                    max_row = grid.shape[0] - shape.shape[0]
+                    max_col = grid.shape[1] - shape.shape[1]
+
+                    # If shape is larger than grid in either dim, can't place
+                    if max_row < 0 or max_col < 0:
+                        return False
+
+                    row = random.randint(0, max_row)
+                    col = random.randint(0, max_col)
+
                     # Check a region that includes a 1-cell border around the shape
                     region_row_start = max(0, row - 1)
                     region_row_end = min(grid.shape[0], row + shape.shape[0] + 1)
                     region_col_start = max(0, col - 1)
                     region_col_end = min(grid.shape[1], col + shape.shape[1] + 1)
-                    
+
                     region = grid[region_row_start:region_row_end, region_col_start:region_col_end]
-                    
+
                     if np.all(region == 0):  # If all cells are empty
                         # Place the shape
                         grid[row:row+shape.shape[0], col:col+shape.shape[1]] = shape
                         return True
-            
-            return False
-        
-        # Place cross shapes
-        for _ in range(num_crosses):
-            if not place_object(cross_shape):
-                # If we can't place crosses, retry with a new grid
-                return self.create_input(taskvars, gridvars)
-        
-        # Place frame shapes
-        for _ in range(num_frames):
-            if not place_object(frame_shape):
-                # If we can't place frames, retry with a new grid
-                return self.create_input(taskvars, gridvars)
-        
-        # Place other simple shapes
-        for _ in range(num_other_objects):
-            shape = random.choice(simple_shapes)
-            if not place_object(shape):
-                # It's okay if we can't place all simple shapes
-                break
-        
+
+                return False
+
+            success = True
+
+            # Place cross shapes
+            for _ in range(num_crosses):
+                if not place_object(cross_shape):
+                    success = False
+                    break
+
+            if not success:
+                continue
+
+            # Place frame shapes
+            for _ in range(num_frames):
+                if not place_object(frame_shape):
+                    success = False
+                    break
+
+            if not success:
+                continue
+
+            # Place other simple shapes (best-effort)
+            placed_other = 0
+            for _ in range(num_other_objects):
+                shape = random.choice(simple_shapes)
+                if place_object(shape):
+                    placed_other += 1
+                else:
+                    # don't fail the entire attempt for simple shapes
+                    continue
+
+            # If we've placed all required crosses and frames, return the grid
+            if success:
+                return grid
+
+        # If we reach here, we couldn't place everything after many attempts.
+        # Return the last grid (possibly incomplete) to avoid recursion/stack overflow.
         return grid
     
     def transform_input(self, grid: np.ndarray, taskvars: Dict[str, Any]) -> np.ndarray:

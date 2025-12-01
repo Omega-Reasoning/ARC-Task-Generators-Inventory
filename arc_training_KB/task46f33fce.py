@@ -7,7 +7,7 @@ from transformation_library import find_connected_objects
 class Task46f33fceGenerator(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
-            "Input grids are of size {vars['grid_size']}x{vars['grid_size']}.",
+            "Input grids are of size {vars['grid_size']}x{vars['grid_size']}..",
             "They contain several colored (1-9) cells, with all remaining being empty (0).",
             "The colored cells use the following colors: {color('cell_color1')}, {color('cell_color2')}, {color('cell_color3')}, {color('cell_color4')}, and sometimes a single cell has a different color (1-9).",
             "All odd rows and columns must be completely empty (0)."
@@ -75,32 +75,51 @@ class Task46f33fceGenerator(ARCTaskGenerator):
         # Shuffle valid positions
         random.shuffle(valid_positions)
         
-        # Determine number of cells to color (4 for basic colors, possibly +1 for extra color)
-        num_colored_cells = 4 + (1 if add_extra_color else 0)
-        
-        # List of available colors to use
+        # Determine number of cells to color.
+        # The count should vary between 2 and taskvars['grid_size'], but cannot exceed available valid positions.
+        max_allowed = min(taskvars['grid_size'], len(valid_positions))
+        num_colored_cells = random.randint(2, max_allowed) if max_allowed >= 2 else max_allowed
+
+        # List of predefined colors to prefer using
         available_colors = [
             taskvars['cell_color1'],
             taskvars['cell_color2'],
             taskvars['cell_color3'],
             taskvars['cell_color4']
         ]
-        
-        # Place one cell of each of the four specified colors
-        for i in range(4):
-            if i < len(valid_positions):
-                r, c = valid_positions[i]
-                grid[r, c] = available_colors[i]
-        
-        # Add an extra cell with a different color if requested
-        if add_extra_color and len(valid_positions) > 4:
-            r, c = valid_positions[4]
-            
-            # Choose a random color (1-9) that's not one of the predefined colors
-            extra_colors = [i for i in range(1, 10) if i not in available_colors]
-            if extra_colors:
-                extra_color = random.choice(extra_colors)
-                grid[r, c] = extra_color
+
+        colors_to_place = []
+
+        # If we need at least 4 or more colored cells, ensure each predefined color appears at least once.
+        if num_colored_cells >= 4:
+            # start with the four unique colors
+            colors_to_place.extend(available_colors)
+            # fill the remaining slots by sampling from the predefined colors (allow repeats)
+            for _ in range(num_colored_cells - 4):
+                colors_to_place.append(random.choice(available_colors))
+        else:
+            # If fewer than 4 cells, choose a random subset of the predefined colors without repeats
+            colors_to_place = random.sample(available_colors, num_colored_cells)
+
+        # Shuffle the positions and the colors_to_place to randomize placement
+        random.shuffle(colors_to_place)
+
+        for i in range(min(num_colored_cells, len(valid_positions))):
+            r, c = valid_positions[i]
+            grid[r, c] = colors_to_place[i]
+
+        # If add_extra_color requested, replace one additional free position (if any) with a color
+        # that is not among the predefined colors.
+        if add_extra_color:
+            # find an extra position index after the ones we already used
+            extra_pos_index = num_colored_cells
+            if extra_pos_index < len(valid_positions):
+                r, c = valid_positions[extra_pos_index]
+                # Choose a random color (1-9) that's not one of the predefined colors
+                extra_colors = [i for i in range(1, 10) if i not in available_colors]
+                if extra_colors:
+                    extra_color = random.choice(extra_colors)
+                    grid[r, c] = extra_color
         
         return grid
     

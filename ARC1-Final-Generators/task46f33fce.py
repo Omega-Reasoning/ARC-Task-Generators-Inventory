@@ -7,7 +7,7 @@ from transformation_library import find_connected_objects
 class Task46f33fceGenerator(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
-            "Input grids are of size {vars['grid_size']}x{vars['grid_size']}.",
+            "Input grids are of size {vars['grid_size']}x{vars['grid_size']}..",
             "They contain several colored (1-9) cells, with all remaining being empty (0).",
             "The colored cells use the following colors: {color('cell_color1')}, {color('cell_color2')}, {color('cell_color3')}, {color('cell_color4')}, and sometimes a single cell has a different color (1-9).",
             "All odd rows and columns must be completely empty (0)."
