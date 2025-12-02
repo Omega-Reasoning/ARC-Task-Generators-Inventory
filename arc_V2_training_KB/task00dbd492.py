@@ -33,10 +33,13 @@ class Task00dbd492Generator(ARCTaskGenerator):
         
         # Create 4 train examples
         train_data = []
-        
+        # Keep track of how many frames each train example has so we can
+        # guarantee the test example uses a different count.
+        train_frame_counts = []
+
         # Ensure at least one grid has multiple frames (at least 2)
         multi_frame_index = random.randint(0, 3)  # Choose which of the 4 grids will have multiple frames
-        
+
         for i in range(4):
             # Random grid size between 10x10 and 30x30, but larger for multi-frame grid
             if i == multi_frame_index:
@@ -50,24 +53,51 @@ class Task00dbd492Generator(ARCTaskGenerator):
                 min_frames = 1
                 max_frames = min(3, (grid_size // 10) + 1)
                 num_frames = random.randint(min_frames, max_frames)
-            
+
             # Create input grid with randomized frame placements
             input_grid = self.create_input(taskvars, {'grid_size': grid_size, 'num_frames': num_frames})
-            
+
             # Transform the input grid to create the output grid
             output_grid = self.transform_input(input_grid, taskvars)
-            
+
             train_data.append({
                 'input': input_grid,
                 'output': output_grid
             })
-        
-        # Create 1 test example, also with a good chance of multiple frames
-        test_grid_size = random.randint(15, max_grid_size)
-        test_num_frames = random.randint(1, min(4, (test_grid_size // 10) + 1))
+
+            # Record how many frames were placed for this training example
+            train_frame_counts.append(num_frames)
+
+        # Create 1 test example. Ensure the number of {object_color} frames in the
+        # test grid is different from every train grid's frame count.
+
+        # Allowed frame counts: use 1..5 (5 is the maximum we allow elsewhere).
+        used_counts = set(train_frame_counts)
+        available_counts = [n for n in range(1, 6) if n not in used_counts]
+
+        # If somehow all 1..5 are used (very unlikely with 4 train examples),
+        # fall back to allowing 1..5 (can't satisfy uniqueness in that degenerate case).
+        if not available_counts:
+            available_counts = [1, 2, 3, 4, 5]
+
+        # Choose a test number of frames that is not equal to any of the train counts
+        test_num_frames = random.choice(available_counts)
+
+        # Choose a test grid size that can accommodate the chosen number of frames.
+        # For placement we use the more generous max formula similar to multi-frame
+        # logic: max_frames = min(5, (grid_size // 10) + 2)
+        candidate_sizes = [s for s in range(15, max_grid_size + 1)
+                           if min(5, (s // 10) + 2) >= test_num_frames]
+
+        if candidate_sizes:
+            test_grid_size = random.choice(candidate_sizes)
+        else:
+            # Fallback to max size if no candidate size found (shouldn't happen)
+            test_grid_size = max_grid_size
+
         test_input_grid = self.create_input(taskvars, {'grid_size': test_grid_size, 'num_frames': test_num_frames})
         test_output_grid = self.transform_input(test_input_grid, taskvars)
-        
+
         test_data = [{
             'input': test_input_grid,
             'output': test_output_grid

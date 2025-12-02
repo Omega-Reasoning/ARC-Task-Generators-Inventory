@@ -255,7 +255,7 @@ class Task1c02dbbe(ARCTaskGenerator):
     def create_grids(self) -> Tuple[Dict[str, Any], TrainTestData]:
         # Generate task variables
         taskvars = {
-            'grid_size': random.randint(17, 30),
+            'grid_size': random.randint(10, 30),
             'object_color': random.randint(1, 9)
         }
         
@@ -263,43 +263,70 @@ class Task1c02dbbe(ARCTaskGenerator):
         train_examples = []
         test_examples = []
         
-        num_train = random.randint(3, 5)
-        
-        for i in range(num_train + 1):  # +1 for test example
-            # Generate sub-rectangles for this example
-            num_sub_rects = random.randint(1, 4)
-            available_colors = [c for c in range(1, 10) if c != taskvars['object_color']]
-            random.shuffle(available_colors)
-            
+        # Choose number of training examples so we can guarantee unique corner counts
+        num_train = random.randint(2, 3)
+
+        # Pick unique counts for training from 1..4
+        possible_counts = [1, 2, 3, 4]
+        train_counts = random.sample(possible_counts, num_train)
+
+        # Generate training examples using the unique counts
+        for num_sub_rects in train_counts:
             corners = ['top_left', 'top_right', 'bottom_left', 'bottom_right']
             random.shuffle(corners)
-            
+
+            available_colors = [c for c in range(1, 10) if c != taskvars['object_color']]
+            random.shuffle(available_colors)
+
             sub_rectangles = []
             for j in range(num_sub_rects):
                 # Ensure sub-rectangles don't get too large
                 max_size = min(8, taskvars['grid_size'] // 4)
                 width = random.randint(2, max_size)
                 height = random.randint(2, max_size)
-                
+
                 sub_rectangles.append({
                     'corner': corners[j],
                     'width': width,
                     'height': height,
                     'color': available_colors[j]
                 })
-            
+
             gridvars = {'sub_rectangles': sub_rectangles}
-            
+
             input_grid = self.create_input(taskvars, gridvars)
             output_grid = self.transform_input(input_grid, taskvars)
-            
-            example = {'input': input_grid, 'output': output_grid}
-            
-            if i < num_train:
-                train_examples.append(example)
-            else:
-                test_examples.append(example)
-        
+
+            train_examples.append({'input': input_grid, 'output': output_grid})
+
+        # Now create a single test example whose number of occupied corners differs
+        # from all training examples. Choose from the remaining counts.
+        remaining = [c for c in possible_counts if c not in train_counts]
+        num_sub_rects = random.choice(remaining)
+
+        corners = ['top_left', 'top_right', 'bottom_left', 'bottom_right']
+        random.shuffle(corners)
+
+        available_colors = [c for c in range(1, 10) if c != taskvars['object_color']]
+        random.shuffle(available_colors)
+
+        sub_rectangles = []
+        for j in range(num_sub_rects):
+            max_size = min(8, taskvars['grid_size'] // 4)
+            width = random.randint(2, max_size)
+            height = random.randint(2, max_size)
+            sub_rectangles.append({
+                'corner': corners[j],
+                'width': width,
+                'height': height,
+                'color': available_colors[j]
+            })
+
+        gridvars = {'sub_rectangles': sub_rectangles}
+        input_grid = self.create_input(taskvars, gridvars)
+        output_grid = self.transform_input(input_grid, taskvars)
+        test_examples.append({'input': input_grid, 'output': output_grid})
+
         return taskvars, {'train': train_examples, 'test': test_examples}
 
 

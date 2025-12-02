@@ -44,29 +44,84 @@ class Task13f06aa5Generator(ARCTaskGenerator):
         cols = random.randint(16, 30)
         taskvars = {'rows': rows, 'cols': cols}
 
-        train_grids = []
+        # We'll try a few times to generate 4 examples whose actual detected counts
+        # of hat-objects are all distinct. We pick desired counts from 1..4 and
+        # request generation for those counts; if the generator falls back and
+        # uniqueness is lost, we retry a few times.
+        max_objects = 4
+        max_attempts = 8
 
-        for i in range(3):
-            if i == 1:
-                grid_data = self.create_grid_with_specific_borders(taskvars, ['top', 'bottom', 'left'])
-            else:
-                grid_data = self.create_grid_with_fallback(taskvars, max_objects=3)
+        for attempt in range(max_attempts):
+            desired_counts = random.sample(list(range(1, max_objects + 1)), 4)
 
-            grid_data['output'] = self.transform_input_with_info(
-                grid_data['input'], taskvars, grid_data['objects_info']
+            train_grids = []
+            success = True
+
+            # create the three training grids
+            for i in range(3):
+                desired_num = desired_counts[i]
+                if i == 1:
+                    preferred = ['top', 'bottom', 'left', 'right']
+                    specific_borders = preferred[:desired_num]
+                    try:
+                        input_grid, objects_info = self.create_input_with_info(taskvars, {
+                            'num_objects': desired_num,
+                            'specific_borders': specific_borders
+                        })
+                        grid_data = {'input': input_grid, 'output': None, 'objects_info': objects_info}
+                    except ValueError:
+                        grid_data = self.create_grid_with_fallback(taskvars, max_objects=desired_num)
+                else:
+                    try:
+                        input_grid, objects_info = self.create_input_with_info(taskvars, {'num_objects': desired_num})
+                        grid_data = {'input': input_grid, 'output': None, 'objects_info': objects_info}
+                    except ValueError:
+                        grid_data = self.create_grid_with_fallback(taskvars, max_objects=desired_num)
+
+                grid_data['output'] = self.transform_input_with_info(
+                    grid_data['input'], taskvars, grid_data['objects_info']
+                )
+                grid_data.pop('objects_info', None)
+                train_grids.append(grid_data)
+
+            # create the test grid
+            desired_test_num = desired_counts[3]
+            try:
+                test_input, test_objects_info = self.create_input_with_info(taskvars, {'num_objects': desired_test_num})
+                test_grid = {'input': test_input, 'output': None, 'objects_info': test_objects_info}
+            except ValueError:
+                test_grid = self.create_grid_with_fallback(taskvars, max_objects=desired_test_num)
+
+            test_grid['output'] = self.transform_input_with_info(
+                test_grid['input'], taskvars, test_grid['objects_info']
             )
-            # 🔧 remove the non-JSONable helper data
-            grid_data.pop('objects_info', None)
+            test_grid.pop('objects_info', None)
 
-            train_grids.append(grid_data)
+            # compute actual counts by detecting hat objects
+            actual_counts = []
+            try:
+                for t in train_grids:
+                    grid = t['input']
+                    bg = self.get_background_color(grid)
+                    objs = self.detect_hat_objects(grid, bg, grid.shape[0], grid.shape[1])
+                    actual_counts.append(len(objs))
 
-        test_grid = self.create_grid_with_fallback(taskvars, max_objects=3)
-        test_grid['output'] = self.transform_input_with_info(
-            test_grid['input'], taskvars, test_grid['objects_info']
-        )
-        # 🔧 remove here too
-        test_grid.pop('objects_info', None)
+                bg_test = self.get_background_color(test_grid['input'])
+                test_count = len(self.detect_hat_objects(test_grid['input'], bg_test, test_grid['input'].shape[0], test_grid['input'].shape[1]))
+                actual_counts.append(test_count)
+            except Exception:
+                # Something went wrong during detection; try again
+                success = False
 
+            if not success:
+                continue
+
+            if len(set(actual_counts)) == 4:
+                # success: all counts are distinct
+                train_test_data = {'train': train_grids, 'test': [test_grid]}
+                return taskvars, train_test_data
+
+        # If we exit the loop without success, return the last generated set
         train_test_data = {'train': train_grids, 'test': [test_grid]}
         return taskvars, train_test_data
 
@@ -654,3 +709,4 @@ class Task13f06aa5Generator(ARCTaskGenerator):
                     output[r, c] = b_color
         
         return output
+

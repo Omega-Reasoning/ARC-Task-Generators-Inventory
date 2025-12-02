@@ -40,7 +40,7 @@ class Task103eff5bGenerator(ARCTaskGenerator):
             "To construct the output grid, change the colors of the {color('big_object')} object to match the respective colors of the multi-colored small object.",
             "All other cells remain unchanged."
         ]
-
+        
         # 3️⃣  Delegate to base class
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
 
@@ -52,7 +52,7 @@ class Task103eff5bGenerator(ARCTaskGenerator):
 
         Rules
         -----
-        • Exactly four colours – each forming irregular connected regions.
+        • Exactly N colours (length of the `colours` list) – each forming irregular connected regions.
         • Overall 8‑way connectivity.
         • Shape must be irregular and asymmetric to ensure unique coloring correspondence.
         • Shape must *change* when rotated 90° clockwise (to avoid accidental symmetry).
@@ -66,7 +66,7 @@ class Task103eff5bGenerator(ARCTaskGenerator):
             different = not np.array_equal((arr != 0), (rotated != 0))
             # Each colour appears exactly once as a connected component
             unique_colours = {c for c in arr.flat if c != 0}
-            colour_ok = len(unique_colours) == 4
+            colour_ok = len(unique_colours) == len(colours)
             
             # Check for irregularity - ensure no perfect rectangles or simple patterns
             irregular = _check_irregularity(arr)
@@ -211,7 +211,11 @@ class Task103eff5bGenerator(ARCTaskGenerator):
 
     def create_input(self, taskvars: Dict[str, Any], gridvars: Dict[str, Any]) -> np.ndarray:
         size_small: int = gridvars["small_size"]  # 3 or 4
-        colours_small = [taskvars[f"small_object{i}"] for i in range(1, 5)]
+        # Allow an override to use only three small colours (for test grids)
+        if gridvars.get("three_colours", False):
+            colours_small = [taskvars[f"small_object{i}"] for i in range(1, 4)]
+        else:
+            colours_small = [taskvars[f"small_object{i}"] for i in range(1, 5)]
         colour_big = taskvars["big_object"]
 
         # 1. Build the small object (within its own bounding box)
@@ -255,17 +259,12 @@ class Task103eff5bGenerator(ARCTaskGenerator):
 
     def transform_input(self, grid: np.ndarray, taskvars: Dict[str, Any]) -> np.ndarray:
         big_colour = taskvars["big_object"]
-        small_colours = {
-            taskvars["small_object1"], 
-            taskvars["small_object2"], 
-            taskvars["small_object3"], 
-            taskvars["small_object4"]
-        }
         objects = find_connected_objects(grid, diagonal_connectivity=True, background=0, monochromatic=False)
 
-        # Identify objects by their colour signatures
+        # Identify objects: the big object is the one with the single big_colour;
+        # the other object is the small multi‑coloured object (may use 3 or 4 colours).
         big_obj: GridObject = next(obj for obj in objects if obj.colors == {big_colour})
-        small_obj: GridObject = next(obj for obj in objects if obj.colors == small_colours)
+        small_obj: GridObject = next(obj for obj in objects if obj is not big_obj)
         # Reference arrays and helper data
         small_arr = small_obj.to_array()
         rotated_small = np.rot90(small_arr, k=-1)
@@ -313,7 +312,8 @@ class Task103eff5bGenerator(ARCTaskGenerator):
 
         # 4. One test grid (size randomly 3 or 4)
         test_size = random.choice([3, 4])
-        test_inp = self.create_input(taskvars, {"small_size": test_size})
+        # For the single test grid, use only three small colours as requested
+        test_inp = self.create_input(taskvars, {"small_size": test_size, "three_colours": True})
         test = [{
             "input": test_inp,
             "output": self.transform_input(test_inp, taskvars)

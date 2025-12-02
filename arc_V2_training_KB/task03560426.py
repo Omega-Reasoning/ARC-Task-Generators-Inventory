@@ -47,6 +47,8 @@ class Tasktask03560426Generator(ARCTaskGenerator):
             
         # Generate 1 test example with special requirement (last column empty)
         test_input = self.create_input(taskvars, {'for_test': True})
+        # Ensure the last column of the test input is empty (all zeros)
+        test_input[:, -1] = 0
         test_output = self.transform_input(test_input, taskvars)
         test_pairs = [{'input': test_input, 'output': test_output}]
         

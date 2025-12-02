@@ -44,9 +44,85 @@ class Task0692e18cGenerator(ARCTaskGenerator):
             output_grid = self.transform_input(input_grid, taskvars)
             train_pairs.append({'input': input_grid, 'output': output_grid})
         
-        # Generate test pair
+        # Generate test pair -- ensure its object SHAPE differs from all train shapes
         test_color = colors[-1]
-        test_input = self.create_input(taskvars, {'color': test_color})
+
+        def shape_signature(grid):
+            # Return a hashable signature of the occupancy pattern (1 where object present, 0 elsewhere)
+            return tuple(tuple(1 if cell > 0 else 0 for cell in row) for row in grid.tolist())
+
+        train_shapes = [shape_signature(tp['input']) for tp in train_pairs]
+
+        max_test_attempts = 200
+        test_input = None
+        for _ in range(max_test_attempts):
+            candidate = self.create_input(taskvars, {'color': test_color})
+            sig = shape_signature(candidate)
+            if sig not in train_shapes:
+                test_input = candidate
+                break
+
+        # Fallback: if we couldn't find a unique shape after many attempts, try regenerating train examples
+        if test_input is None:
+            # Try a few times to regenerate the train set and then get a unique test
+            regen_attempts = 5
+            for _ in range(regen_attempts):
+                train_pairs = []
+                colors = random.sample(range(1, 10), train_count + 1)
+                for i in range(train_count):
+                    color = colors[i]
+                    input_grid = self.create_input(taskvars, {'color': color})
+                    output_grid = self.transform_input(input_grid, taskvars)
+                    train_pairs.append({'input': input_grid, 'output': output_grid})
+
+                train_shapes = [shape_signature(tp['input']) for tp in train_pairs]
+
+                for _ in range(max_test_attempts):
+                    candidate = self.create_input(taskvars, {'color': colors[-1]})
+                    sig = shape_signature(candidate)
+                    if sig not in train_shapes:
+                        test_input = candidate
+                        break
+
+                if test_input is not None:
+                    break
+
+        # As a last resort, if still None, accept the last generated candidate but perturb it to differ
+        if test_input is None:
+            # Generate one more candidate and perturb one cell (while preserving connectivity)
+            candidate = self.create_input(taskvars, {'color': test_color})
+            sig = shape_signature(candidate)
+            if sig in train_shapes:
+                # Try to flip one cell that keeps connectivity
+                g = candidate.copy()
+                grid_size = taskvars['grid_size']
+                objects = find_connected_objects(g, diagonal_connectivity=True, background=0)
+                if len(objects) == 1:
+                    obj = set((r, c) for r, c, _ in objects[0])
+                    # Try to move one cell to a nearby empty spot
+                    moved = False
+                    for r, c in list(obj):
+                        for dr, dc in [(0,1),(1,0),(0,-1),(-1,0),(1,1),(1,-1),(-1,1),(-1,-1)]:
+                            nr, nc = r + dr, c + dc
+                            if 0 <= nr < grid_size and 0 <= nc < grid_size and g[nr, nc] == 0:
+                                # perform a tentative move
+                                g[r, c] = 0
+                                g[nr, nc] = test_color
+                                new_sig = shape_signature(g)
+                                if new_sig not in train_shapes:
+                                    test_input = g
+                                    moved = True
+                                    break
+                                # revert
+                                g[nr, nc] = 0
+                                g[r, c] = test_color
+                        if moved:
+                            break
+
+            # If perturbation didn't succeed, fall back to candidate anyway
+            if test_input is None:
+                test_input = candidate
+
         test_output = self.transform_input(test_input, taskvars)
         
         return taskvars, {
