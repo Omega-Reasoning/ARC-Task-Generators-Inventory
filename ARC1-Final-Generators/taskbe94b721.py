@@ -5,7 +5,7 @@ import numpy as np
 import random
 from typing import Dict, Any, Tuple, List
 
-class Taskbe94b721Generator(ARCTaskGenerator):
+class Taskbe94b721(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
             "Input grids are of size {vars['n']} × {vars['m']}.",
@@ -26,17 +26,41 @@ class Taskbe94b721Generator(ARCTaskGenerator):
         n, m = taskvars['n'], taskvars['m']
         grid = np.zeros((n, m), dtype=int)
         
-        # Generate 2-5 objects with unique colors and sizes
+        # Generate 2-4 objects
         num_objects = random.randint(2, 5)
-        used_colors = {0}  # background is already used
+        
+        # STEP 1: Pre-determine unique sizes BEFORE creating objects
+        min_size = 3
+        max_size = min(20, (n * m) // (num_objects * 3))  # Conservative max size
+        
+        target_sizes = []
         used_sizes = set()
         
+        # Generate unique target sizes
+        max_size_attempts = 100
+        for _ in range(max_size_attempts):
+            size = random.randint(min_size, max_size)
+            if size not in used_sizes:
+                target_sizes.append(size)
+                used_sizes.add(size)
+                if len(target_sizes) >= num_objects:
+                    break
+        
+        # Ensure we have enough unique sizes
+        if len(target_sizes) < 2:
+            raise ValueError("Could not generate enough unique sizes")
+        
+        # Adjust num_objects if needed
+        num_objects = len(target_sizes)
+        
+        # Sort sizes so we place smaller objects first (easier to fit)
+        target_sizes.sort()
+        
+        # STEP 2: Create and place objects with target sizes
+        used_colors = {0}
         placed_objects = []
         
-        # Calculate maximum possible object size (roughly half the grid)
-        max_possible_size = (n * m) // (num_objects + 1)
-        
-        for obj_idx in range(num_objects):
+        for obj_idx, target_size in enumerate(target_sizes):
             # Find available color
             available_colors = [c for c in range(1, 10) if c not in used_colors]
             if not available_colors:
@@ -44,63 +68,90 @@ class Taskbe94b721Generator(ARCTaskGenerator):
             color = random.choice(available_colors)
             used_colors.add(color)
             
-            # Try to place object
-            max_attempts = 100
+            # Try to create and place object with approximately the target size
+            max_attempts = 200
             placed = False
             
             for attempt in range(max_attempts):
-                # Generate object dimensions - can be larger now
-                # Estimate dimensions based on remaining space
-                remaining_space = n * m - np.sum(grid != 0)
-                max_obj_size = min(max_possible_size, remaining_space // 2)
+                # Estimate dimensions based on target size
+                # Try different aspect ratios for variety
+                aspect_ratio = random.uniform(0.6, 1.8)
+                estimated_height = max(2, int(np.sqrt(target_size / aspect_ratio)))
+                estimated_width = max(2, int(np.sqrt(target_size * aspect_ratio)))
                 
-                # Random object dimensions (allowing for larger objects)
-                obj_height = random.randint(2, max(2, min(n - 2, int(np.sqrt(max_obj_size)))))
-                obj_width = random.randint(2, max(2, min(m - 2, int(np.sqrt(max_obj_size)))))
+                # Clamp to reasonable bounds
+                obj_height = min(n // 2, estimated_height)
+                obj_width = min(m // 2, estimated_width)
                 
-                # Create object and check its size
-                obj_grid = create_object(obj_height, obj_width, color, Contiguity.FOUR, background=0)
-                actual_size = np.sum(obj_grid != 0)
+                # Create object
+                try:
+                    obj_grid = create_object(obj_height, obj_width, color, Contiguity.FOUR, background=0)
+                    actual_size = np.sum(obj_grid != 0)
+                except:
+                    continue
                 
-                # Accept if size is at least 3 and not already used
-                if actual_size >= 3 and actual_size not in used_sizes:
-                    # Try to place it in the grid without overlapping
-                    placement_attempts = 50
-                    for _ in range(placement_attempts):
-                        # Random position
-                        if obj_height >= n - 2 or obj_width >= m - 2:
-                            # Object is too large, skip
-                            break
-                        
-                        start_row = random.randint(1, n - obj_height - 1)
-                        start_col = random.randint(1, m - obj_width - 1)
-                        
-                        # Check if placement area is clear and has buffer space
-                        buffer = 1
-                        check_area = grid[max(0, start_row-buffer):min(n, start_row+obj_height+buffer),
-                                        max(0, start_col-buffer):min(m, start_col+obj_width+buffer)]
-                        
-                        if np.all(check_area == 0):
-                            # Place the object
-                            for r in range(obj_height):
-                                for c in range(obj_width):
-                                    if obj_grid[r, c] != 0:
-                                        grid[start_row + r, start_col + c] = obj_grid[r, c]
-                            placed = True
-                            used_sizes.add(actual_size)
-                            placed_objects.append((color, actual_size))
-                            break
-                    
-                    if placed:
+                # Check if size is acceptable
+                if actual_size < 3:
+                    continue
+                
+                # Check if this actual size conflicts with other placed objects
+                if any(actual_size == size for _, size in placed_objects):
+                    continue
+                
+                # Try to place it in the grid
+                placement_attempts = 100
+                for _ in range(placement_attempts):
+                    if obj_grid.shape[0] >= n - 2 or obj_grid.shape[1] >= m - 2:
                         break
+                    
+                    # Random position with margin
+                    max_start_row = n - obj_grid.shape[0] - 2
+                    max_start_col = m - obj_grid.shape[1] - 2
+                    
+                    if max_start_row < 1 or max_start_col < 1:
+                        break
+                    
+                    start_row = random.randint(1, max_start_row)
+                    start_col = random.randint(1, max_start_col)
+                    
+                    # Check if placement area is clear with buffer
+                    buffer = 1
+                    check_row_start = max(0, start_row - buffer)
+                    check_row_end = min(n, start_row + obj_grid.shape[0] + buffer)
+                    check_col_start = max(0, start_col - buffer)
+                    check_col_end = min(m, start_col + obj_grid.shape[1] + buffer)
+                    
+                    check_area = grid[check_row_start:check_row_end, check_col_start:check_col_end]
+                    
+                    if np.all(check_area == 0):
+                        # Place the object
+                        for r in range(obj_grid.shape[0]):
+                            for c in range(obj_grid.shape[1]):
+                                if obj_grid[r, c] != 0:
+                                    grid[start_row + r, start_col + c] = obj_grid[r, c]
+                        
+                        placed = True
+                        placed_objects.append((color, actual_size))
+                        break
+                
+                if placed:
+                    break
             
-            if not placed and len(placed_objects) >= 2:
-                # If we can't place this object but have at least 2, continue
-                continue
+            if not placed:
+                # If we have at least 2 objects already, we can stop
+                if len(placed_objects) >= 2:
+                    break
+                else:
+                    raise ValueError("Could not place minimum required objects")
         
-        # Ensure we have at least 2 objects with different sizes
+        # Final check: ensure we have at least 2 objects with unique sizes
         if len(placed_objects) < 2:
             raise ValueError("Could not place minimum required objects")
+        
+        # Verify all placed objects have unique sizes
+        actual_sizes = [size for _, size in placed_objects]
+        if len(set(actual_sizes)) != len(actual_sizes):
+            raise ValueError("Objects do not have unique sizes")
         
         return grid
     
@@ -111,7 +162,7 @@ class Taskbe94b721Generator(ARCTaskGenerator):
         if len(objects) == 0:
             return np.array([[0]])
         
-        # Find the largest object
+        # Find the largest object by number of cells
         largest_object = max(objects.objects, key=lambda obj: len(obj))
         
         # Get bounding box of the largest object
@@ -133,21 +184,21 @@ class Taskbe94b721Generator(ARCTaskGenerator):
         return output
     
     def create_grids(self) -> Tuple[Dict[str, Any], TrainTestData]:
-        # Generate task variables
+        # Generate task variables - use larger grids for better success
         taskvars = {
-            'n': random.randint(8, 30),  # Grid height
-            'm': random.randint(8, 30),  # Grid width
+            'n': random.randint(10, 30),  
+            'm': random.randint(10, 30),
         }
         
         # Generate training examples
-        num_train = random.randint(3, 6)
+        num_train = random.randint(3, 5)
         train_examples = []
         
         for _ in range(num_train):
             # Try to create a valid input/output pair
             input_grid = retry(
                 lambda: self.create_input(taskvars, {}),
-                lambda g: np.sum(g != 0) >= 6  # At least 6 non-background cells
+                lambda g: np.sum(g != 0) >= 6,  
             )
             output_grid = self.transform_input(input_grid, taskvars)
             
@@ -159,7 +210,7 @@ class Taskbe94b721Generator(ARCTaskGenerator):
         # Generate test example
         test_input = retry(
             lambda: self.create_input(taskvars, {}),
-            lambda g: np.sum(g != 0) >= 6
+            lambda g: np.sum(g != 0) >= 6,
         )
         test_output = self.transform_input(test_input, taskvars)
         

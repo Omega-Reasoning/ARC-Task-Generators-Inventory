@@ -184,76 +184,107 @@ class Taske76a88a6(ARCTaskGenerator):
         
         return scaled
     
+    def _get_valid_color_pair(self, background_color: int, used_pairs: set) -> Tuple[int, int]:
+        """Generate a valid color pair"""
+        attempts = 0
+        while attempts < 50:
+            color1 = random.randint(1, 9)
+            color2 = random.randint(1, 9)
+            
+            if (color1 != color2 and 
+                color1 != background_color and 
+                color2 != background_color and
+                (color1, color2) not in used_pairs and
+                (color2, color1) not in used_pairs):
+                return color1, color2
+            attempts += 1
+        
+        # Fallback: just ensure valid colors
+        color1 = random.randint(1, 9)
+        color2 = random.randint(1, 9)
+        while color1 == color2 or color1 == background_color or color2 == background_color:
+            color1 = random.randint(1, 9)
+            color2 = random.randint(1, 9)
+        
+        return color1, color2
+    
     def create_grids(self) -> Tuple[Dict[str, Any], TrainTestData]:
-        # Create task variables
-        taskvars = {
-            'n': random.randint(10, 20),  # Grid size
-            'background_color': random.randint(1, 9)  # Background color for single-color rectangles
-        }
+        max_task_attempts = 10  # Retry entire task generation if needed
         
-        # Create training examples
-        num_train = random.randint(3, 6)
-        train_examples = []
-        test_examples = []
-        
-        # Generate examples with different color pairs
-        used_color_pairs = set()
-        
-        for i in range(num_train + 1):  # +1 for test example
-            # Generate unique color pair
+        for task_attempt in range(max_task_attempts):
+            # Create task variables
+            taskvars = {
+                'n': random.randint(10, 20),  # Grid size
+                'background_color': random.randint(1, 9)  # Background color for single-color rectangles
+            }
+            
+            num_train = random.randint(3, 6)
+            train_examples = []
+            test_examples = []
+            
+            used_color_pairs = set()
+            
+            # Generate training examples
+            train_count = 0
+            max_total_attempts = 100
             attempts = 0
-            while attempts < 50:
-                color1 = random.randint(1, 9)
-                color2 = random.randint(1, 9)
-                
-                # Make sure colors are different and not background
-                if (color1 != color2 and 
-                    color1 != taskvars['background_color'] and 
-                    color2 != taskvars['background_color'] and
-                    (color1, color2) not in used_color_pairs and
-                    (color2, color1) not in used_color_pairs):
-                    used_color_pairs.add((color1, color2))
-                    break
+            
+            while train_count < num_train and attempts < max_total_attempts:
                 attempts += 1
-            
-            # If we couldn't find unique colors, just use any valid pair
-            if attempts >= 50:
-                color1 = random.randint(1, 9)
-                color2 = random.randint(1, 9)
-                while color1 == color2 or color1 == taskvars['background_color'] or color2 == taskvars['background_color']:
-                    color1 = random.randint(1, 9)
-                    color2 = random.randint(1, 9)
-            
-            gridvars = {'color1': color1, 'color2': color2}
-            
-            # Retry input generation if it fails
-            try:
-                input_grid = self.create_input(taskvars, gridvars)
-                output_grid = self.transform_input(input_grid, taskvars)
                 
-                # Only add if transformation actually changed something
-                if not np.array_equal(input_grid, output_grid):
-                    example = {
-                        'input': input_grid,
-                        'output': output_grid
-                    }
+                # Generate unique color pair
+                color1, color2 = self._get_valid_color_pair(taskvars['background_color'], used_color_pairs)
+                gridvars = {'color1': color1, 'color2': color2}
+                
+                try:
+                    input_grid = self.create_input(taskvars, gridvars)
+                    output_grid = self.transform_input(input_grid, taskvars)
                     
-                    if i < num_train:
-                        train_examples.append(example)
-                    else:
-                        test_examples.append(example)
-                else:
-                    # If no change, retry this example
-                    i -= 1
+                    # Only add if transformation actually changed something
+                    if not np.array_equal(input_grid, output_grid):
+                        train_examples.append({
+                            'input': input_grid,
+                            'output': output_grid
+                        })
+                        used_color_pairs.add((color1, color2))
+                        train_count += 1
+                except Exception as e:
                     continue
-                    
-            except Exception as e:
-                # If generation fails, retry this example
-                i -= 1
+            
+            # Check if we got enough training examples
+            if train_count < num_train:
+                # Retry entire task generation
                 continue
+            
+            # Generate test example
+            test_count = 0
+            attempts = 0
+            
+            while test_count < 1 and attempts < max_total_attempts:
+                attempts += 1
+                
+                color1, color2 = self._get_valid_color_pair(taskvars['background_color'], used_color_pairs)
+                gridvars = {'color1': color1, 'color2': color2}
+                
+                try:
+                    input_grid = self.create_input(taskvars, gridvars)
+                    output_grid = self.transform_input(input_grid, taskvars)
+                    
+                    if not np.array_equal(input_grid, output_grid):
+                        test_examples.append({
+                            'input': input_grid,
+                            'output': output_grid
+                        })
+                        test_count += 1
+                except Exception as e:
+                    continue
+            
+            # Check if we successfully generated both train and test
+            if len(train_examples) >= num_train and len(test_examples) >= 1:
+                return taskvars, {
+                    'train': train_examples,
+                    'test': test_examples
+                }
         
-        return taskvars, {
-            'train': train_examples,
-            'test': test_examples
-        }
-
+        # If all attempts failed, raise an error
+        raise RuntimeError("Failed to generate valid task after multiple attempts")
