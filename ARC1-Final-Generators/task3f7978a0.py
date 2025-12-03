@@ -32,14 +32,30 @@ class Task3f7978a0Generator(ARCTaskGenerator):
         num_train_examples = random.randint(3, 5)
         train_examples = []
         for _ in range(num_train_examples):
-            input_grid = self.create_input(taskvars, {})
-            output_grid = self.transform_input(input_grid, taskvars)
-            train_examples.append({'input': input_grid, 'output': output_grid})
+            # Retry until we generate an input that yields a valid (non-empty) output
+            attempts = 0
+            while attempts < 100:
+                input_grid = self.create_input(taskvars, {})
+                output_grid = self.transform_input(input_grid, taskvars)
+                # transform_input returns a 1x1 zero grid on failure; detect and retry
+                if not (output_grid.shape == (1, 1) and output_grid[0, 0] == 0):
+                    train_examples.append({'input': input_grid, 'output': output_grid})
+                    break
+                attempts += 1
+            if attempts >= 100:
+                raise RuntimeError('Failed to generate valid training example after 100 attempts')
         
-        # Generate 1 test example
-        test_input_grid = self.create_input(taskvars, {})
-        test_output_grid = self.transform_input(test_input_grid, taskvars)
-        test_examples = [{'input': test_input_grid, 'output': test_output_grid}]
+        # Generate 1 test example (also retry until valid)
+        attempts = 0
+        while attempts < 200:
+            test_input_grid = self.create_input(taskvars, {})
+            test_output_grid = self.transform_input(test_input_grid, taskvars)
+            if not (test_output_grid.shape == (1, 1) and test_output_grid[0, 0] == 0):
+                test_examples = [{'input': test_input_grid, 'output': test_output_grid}]
+                break
+            attempts += 1
+        else:
+            raise RuntimeError('Failed to generate valid test example after 200 attempts')
         
         return taskvars, {'train': train_examples, 'test': test_examples}
     

@@ -254,7 +254,7 @@ class Taskaedd82e4Generator(ARCTaskGenerator):
             individual_cells = [obj for obj in all_objects if len(obj) == 1]
             patterns = [obj for obj in all_objects if len(obj) >= 3]
             
-            print(f"Attempt {attempt}: {len(patterns)} patterns, {len(individual_cells)} individual cells")
+            
             
             if len(individual_cells) > 0 and len(patterns) > 0:
                 return grid
@@ -395,7 +395,7 @@ class Taskaedd82e4Generator(ARCTaskGenerator):
                 'num_patterns': num_patterns,
             }
             
-            print(f"Creating training grid {i+1}: {height}x{width}")
+            #print(f"Creating training grid {i+1}: {height}x{width}")
             input_grid = self.create_input(taskvars, gridvars)
             output_grid = self.transform_input(input_grid, taskvars)
             

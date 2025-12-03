@@ -5,7 +5,7 @@ import random
 class Task6f8cd79bGenerator(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
-            "Input grids can have different sizes..",
+            "Input grids can have different sizes.",
             "All input grids are completely filled with empty (0) cells with no cell being colored."
         ]
         

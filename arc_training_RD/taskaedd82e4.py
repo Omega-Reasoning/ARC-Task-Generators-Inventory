@@ -395,7 +395,7 @@ class Taskaedd82e4Generator(ARCTaskGenerator):
                 'num_patterns': num_patterns,
             }
             
-            print(f"Creating training grid {i+1}: {height}x{width}")
+            #print(f"Creating training grid {i+1}: {height}x{width}")
             input_grid = self.create_input(taskvars, gridvars)
             output_grid = self.transform_input(input_grid, taskvars)
             

@@ -44,7 +44,7 @@ class Task23581191Generator(ARCTaskGenerator):
         color1_pos = sorted([(i, j) for i in range(rows) for j in range(cols) if grid[i, j] == taskvars['color1']])
         color2_pos = sorted([(i, j) for i in range(rows) for j in range(cols) if grid[i, j] == taskvars['color2']])
         
-        print(color2_pos)
+        #print(color2_pos)
         # Fill rows and columns for color1
         for (i, j) in color1_pos:
             output_grid[i, :] = taskvars['color1']

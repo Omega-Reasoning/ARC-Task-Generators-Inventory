@@ -3,7 +3,7 @@ from arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
 import numpy as np
 import random
 
-from input_library import Contiguity, create_object
+from input_library import Contiguity, create_object, random_cell_coloring
 
 class Task0520fde7Generator(ARCTaskGenerator):
     def __init__(self):
@@ -59,15 +59,38 @@ class Task0520fde7Generator(ARCTaskGenerator):
         """
         rows = taskvars["subgrid_rows"]
         cols = taskvars["subgrid_cols"]
-        
-        # Create both subgrids
-        subgrids = [create_object(height=rows, width=cols, 
-                                color_palette=taskvars["color_main"], 
-                                contiguity=Contiguity.NONE) for _ in range(2)]
-        
+        # Create two empty subgrids
+        left = np.zeros((rows, cols), dtype=int)
+        right = np.zeros((rows, cols), dtype=int)
+
+        # Choose a number of matching positions (at least 2) that will be set
+        # to color_main in both subgrids so the transformed output has >= 2
+        max_match = min(rows * cols, 4)
+        n_matches = random.randint(2, max_match)
+
+        # Pick distinct cell positions
+        all_positions = [(r, c) for r in range(rows) for c in range(cols)]
+        match_positions = random.sample(all_positions, n_matches)
+
+        for (r, c) in match_positions:
+            left[r, c] = taskvars["color_main"]
+            right[r, c] = taskvars["color_main"]
+
+        # Optionally sprinkle additional color_main cells independently in each subgrid
+        # to make examples more varied, without breaking the matching constraint.
+        density = 0.25
+        left = random_cell_coloring(left, taskvars["color_main"], density=density, background=0, overwrite=False)
+        right = random_cell_coloring(right, taskvars["color_main"], density=density, background=0, overwrite=False)
+
+        # Ensure the matching positions remain colored (random_cell_coloring won't overwrite them,
+        # but enforce again to be safe)
+        for (r, c) in match_positions:
+            left[r, c] = taskvars["color_main"]
+            right[r, c] = taskvars["color_main"]
+
         # Create separator and concatenate all parts
         separator = np.full((rows, 1), taskvars["color_vertical_separator"], dtype=int)
-        return np.concatenate((subgrids[0], separator, subgrids[1]), axis=1)
+        return np.concatenate((left, separator, right), axis=1)
 
     def transform_input(self, grid: np.ndarray, taskvars: dict) -> np.ndarray:
         # Find the separator column using boolean indexing

@@ -102,7 +102,7 @@ class Task2c608affGenerator(ARCTaskGenerator):
         if len(unique_colors) != 3:
             return output  # Invalid grid state
         
-        print(unique_colors)
+        #print(unique_colors)
         grid_color = np.bincount(grid.flatten()).argmax()
         
         # Find all objects
