@@ -9,8 +9,8 @@ class ARCTask94f9d214Generator(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
             "The input grid has {2 * vars['rows']} rows and {vars['rows']} columns.",
-            "The upper half of the input grid is of size {vars['rows']} x {vars['rows']} and has a 4-way connected object of {color('upper_color')} color.",
-            "The lower half of the input grid has another 4-way connected object of {color('lower_color')} color."
+            "The upper half of the input grid is of size {vars['rows']} x {vars['rows']} and contains a random number of cells colored {color('upper_color')} (not necessarily connected).",
+            "The lower half of the input grid contains a random number of cells colored {color('lower_color')} (not necessarily connected)."
         ]
         
         transformation_reasoning_chain = [
@@ -65,23 +65,24 @@ class ARCTask94f9d214Generator(ARCTaskGenerator):
             # Initialize the input grid
             input_grid = np.zeros((2 * rows, rows), dtype=int)
             
-            # Create the upper half object with 4-way connectivity
-            upper_half = create_object(
-                height=rows,
-                width=rows,
-                color_palette=upper_color,
-                contiguity=Contiguity.FOUR,
-                background=0
-            )
-            
-            # Create the lower half object with 4-way connectivity
-            lower_half = create_object(
-                height=rows,
-                width=rows,
-                color_palette=lower_color,
-                contiguity=Contiguity.FOUR,
-                background=0
-            )
+            # Create upper and lower halves with random scatter of colored cells (not necessarily connected)
+            upper_half = np.zeros((rows, rows), dtype=int)
+            lower_half = np.zeros((rows, rows), dtype=int)
+
+            total_cells = rows * rows
+            upper_count = random.randint(1, max(1, total_cells // 2))
+            lower_count = random.randint(1, max(1, total_cells // 2))
+
+            upper_positions = random.sample(range(total_cells), upper_count)
+            lower_positions = random.sample(range(total_cells), lower_count)
+
+            for idx in upper_positions:
+                r, c = divmod(idx, rows)
+                upper_half[r, c] = upper_color
+
+            for idx in lower_positions:
+                r, c = divmod(idx, rows)
+                lower_half[r, c] = lower_color
             
             # Count positions where both halves are empty at the same coordinates
             shared_empty_mask = (upper_half == 0) & (lower_half == 0)

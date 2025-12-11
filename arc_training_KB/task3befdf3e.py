@@ -122,18 +122,21 @@ class Task3befdf3eGenerator(ARCTaskGenerator):
             block_sizes = [random.choice([3, 4]) for _ in range(block_count)]
         
         # Track placed blocks for separation validation
-        placed_blocks = []  # List of (top_left_r, top_left_c, bottom_right_r, bottom_right_c)
+        # Each entry stores the block bounding box and its extended bounding box
+        # which includes the required empty-frame margin around the block so
+        # that no two blocks share the same empty frame area.
+        placed_blocks = []  # List of dicts with keys: top,left,bottom,right,ext_top,ext_left,ext_bottom,ext_right,margin
         
         # Place each block
         for block_size in block_sizes:
             if block_size == 3:
                 # For 3x3 block, interior is 1x1
                 interior_size = 1
-                min_margin = 1  # Minimum margin from edge
+                margin = 1  # Required empty-frame width around this block
             else:  # block_size == 4
                 # For 4x4 block, interior is 2x2
                 interior_size = 2
-                min_margin = 2  # Minimum margin from edge
+                margin = 2  # Required empty-frame width around this block
             
             # Place the block with proper spacing
             placed = False
@@ -141,11 +144,12 @@ class Task3befdf3eGenerator(ARCTaskGenerator):
             attempts = 0
             
             while not placed and attempts < max_attempts:
-                # Calculate valid positions
-                min_row = min_margin
-                max_row = grid_size - block_size - min_margin
-                min_col = min_margin
-                max_col = grid_size - block_size - min_col
+                # Calculate valid positions such that the block plus its
+                # surrounding empty margin fits inside the grid
+                min_row = margin
+                max_row = grid_size - block_size - margin
+                min_col = margin
+                max_col = grid_size - block_size - margin
                 
                 if max_row < min_row or max_col < min_col:
                     attempts += 1
@@ -160,20 +164,28 @@ class Task3befdf3eGenerator(ARCTaskGenerator):
                 block_left = col
                 block_right = col + block_size - 1
                 
-                # Check if this location works
+                # Check if this location works: ensure the block plus its margin
+                # (the reserved empty-frame area) does not overlap any previously
+                # placed block's reserved area.
                 valid = True
-                
-                # Check for proper separation from other blocks (at least 2 empty rows/cols)
-                for prev_top, prev_left, prev_bottom, prev_right in placed_blocks:
-                    # Check horizontal separation (at least 2 empty columns)
-                    if not (block_right + 2 <= prev_left or prev_right + 2 <= block_left):
-                        valid = False
-                        break
-                        
-                    # Check vertical separation (at least 2 empty rows)
-                    if not (block_bottom + 2 <= prev_top or prev_bottom + 2 <= block_top):
-                        valid = False
-                        break
+
+                ext_top = block_top - margin
+                ext_left = block_left - margin
+                ext_bottom = block_bottom + margin
+                ext_right = block_right + margin
+
+                # If extended box goes out of grid bounds, it's invalid
+                if ext_top < 0 or ext_left < 0 or ext_bottom >= grid_size or ext_right >= grid_size:
+                    valid = False
+
+                # Check overlap with existing extended reserved areas
+                if valid:
+                    for prev in placed_blocks:
+                        # Two extended areas must be disjoint. If they intersect -> invalid
+                        if not (ext_right < prev['ext_left'] or ext_left > prev['ext_right'] or
+                                ext_bottom < prev['ext_top'] or ext_top > prev['ext_bottom']):
+                            valid = False
+                            break
                 
                 if valid:
                     # Place the frame (outer rectangle)
@@ -191,8 +203,18 @@ class Task3befdf3eGenerator(ARCTaskGenerator):
                         for c in range(interior_start_c, interior_start_c + interior_size):
                             grid[r, c] = interior_color
                     
-                    # Record this block's boundaries
-                    placed_blocks.append((block_top, block_left, block_bottom, block_right))
+                    # Record this block's boundaries and its extended reserved area
+                    placed_blocks.append({
+                        'top': block_top,
+                        'left': block_left,
+                        'bottom': block_bottom,
+                        'right': block_right,
+                        'ext_top': ext_top,
+                        'ext_left': ext_left,
+                        'ext_bottom': ext_bottom,
+                        'ext_right': ext_right,
+                        'margin': margin
+                    })
                     placed = True
                 else:
                     attempts += 1

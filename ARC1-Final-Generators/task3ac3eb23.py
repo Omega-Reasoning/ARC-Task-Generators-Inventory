@@ -9,7 +9,7 @@ class Task3ac3eb23Generator(ARCTaskGenerator):
         input_reasoning_chain = [
             "Input grids can have different numbers of columns but each has {vars['rows']} rows.",
             "They contain one or more multi-colored (1-9) cells in the first row, excluding the first and last columns .",
-            "Each colored cell in the first row is separated by the other by at least three empty (0) cells."
+            "Each colored cell in the first row is separated by the other by at least two empty (0) cells."
         ]
         
         transformation_reasoning_chain = [
@@ -39,7 +39,7 @@ class Task3ac3eb23Generator(ARCTaskGenerator):
             desired_colored = counts[i]
 
             # Ensure columns chosen can fit the desired number of colored cells
-            min_cols_needed = max(5, 4 * desired_colored - 1)  # derived from spacing rules
+            min_cols_needed = max(5, 3 * desired_colored)  # derived from spacing rules (>=2 empty cells between)
             cols = random.randint(min_cols_needed, 30)
 
             gridvars = {
@@ -57,7 +57,7 @@ class Task3ac3eb23Generator(ARCTaskGenerator):
 
         # Create one test example with the remaining unique count
         desired_colored_test = counts[-1]
-        min_cols_needed = max(5, 4 * desired_colored_test - 1)
+        min_cols_needed = max(5, 3 * desired_colored_test)
         test_cols = random.randint(min_cols_needed, 30)
 
         gridvars = {
@@ -114,7 +114,7 @@ class Task3ac3eb23Generator(ARCTaskGenerator):
             else:
                 candidate = random.sample(available_columns, num_colored_cells)
             candidate.sort()
-            if all(abs(candidate[i] - candidate[i - 1]) > 3 for i in range(1, len(candidate))):
+            if all(abs(candidate[i] - candidate[i - 1]) > 2 for i in range(1, len(candidate))):
                 placed_columns = candidate
                 success = True
 
@@ -126,7 +126,7 @@ class Task3ac3eb23Generator(ARCTaskGenerator):
                 if col > available_columns[-1]:
                     break
                 placed_columns.append(col)
-                col += 4
+                col += 3
 
         # Assign colors to placed columns
         for i, col in enumerate(placed_columns):

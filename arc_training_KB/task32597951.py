@@ -85,9 +85,10 @@ class Task32597951Task(ARCTaskGenerator):
 
         train_examples = []
         num_train = random.randint(3, 4)
+        structured_idx = random.randint(0, num_train - 1)
         
         for i in range(num_train):
-            gridvars = {"structured": (i == 0)}
+            gridvars = {"structured": (i == structured_idx)}
             input_grid = self.create_input(taskvars, gridvars)
             output_grid = self.transform_input(input_grid, taskvars)
             train_examples.append({'input': input_grid, 'output': output_grid})

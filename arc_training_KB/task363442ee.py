@@ -7,7 +7,7 @@ from input_library import create_object, retry, Contiguity
 class Task363442eeGenerator(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
-            "Input grids are of size {vars['rows']}x{vars['cols']}.",
+            "Input grids are of size {vars['rows']}x{vars['cols']}..",
             "They contain a completely filled fourth column with {color('cell_color1')} colored cells and a 3x3 block made of multi-colored (1-9) cells, positioned at the top-left corner of the grid.",
             "Several {color('cell_color2')} cells are placed on the right side of the {color('cell_color1')} column.",
             "Each {color('cell_color2')} cell must have at least two consecutive empty (0) cells connected to it in all 8-way directions."
@@ -64,12 +64,26 @@ class Task363442eeGenerator(ARCTaskGenerator):
             'cell_color2': cell_color2
         }
         
-        # Build a shared base grid (fourth column and the top-left 3x3 block)
+        # Build a shared base grid with only the fourth column filled. The 3x3 block
+        # will be re-randomized per example so train and test do not all share the
+        # exact same block colors.
         base_grid = np.zeros((rows, cols), dtype=int)
         base_grid[:, 3] = cell_color1
         block_colors = list(set(range(1, 10)) - {cell_color1, cell_color2})
-        block = np.random.choice(block_colors, (3, 3))
-        base_grid[:3, :3] = block
+
+        def new_block(used_blocks: set):
+            # Re-roll the 3x3 block until it differs from previously used ones.
+            for _ in range(10):
+                candidate = np.random.choice(block_colors, (3, 3))
+                key = tuple(candidate.flatten())
+                if key not in used_blocks:
+                    used_blocks.add(key)
+                    return candidate
+            # Fallback if variety is exhausted (unlikely): return last candidate.
+            used_blocks.add(tuple(candidate.flatten()))
+            return candidate
+
+        used_blocks = set()
 
         # Candidate positions to the right of the fourth column where a 5x5 neighborhood fits
         available_positions = [(r, c) for r in range(2, rows-2) for c in range(6, cols-2)]
@@ -102,12 +116,14 @@ class Task363442eeGenerator(ARCTaskGenerator):
             count = random.choice(train_allowed)
             train_counts.append(count)
             gridvars = {}
-            inp_grid, positions = place_positions_for_count(base_grid, count)
+            base_with_block = base_grid.copy()
+            base_with_block[:3, :3] = new_block(used_blocks)
+            inp_grid, positions = place_positions_for_count(base_with_block, count)
             gridvars['cell_color2_positions'] = positions
             # If placement failed to reach requested count, try again with more shuffles up to a few times
             attempts = 0
             while len(positions) < count and attempts < 3:
-                inp_grid, positions = place_positions_for_count(base_grid, count)
+                inp_grid, positions = place_positions_for_count(base_with_block, count)
                 gridvars['cell_color2_positions'] = positions
                 attempts += 1
             # finalize example (even if positions < count it's still a valid grid)
@@ -116,11 +132,13 @@ class Task363442eeGenerator(ARCTaskGenerator):
 
         # Create test example with a count different from all train counts
         gridvars = {}
-        test_grid, test_positions = place_positions_for_count(base_grid, test_count)
+        base_with_block = base_grid.copy()
+        base_with_block[:3, :3] = new_block(used_blocks)
+        test_grid, test_positions = place_positions_for_count(base_with_block, test_count)
         gridvars['cell_color2_positions'] = test_positions
         attempts = 0
         while len(test_positions) < test_count and attempts < 3:
-            test_grid, test_positions = place_positions_for_count(base_grid, test_count)
+            test_grid, test_positions = place_positions_for_count(base_with_block, test_count)
             gridvars['cell_color2_positions'] = test_positions
             attempts += 1
         test_output = self.transform_input(test_grid, gridvars)
