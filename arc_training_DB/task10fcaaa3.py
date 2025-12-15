@@ -3,18 +3,19 @@ from input_library import create_object, retry
 import numpy as np
 import random
 
-class ARCTask10fcaaa3Generator(ARCTaskGenerator):
+class Task10fcaaa3Generator(ARCTaskGenerator):
 
     def __init__(self):
         input_reasoning_chain = [
-            "The input grid has size {vars['rows']} X {vars['cols']}",
-            "The input grid has some cells filled with color input_color(between 1-9) and the remaining cells are empty(0)."
+            "The input grid has size {vars['rows']} X {vars['cols']}.",
+            "Each grid contains several cells of a specific color, randomly placed, with the remaining cells being empty (0).",
+            "The specific color used in the grid varies per example."
         ]
 
         transformation_reasoning_chain = [
             "The dimension of the output grid is 2 times the input grid along both rows and columns.",
             "The input grid is copied to all the four quadrants in the output grid.",
-            "If there is a cell in output grid with color input_color at position (i,j) the cells at diagonal positions (i-1,j-1), (i+1,j-1),(i-1,j+1),(i+1,j+1) are filled with {color('output_color')} only if these diagonal elements are already not filled with input_color.",
+            "If a cell in the input grid has the specific color, then in the output grid, the four diagonal neighbors of the corresponding cells in all quadrants are filled with {color('output_color')}.",
         ]
 
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)

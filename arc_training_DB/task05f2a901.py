@@ -6,7 +6,7 @@ from arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
 from input_library import Contiguity, create_object, enforce_object_height, enforce_object_width
 from transformation_library import GridObject, find_connected_objects
 
-class ARCTask05f2a901Generator(ARCTaskGenerator):
+class Task05f2a901Generator(ARCTaskGenerator):
     """
     Generator for 'slide object until it touches another object' tasks,
     allowing the moving object to have a more flexible shape within its
@@ -29,7 +29,7 @@ class ARCTask05f2a901Generator(ARCTaskGenerator):
             "The output matrix has the same shape as the input matrix.",
             "The {color('static_object')} object can be directly copied into the output matrix as it remains static.",
             "The {color('moving_object')} object moves either up, down, left or right towards the static object.",
-            "It is moving object moves in the direction which causes it to touch the static object.",
+            "The moving object moves in the direction which causes it to touch the static object.",
             "It moves exactly until it touches the static object."
         ]
         super().__init__(observation_chain, reasoning_chain)

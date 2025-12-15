@@ -8,18 +8,18 @@ class Task1190e5a7Generator(ARCTaskGenerator):
     def __init__(self):
         # Updated input reasoning chain with enhanced observations about the grid.
         input_reasoning_chain = [
-            "The input grids are of size {vars['grid_size']} \u00d7 {vars['grid_size']}.",
-            "Every cell in the grid is initially filled with color_1 (the background color).",
-            "Specific rows and columns are then filled with color_2, with each filled row and filled column spaced apart by at least one cell.",
-            "The filled rows and columns create visible boundaries, effectively dividing the grid into multiple sub-regions (subgrids) of varying sizes."
+            "The input grids are of size {vars['grid_size']} x {vars['grid_size']}.",
+            "The entire grid is completely filled with a single background color, that varies per example.",
+            "Next, certain number of rows (a) and columns (b)are completely filled with a different color, also varying per example.",
+            "The filled rows and columns create visible boundaries, effectively dividing the grid into multiple sub-regions of varying sizes."
         ]
         # Initialize the transformation reasoning chain exactly as given (with a slight adaptation to clarify the boundaries).
         transformation_reasoning_chain = [
             "The output grid has a different size than the input grid.",
-            "The output grid size is (number of filled rows + 1) * (number of filled columns + 1), i.e. the number of subgrids made by the rows * the number of subgrids made by the columns.",
-            "Each cell in the output grid is filled with the background color."
+            "The output grid is formed by identifying the filled rows and columns in the input grid, which act as boundaries.",
+            "These boundaries divide the input grid into subgrids.",
+            "The output grid is constructed such that each cell corresponds to one of these subgrids from the input grid i.e., the number of rows and columns in the output grid is one more than the number of horizontal and vertical boundaries respectively."
         ]
-        # Call superclass constructor with the updated chains.
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
 
     def create_input(self, taskvars: dict, gridvars: dict) -> np.ndarray:

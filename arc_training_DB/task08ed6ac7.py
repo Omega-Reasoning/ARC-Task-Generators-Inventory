@@ -5,7 +5,7 @@ from typing import Tuple
 import numpy as np
 import random
 
-class ARCTask08ed6ac7Generator(ARCTaskGenerator):
+class Task08ed6ac7Generator(ARCTaskGenerator):
 
     def __init__(self):
         input_reasoning_chain = [
@@ -74,7 +74,7 @@ class ARCTask08ed6ac7Generator(ARCTaskGenerator):
 
     def create_grids(self) -> Tuple[dict, TrainTestData]:
         # Choose grid_size from odd sizes 5,7,9,...,29
-        grid_size = random.choice(list(range(5, 30, 2)))
+        grid_size = random.choice(list(range(5, 16, 2)))
         # Sample more colors: input_color + 7 mapping colors (total 8)
         colors = random.sample(range(1, 10), 8)
 
