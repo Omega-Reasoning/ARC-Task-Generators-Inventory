@@ -8,31 +8,58 @@ class Task1e0a9b12Generator(ARCTaskGenerator):
 
     def __init__(self):
         input_reasoning_chain = [
-            "The input grid has size {vars['rows']} X {vars['rows']}",
-            "Each column has different number of cells of the same color(1-9) and the remaining cells are empty(0).",
-            "Each column has different color cells."
+            "Input grids are of size {vars['rows']}x{vars['rows']}.",
+            "Each column contains between 0 and {vars['rows'] - 1} single-colored cells (values 1-9) placed at random rows; some columns may be empty.",
+            "The color within a column is consistent (all colored cells in a column have the same value) and they vary between columns."
         ]
 
         transformation_reasoning_chain = [
-            "The output grid has the same size as the input grid.",
-            "First copy the input grid.",
-            "For each column, translate all the colored cells such that they are stacked on one another and do not overlap each other; the bottom of the colored stack should always touch the bottom edge of the output grid."
+            "The output grid is constructed by copying the input grid.",
+            "For each column in the grid, all colored cells (non-zero values) are moved down to the lowest available rows such that all appear as vertical stacks at the bottom of the column.",
+            "Empty cells (value 0) fill the remaining spaces at the top of each column."
         ]
 
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
 
     def create_input(self, taskvars, gridvars):
         rows = taskvars['rows']
-        x_values = taskvars['x']
+        # generate per-column counts internally (remove task variable 'x')
+        # allow columns to be empty (0) but ensure NO column is completely filled
+        # so max filled cells per column is rows-1
+        x_values = [random.randint(0, max(0, rows - 1)) for _ in range(rows)]
+
+        # ensure we can request certain columns to keep at least one empty cell below
+        movable_cols = gridvars.get('movable_cols', []) if gridvars is not None else []
 
         grid = np.zeros((rows, rows), dtype=int)
         used_colors = set()
 
         for col in range(rows):
-            color = random.choice([c for c in range(1, 10) if c not in used_colors])
-            used_colors.add(color)
             x = x_values[col]
-            indices = random.sample(range(rows), x)
+
+            # For columns we want to be "movable", avoid filling the bottom row
+            if col in movable_cols:
+                # sample from rows-1 so bottom row remains empty and colored cells can move down
+                max_pop = max(0, rows - 1)
+                x = min(x, max_pop)
+                indices = random.sample(range(max_pop), x) if x > 0 else []
+            else:
+                # ensure we never fill an entire column
+                x = min(x, max(0, rows - 1))
+                indices = random.sample(range(rows), x) if x > 0 else []
+
+            if not indices:
+                # empty column (no colored cells)
+                continue
+
+            # pick a color for this column; prefer unused colors but allow reuse when necessary
+            available_colors = [c for c in range(1, 10) if c not in used_colors]
+            if available_colors:
+                color = random.choice(available_colors)
+                used_colors.add(color)
+            else:
+                color = random.choice(range(1, 10))
+
             for idx in indices:
                 grid[idx, col] = color
 
@@ -53,21 +80,26 @@ class Task1e0a9b12Generator(ARCTaskGenerator):
         return output_grid
 
     def create_grids(self):
-        rows = random.randint(2, 9)
+        # require at least 3 rows so we can guarantee 3 columns with empty cells below
+        # allow larger grids (up to 30x30). Some columns may be empty.
+        rows = random.randint(5, 30)
         
         train_data = []
         for _ in range(random.randint(3, 4)):
-            x = [random.randint(1, rows-1) for _ in range(rows)]
-            taskvars = {'rows': rows, 'x': x}
-            
-            input_grid = self.create_input(taskvars, {})
+            taskvars = {'rows': rows}
+
+            # pick 3 columns that will keep at least one empty cell below colored cells
+            movable_cols = random.sample(range(rows), 3)
+
+            input_grid = self.create_input(taskvars, {'movable_cols': movable_cols})
             output_grid = self.transform_input(input_grid, taskvars)
             train_data.append({'input': input_grid, 'output': output_grid})
 
-        x = [random.randint(1, rows-1) for _ in range(rows)]
-        taskvars = {'rows': rows, 'x': x}
-        
-        test_input = self.create_input(taskvars, {})
+        taskvars = {'rows': rows}
+
+        movable_cols = random.sample(range(rows), 3)
+
+        test_input = self.create_input(taskvars, {'movable_cols': movable_cols})
         test_output = self.transform_input(test_input, taskvars)
         test_data = [{'input': test_input, 'output': test_output}]
 

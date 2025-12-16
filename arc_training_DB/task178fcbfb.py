@@ -4,19 +4,20 @@ from transformation_library import find_connected_objects
 import numpy as np
 import random
 
-class ARCTask178fcbfbGenerator(ARCTaskGenerator):
+class Task178fcbfbGenerator(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
-            "The input grid has size {vars['rows']} X {vars['cols']}",
-            "The input grid has some cells which are filled by three colors, i.e. {color('color_1')}, {color('color_2')}, and {color('color_3')}"
+            "The input grid has size {vars['rows']} X {vars['cols']}.",
+            "Each grid contains several cells colored with one of three specific colors {color('color_1')}, {color('color_2')}, and {color('color_3')}, randomly placed, with the remaining cells being empty (0).",
+            "No two cells of {color('color_1')} color are in the same column.",
+            "No two cells of {color('color_2')} and {color('color_3')} colors are in the same row."
         ]
 
         transformation_reasoning_chain = [
-            "The output grid has the same dimensions as the input grid.",
-            "The input grid is copied to the output grid.",
-            "First, the columns which have a cell of color {color('color_1')} are completely filled with the same color.",
-            "Second, the rows which have a cell of color {color('color_2')} are completely filled with the same color.",
-            "Third, the rows which have a cell of color {color('color_3')} are completely filled with the same color."
+            "The output grid is constructed by copying the input grid." ,
+            "For each column in the input grid that contains a cell of {color('color_1')} color, fill the entire column in the output grid with color {color('color_1')}.",
+            "For each row in the input grid that contains a cell of {color('color_2')} or {color('color_3')} color , are filled with respective colors {color('color_2')} and {color('color_3')} in the output grid.",
+            "The {color('color_2')} and {color('color_3')} colors in the output grid override any previous color assignments from {color('color_1')}."
         ]
 
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
@@ -98,8 +99,8 @@ class ARCTask178fcbfbGenerator(ARCTaskGenerator):
         return output
 
     def create_grids(self) -> tuple:
-        rows = random.randint(8, 18)
-        cols = random.randint(8, 18)
+        rows = random.randint(8, 30)
+        cols = random.randint(8, 30)
         color_1, color_2, color_3 = random.sample(range(1, 10), 3)
 
         taskvars = {

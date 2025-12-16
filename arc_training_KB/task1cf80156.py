@@ -4,17 +4,18 @@ from input_library import create_object, Contiguity, retry
 import numpy as np
 import random
 
-class ARCTask1cf80156Generator(ARCTaskGenerator):
+class Task1cf80156Generator(ARCTaskGenerator):
 
     def __init__(self):
         input_reasoning_chain = [
             "The input grid has size {vars['rows']} X {vars['cols']}.",
-            "A single 8-way connected object is present in the input grid and the remaining cells are empty(0)"
+            "A single 8-way connected object is present in the input grid and the remaining cells are empty(0).",
+            "The color of the object varies across different examples."
         ]
         transformation_reasoning_chain = [
             "The output grid dimensions are different from the input grid dimensions.",
             "First identify the 8-way connected object in the input grid.",
-            "The sub grid which contains the identified object is the output grid."
+            "The output grid is created by extracting the bounding box of the identified object from the input grid."
         ]
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
 
@@ -24,15 +25,15 @@ class ARCTask1cf80156Generator(ARCTaskGenerator):
             return create_object(
                 height=random.randint(2, rows // 2),
                 width=random.randint(2, cols // 2),
-                # choose a random color for each generated object so colors vary across examples
-                color_palette=random.randint(1, 9),
+                # use the color passed in `gridvars` (ensures color varies across examples)
+                color_palette=gridvars.get('color', random.randint(1, 9)),
                 contiguity=Contiguity.EIGHT,
                 background=0
             )
 
         object_matrix = retry(
             generator=generate_object,
-            predicate=lambda obj: 1 <= np.count_nonzero(obj) <= (rows * cols // 4)
+            predicate=lambda obj: 3 <= np.count_nonzero(obj) <= (rows * cols // 4)
         )
 
         # Place the object in a larger grid
@@ -61,14 +62,18 @@ class ARCTask1cf80156Generator(ARCTaskGenerator):
         }
         nr_train = random.randint(3, 4)
         train_examples = []
-        # Create multiple training examples; each example will get its own random color
-        for _ in range(nr_train):  # Using self.num_train_examples from base class
-            input_grid = self.create_input(taskvars, {})
+        # Pick distinct colors for each example so colors vary across examples
+        available_colors = list(range(1, 10))
+        needed = nr_train + 1  # train examples + one test
+        chosen_colors = random.sample(available_colors, needed)
+
+        for i in range(nr_train):  # Using self.num_train_examples from base class
+            input_grid = self.create_input(taskvars, {'color': chosen_colors[i]})
             output_grid = self.transform_input(input_grid, taskvars)
             train_examples.append(GridPair({"input": input_grid, "output": output_grid}))
         
-        # Create test example (color chosen internally)
-        test_input = self.create_input(taskvars, {})
+        # Create test example with its own distinct color
+        test_input = self.create_input(taskvars, {'color': chosen_colors[-1]})
         test_output = self.transform_input(test_input, taskvars)
         test_examples = [GridPair({"input": test_input, "output": test_output})]
         

@@ -7,19 +7,17 @@ import random
 class Task1caeab9dGenerator(ARCTaskGenerator):
 	def __init__(self):
 		input_reasoning_chain = [
-			"The input grid has size {vars['rows']} X {vars['cols']}.",
-			"The input grid consists of exactly three objects which are either a square or rectangle and they have the same dimensions but different colors.",
-			"The dimensions of the square can be 2x2 or 3x3.",
-			"The dimension of the rectangle can be one of these 1x2, 2x1, 3x2.",
+			"The input grid is of size {vars['rows']} X {vars['cols']}.",
+			"It consists of exactly three same-sized rectangular objects that have different colors.",
+			"The dimension of the objects can be either 2X2, 3X3 (squares) or 2X3, 3X2, 1X2, 2X1 (rectangles).",
 			"The objects are placed in the grid such that they do not overlap each other.",
-			"The First object is colored {color('color_1')}, the second with {color('color_2')} and the third with {color('color_3')}."
+			"The three objects have colors {color('color_1')}, {color('color_2')}, and {color('color_3')} (order may vary)."
 		]
 		
 		transformation_reasoning_chain = [
-			"The output grid has the same size as the input grid.",
-			"Copy the input grid to the output grid.",
-			"First identify all the three objects.",
-			"All the three objects should be aligned, i.e., the objects with color {color('color_2')} and {color('color_3')} should be placed at same row position of the subgrid which has object of {color('color_3')}."
+			"The output grid is constructed by copying the input grid and identifying the three objects.",
+			"Then aligning the topmost row of the three objects to be the same as that of the object with color {color('color_2')} (the reference object).",
+			"The column positions of the objects remain unchanged."
 		]
 
 		super().__init__(input_reasoning_chain, transformation_reasoning_chain)
@@ -50,8 +48,9 @@ class Task1caeab9dGenerator(ARCTaskGenerator):
 		object_width = size[1]
 		section_width = cols // 3
 	
-		# Create three objects with the same size but different colors
-		colors = [color_1, color_2, color_3]
+		# Create three objects with the same size but different colors.
+		# Shuffle the colors so that color assignment to positions is not strict/order-dependent.
+		colors = random.sample([color_1, color_2, color_3], 3)
 		for i, color in enumerate(colors):
 			placed = False
 			max_attempts = 100
