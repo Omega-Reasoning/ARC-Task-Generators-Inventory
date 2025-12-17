@@ -4,33 +4,47 @@ from transformation_library import find_connected_objects
 import numpy as np
 import random
 
-class ARCTask1f85a75fGenerator(ARCTaskGenerator):
+class Task1f85a75fGenerator(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
-            "The input grid has size {vars['rows']} X {vars['rows']}.",
-            "The input grid has exactly one 4-way connected object of color {color('input')}.",
-            "Random numbers of cells are colored(1-9). The cells color is always different from the object color.",
-            "The cells which are not colored are empty(0)."
+            "The input grid has size {vars['rows']} x {vars['rows']}.",
+            "The input grid contains exactly one main 4-way connected object.",
+            "A random number of differently colored (1–9) cells are also present in the grid in the background.",
+            "The remaining cells are empty (0)."
         ]
 
         transformation_reasoning_chain = [
             "The output grid has a different size than the input grid.",
-            "First identify the subgrid which has the 4-way connected object.",
-            "The output grid is the subgrid which contains this 4-way connected object."
+            "The input grid contains exactly one main single-colored 4-way connected object of a specific color, with other randomly colored cells in the background.",
+            "The output is formed by extracting the bounding box of the main object from the input grid."
         ]
 
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
 
+
+
     def create_input(self, taskvars, gridvars):
         rows = taskvars['rows']
-        input_color = taskvars['input']
+        # Input color is stored in gridvars (not taskvars). If not provided, choose randomly.
+        input_color = gridvars.get('input', random.randint(1, 9))
+        
 
         # Create a blank grid
         grid = np.zeros((rows, rows), dtype=int)
 
         # Generate the 4-way connected object
         obj_height, obj_width = gridvars['object_size']
+        # Create the object; `create_object` doesn't support `min_cells`,
+        # so retry until we have at least `min_cells` colored cells.
+        min_cells = 3
         object_matrix = create_object(obj_height, obj_width, color_palette=input_color, contiguity=Contiguity.FOUR)
+        attempts = 0
+        while (object_matrix != 0).sum() < min_cells:
+            object_matrix = create_object(obj_height, obj_width, color_palette=input_color, contiguity=Contiguity.FOUR)
+            attempts += 1
+            if attempts > 100:
+                # Give up after many attempts to avoid infinite loop; proceed with whatever we have
+                break
 
         # Create a buffer zone around the object (1 cell minimum, 2 cells maximum)
         buffer = random.randint(1, 2)
@@ -83,13 +97,19 @@ class ARCTask1f85a75fGenerator(ARCTaskGenerator):
         return grid
 
     def transform_input(self, grid, taskvars):
-        input_color = taskvars['input']
+        # `gridvars` should carry the example's input color; create_grids passes gridvars
+        # as the second parameter when calling this method.
+        gridvars = taskvars
+        input_color = gridvars.get('input', None)
 
         # Identify objects in the grid
         objects = find_connected_objects(grid, diagonal_connectivity=False, background=0, monochromatic=True)
 
-        # Find the target object by color
-        target_object = next(obj for obj in objects if obj.has_color(input_color))
+        # Find the target object by color. If `input` not provided, pick the largest object.
+        if input_color is not None:
+            target_object = next(obj for obj in objects if obj.has_color(input_color))
+        else:
+            target_object = max(objects, key=lambda o: o.size)
 
         # Extract the bounding box
         box = target_object.bounding_box
@@ -108,23 +128,32 @@ class ARCTask1f85a75fGenerator(ARCTaskGenerator):
 
         # Generate training and test grids
         train_data = []
+        used_colors = set()
         for _ in range(random.randint(3, 4)):
-            # Select a random input color for each example
-            taskvars['input'] = random.randint(1, 9)
-            
+            # Select a random input color for each example and put it in gridvars
+            color = random.randint(1, 9)
             gridvars = {
-                'object_size': (random.randint(3, 6), random.randint(3, 6))
+                'object_size': (random.randint(3, 6), random.randint(3, 6)),
+                'input': color
             }
+            used_colors.add(color)
             input_grid = self.create_input(taskvars, gridvars)
-            output_grid = self.transform_input(input_grid, taskvars)
+            output_grid = self.transform_input(input_grid, gridvars)
             train_data.append(GridPair(input=input_grid, output=output_grid))
 
         # Create test data with its own random color
-        taskvars['input'] = random.randint(1, 9)
+        # Choose a test color different from all training colors
+        available_test_colors = [c for c in range(1, 10) if c not in used_colors]
+        if available_test_colors:
+            test_color = random.choice(available_test_colors)
+        else:
+            test_color = random.randint(1, 9)
+
         gridvars = {
-            'object_size': (random.randint(3, 6), random.randint(3, 6))
+            'object_size': (random.randint(3, 6), random.randint(3, 6)),
+            'input': test_color
         }
         test_input = self.create_input(taskvars, gridvars)
-        test_output = self.transform_input(test_input, taskvars)
+        test_output = self.transform_input(test_input, gridvars)
 
         return taskvars, TrainTestData(train=train_data, test=[GridPair(input=test_input, output=test_output)])

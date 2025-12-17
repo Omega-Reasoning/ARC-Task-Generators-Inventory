@@ -7,22 +7,20 @@ from transformation_library import find_connected_objects
 class Task22168020Generator(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
-            "The input grid has size {vars['rows']} X {vars['rows']}",
-            "There are a random number of 8-way connected objects present which have color(between 1-9).",
-            "Each object has a unique color - no two objects share the same color.",
-            "The object has two components: a square of dimension 2x2 and the arms.",
-            "The arms are created by extending the top left and the top right cells of the object diagonally by 1, 2, or 3 cells and the color of these cells are the same as the 2x2 square.",
-            "Both the arms lengths should be the same in the object.",
-            "The remaining cells are empty(0)."
+            "The input is a square grid with size given by {vars['rows']} x {vars['rows']}.",
+            "The grid contains one or more monochromatic objects (colors 1-9) and empty background cells (0).",
+            "Each object uses a unique color (no two objects share the same color).",
+            "Each object consists of a 2x2 base square plus two symmetric diagonal arms that extend upward from the top-left and top-right corners.",
+            "Each arm extends diagonally by the same length for that object (allowed lengths: 1, 2, or 3), and all cells of an object (square and arms) have the object color.",
+            "Objects are placed fully inside the grid and do not overlap or share cells; all other grid cells are background (0)."
         ]
-        
+
         transformation_reasoning_chain = [
-            "The output grid has the same size as the input grid.",
-            "Copy the input grid to the output grid.",
-            "First identify the 8-way connected objects.",
-            "For each object, find its leftmost and rightmost points in each row",
-            "Fill all cells between the leftmost and rightmost points with the objects color",
-            "This creates a solid fill between the arms of each object"
+            "The output grid has the same dimensions as the input and starts as a copy of the input.",
+            "Identify each 8-way (diagonally allowed) connected monochromatic object in the input.",
+            "For each object, process every row that intersects the object: find the leftmost and rightmost object cells on that row.",
+            "Fill all cells between the leftmost and rightmost columns (inclusive) on that row with the object color.",
+            "The result is a solid horizontal fill between an object arms and base, producing a filled, gap-free shape for each object."
         ]
         
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)

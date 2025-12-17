@@ -9,25 +9,26 @@ from input_library import Contiguity
 
 class Task1e32b0e9Generator(ARCTaskGenerator):
     def __init__(self):
-        # 1. Initialize the input reasoning chain
+       # 1. Initialize the input reasoning chain
         self.input_reasoning_chain = [
-                "The input grid has size {vars['rows']} X {vars['rows']}.",
-                "The grid is a raster with color(between 1-9) rows and columns as separators.",
-                "The first row and column are not a separator row/column.",
-                "The raster divides the input matrix into subgrids of size {(vars['rows']-2)//3} x {(vars['rows']-2)//3} all of which have the same dimension.",
-                "In the top left subgrid a 4-way connected object is placed at the center of the subgrid which is either a square or a plus shaped object, this is the reference object which is of color(between 1-9).",
-                "In the remaining subgrid only part of the above chosen objects are placed.",
-                "All the other remaining cells are empty(0)",
-            ]
+            "Input grids are of size {vars['rows']} × {vars['rows']}.",
+            "The grid is a raster divided into {(vars['rows']-2)//3} × {(vars['rows']-2)//3} subgrids by coloring certain rows and columns with a specific separator color (between 1 and 9).",
+            "The first row and the first column are not separator rows or columns.",
+            "In the top-left subgrid, a 4-way connected object is placed at the center of the subgrid. This object is either a square or a plus-shaped object and serves as the reference object. Its color is between 1 and 9.",
+            "In the remaining subgrids, only parts of the reference object are present.",
+            "All other remaining cells are empty (0)."
+        ]
+
         # 2. Initialize the transformation reasoning chain
         self.transformation_reasoning_chain = [
-            "The output grid has the same size as the input grid.",
-            "Copy the input grid to the output grid.",
-            "First identify the 4-way connected object in the top left subgrid.",
-            "For the remaining subgrids the above identified object is placed at the center such that the already existing colored cells are not masked by the object.",
-            "The existing cells with color in the subgrid remained unchanged while the remaining object cells are colored the raster row/column color.",
+            "The output grid is constructed by copying the input grid.",
+            "The output grid first identifies the 4-way connected reference object in the top-left subgrid.",
+            "For each of the remaining subgrids, the same object is placed at the center of the subgrid, ensuring that existing colored cells are not overwritten.",
+            "The newly placed cells in the output grid are colored using the separator color from the input grid."
         ]
+
         # 3. Call the base class constructor
+
         super().__init__(self.input_reasoning_chain, self.transformation_reasoning_chain)
 
     def create_input(self, taskvars: Dict[str, Any], gridvars: Dict[str, Any]) -> np.ndarray:
@@ -155,11 +156,75 @@ class Task1e32b0e9Generator(ARCTaskGenerator):
         # Place the chosen shape
         placer[shape_type](shape_dim)
 
+        # Ensure the placed shape in the top-left subgrid is 8-way connected.
+        # If the placement produced multiple 8-connected components (for
+        # instance when shape placement leaves diagonal-only connections),
+        # connect them by drawing minimal 8-connected paths between components
+        # so that every cell of the object is 8-connected to the center.
+        def within_top_left(r, c):
+            return (subgrid_top <= r <= subgrid_bottom) and (subgrid_left <= c <= subgrid_right)
+
+        # Recompute components using diagonal connectivity (8-way)
+        components_8 = find_connected_objects(grid, diagonal_connectivity=True, background=0, monochromatic=False)
+        # Filter components that fall (even partially) inside the top-left subgrid and have the object color
+        top_left_comps = [comp for comp in components_8 if any(within_top_left(r, c) and grid[r, c] == grid[subgrid_center_r, subgrid_center_c] for (r, c) in comp.coords)]
+
+        # If no components found, force-center a single pixel
+        if not top_left_comps:
+            grid[subgrid_center_r, subgrid_center_c] = obj_color
+            components_8 = find_connected_objects(grid, diagonal_connectivity=True, background=0, monochromatic=False)
+            top_left_comps = [comp for comp in components_8 if any(within_top_left(r, c) for (r, c) in comp.coords)]
+
+        # While more than one 8-connected component exists inside the top-left
+        # subgrid, connect the nearest pair by stepping with 8-neighbour moves.
+        def pair_min_distance(components):
+            best = None
+            best_dist = None
+            for i in range(len(components)):
+                for j in range(i + 1, len(components)):
+                    compA = components[i]
+                    compB = components[j]
+                    for (ar, ac) in compA.coords:
+                        for (br, bc) in compB.coords:
+                            dr = ar - br
+                            dc = ac - bc
+                            d2 = dr*dr + dc*dc
+                            if best_dist is None or d2 < best_dist:
+                                best_dist = d2
+                                best = (i, j, (ar, ac), (br, bc))
+            return best
+
+        # Only perform bridging within the bounds of the top-left subgrid
+        while len(top_left_comps) > 1:
+            pair = pair_min_distance(top_left_comps)
+            if pair is None:
+                break
+            (_, _, a, b) = pair
+            # draw 8-way path from a -> b
+            cur_r, cur_c = a
+            target_r, target_c = b
+            # safety guard to avoid infinite loops
+            steps = 0
+            while (cur_r, cur_c) != (target_r, target_c) and steps < 1000:
+                steps += 1
+                dr = target_r - cur_r
+                dc = target_c - cur_c
+                step_r = cur_r + (1 if dr > 0 else -1 if dr < 0 else 0)
+                step_c = cur_c + (1 if dc > 0 else -1 if dc < 0 else 0)
+                # clamp inside the top-left subgrid
+                step_r = max(subgrid_top, min(subgrid_bottom, step_r))
+                step_c = max(subgrid_left, min(subgrid_right, step_c))
+                grid[step_r, step_c] = obj_color
+                cur_r, cur_c = step_r, step_c
+            # recompute components after bridging
+            components_8 = find_connected_objects(grid, diagonal_connectivity=True, background=0, monochromatic=False)
+            top_left_comps = [comp for comp in components_8 if any(within_top_left(r, c) and grid[r, c] == obj_color for (r, c) in comp.coords)]
+
         # We'll now identify the shape's coordinates, then place partial subsets in the remaining subgrids.
-        # We'll do a 4-way find of connected objects, find the one containing subgrid_center.
-        objects_4 = find_connected_objects(grid, diagonal_connectivity=False, background=0, monochromatic=False)
+        # We'll do an 8-way find of connected objects, find the one containing subgrid_center.
+        objects_8 = find_connected_objects(grid, diagonal_connectivity=True, background=0, monochromatic=False)
         shape_obj = None
-        for obj in objects_4:
+        for obj in objects_8:
             if (subgrid_center_r, subgrid_center_c) in obj.coords:
                 shape_obj = obj
                 break
@@ -281,8 +346,8 @@ class Task1e32b0e9Generator(ARCTaskGenerator):
         subgrid_center_r = subgrid_top + subgrid_h // 2
         subgrid_center_c = subgrid_left + subgrid_w // 2
 
-        # find the shape object.
-        objects_4 = find_connected_objects(output, diagonal_connectivity=False, background=0, monochromatic=False)
+        # find the shape object using 8-way connectivity (diagonals allowed).
+        objects_4 = find_connected_objects(output, diagonal_connectivity=True, background=0, monochromatic=False)
         shape_obj = None
         for obj in objects_4:
             if (subgrid_center_r, subgrid_center_c) in obj.coords:
@@ -358,6 +423,13 @@ class Task1e32b0e9Generator(ARCTaskGenerator):
         # choose shape types for each example so the top-left object varies.
         shape_types = ["square", "plus", "t", "l", "diamond", "line"]
         total_needed = nr_train + 1  # train + test
+        # Ensure separator colors are unique across all train+test examples.
+        all_colors = list(range(1, 10))
+        if total_needed <= len(all_colors):
+            sep_colors = random.sample(all_colors, total_needed)
+        else:
+            # Fallback (shouldn't happen with current parameters): allow repeats
+            sep_colors = [random.choice(all_colors) for _ in range(total_needed)]
         if total_needed <= len(shape_types):
             chosen_shapes = random.sample(shape_types, total_needed)
         else:
@@ -365,15 +437,18 @@ class Task1e32b0e9Generator(ARCTaskGenerator):
             chosen_shapes = [random.choice(shape_types) for _ in range(total_needed)]
 
         for i in range(nr_train):
-            sep_color, obj_color = random.sample(range(1, 10), 2)
+            sep_color = sep_colors[i]
+            # pick obj_color distinct from sep_color
+            obj_color = random.choice([c for c in all_colors if c != sep_color])
             gridvars = {"sep_color": sep_color, "obj_color": obj_color, "shape_type": chosen_shapes[i]}
             inp = self.create_input(taskvars, gridvars)
             outp = self.transform_input(inp, taskvars)
             train_data.append({"input": inp, "output": outp})
 
         # Test pair
-        sep_color, obj_color = random.sample(range(1, 10), 2)
+        sep_color = sep_colors[-1]
         test_shape = chosen_shapes[-1]
+        obj_color = random.choice([c for c in all_colors if c != sep_color])
         gridvars = {"sep_color": sep_color, "obj_color": obj_color, "shape_type": test_shape}
         test_inp = self.create_input(taskvars, gridvars)
         test_outp = self.transform_input(test_inp, taskvars)

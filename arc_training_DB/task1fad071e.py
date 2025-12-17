@@ -5,21 +5,24 @@ import numpy as np
 from typing import Dict, Any, List, Tuple
 import random
 
-class ARCTask1fad071eGenerator(ARCTaskGenerator):
+class Task1fad071eGenerator(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
-            "The input grid has size {vars['rows']} X {vars['rows']}.",
+            "The input grid has size {vars['rows']} x {vars['rows']}.",
             "Multiple 2x2 squares are present in the input grid.",
-            "Few of the 2x2 squares are of color {color('color1')} and others are color {color('color2')}.",
-            "Few of the cells are also colored {color('color1')} and {color('color2')}, remaining cells are empty(0)."
+            "Some of the 2x2 squares are colored {color('color1')} and others are colored {color('color2')}.",
+            "Some individual cells are also colored {color('color1')} or {color('color2')}, while the remaining cells are empty (0)."
         ]
+
         transformation_reasoning_chain = [
             "The output grid has a different size than the input grid.",
-            "The output grid has size 1 X (floor({vars['rows']}/2) + 1).",
-            "First find all the 2x2 squares with color {color('color1')}.",
-            "The cells in the output grid are filled with the color {color('color1')}, corresponding to the same number identified in the previous step."
+            "The output grid has size 1 x (floor({vars['rows']} / 2) + 1).",
+            "First, find all the 2x2 squares colored {color('color1')}.",
+            "The cells in the output grid are filled with color {color('color1')}, corresponding to the number identified in the previous step."
         ]
+
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
+
 
     def create_grids(self) -> Tuple[Dict[str, Any], TrainTestData]:
         rows = random.randint(9, 22)
@@ -143,8 +146,3 @@ class ARCTask1fad071eGenerator(ARCTaskGenerator):
         output[0, :count_color1_squares] = color1   
         
         return output
-
-if __name__ == "__main__":
-    generator = ARCTask1fad071eGenerator()
-    taskvars, train_test_data = generator.create_grids()
-    ARCTaskGenerator.visualize_train_test_data(train_test_data)
