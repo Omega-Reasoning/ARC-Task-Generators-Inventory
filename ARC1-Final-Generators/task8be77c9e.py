@@ -23,7 +23,7 @@ class Task8be77c9eGenerator(ARCTaskGenerator):
     def create_grids(self) -> tuple[dict[str, any], TrainTestData]:
         # Initialize task variables
         taskvars = {
-            'rows': random.randint(3, 10),  # Using smaller grids for better visualization
+            'rows': random.randint(3, 15),  # Using smaller grids for better visualization
             'in_color': random.randint(1, 9)  # Random color between 1-9
         }
         

@@ -13,12 +13,12 @@ class Task29c11459Generator(ARCTaskGenerator):
         ]
 
         transformation_reasoning_chain = [
-            "The output grid has the same size as the input grid.",
-            "Copy the input grid to the output grid.",
-            "For each row with the pattern:",
-            "- The middle cell along the same row should be colored {color('cell3')}.",
-            "- All the cells between the first cell and the middle cell should be colored with the same color as the first cell.",
-            "- All the cells between the middle cell and the last cell should be colored with the same color as the last cell."
+           "The output grid has the same size as the input grid.",
+            "Copy the input grid to the output grid and identify the row that contains exactly two colored cells.",
+            "In that row, color the middle cell with {color('cell3')}.",
+            "Color all cells between the first colored cell and the middle cell using the same color as the first cell.",
+            "Color all cells between the middle cell and the last colored cell using the same color as the last cell.",
+
         ]
 
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)

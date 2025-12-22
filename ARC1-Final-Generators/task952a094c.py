@@ -25,7 +25,7 @@ class Task952a094cGenerator(ARCTaskGenerator):
     
     def create_grids(self):
         # Define task variables
-        rows = random.randint(10, 20)  # Grid size between 10 and 20 (up to 30 allowed)
+        rows = random.randint(10, 30)  # Grid size between 10 and 20 (up to 30 allowed)
         
         # Create task variables dictionary
         taskvars = {

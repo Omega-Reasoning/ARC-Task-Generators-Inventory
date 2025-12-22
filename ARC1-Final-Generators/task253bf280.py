@@ -5,7 +5,7 @@ import random
 class Task253bf280Generator(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
-            "The input grid has size {vars['rows']} X {vars['cols']}",
+            "The input grid has size {vars['rows']} X {vars['cols']}.",
             "Random numbers of cells of color {color('cell_color')} are placed in the input grid.",
             "There are at most 2 cells placed along any particular row or column.",
             "The remaining cells are empty(0)."
@@ -15,7 +15,8 @@ class Task253bf280Generator(ARCTaskGenerator):
             "The output grid has the same size as the input grid.",
             "Copy the input grid to the output grid.",
             "For each row, if there are exactly two cells of color {color('cell_color')}, fill all cells between them with color {color('fill_color')}.",
-            "For each column, if there are exactly two cells of color {color('cell_color')}, fill all cells between them with color {color('fill_color')}."
+            "For each column, if there are exactly two cells of color {color('cell_color')}, fill all cells between them with color {color('fill_color')}.",
+            "It is also possible that one or more horizontal and vertical segment intersect, in which case the intersecting cell is also filled with color {color('fill_color')}."
         ]
         
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)

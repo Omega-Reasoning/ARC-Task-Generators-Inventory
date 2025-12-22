@@ -5,8 +5,8 @@ import random
 class Task272f95faGenerator(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
-            "The input grid has size {vars['rows']} X {vars['cols']}",
-            "The grid is a raster with color {color('raster_color')} rows and columns as separators."
+            "The input grid has size {vars['rows']} X {vars['cols']}.",
+            "The grid is a raster with {color('raster_color')} rows and columns as separators."
             "The {color('raster_color')} rows and columns are separated by at least one cell, which divides the input grid into nine subgrids, each of these subgrids have different sizes.",
             "The remaining cells of the input grid are empty(0)."
         ]
@@ -16,7 +16,7 @@ class Task272f95faGenerator(ARCTaskGenerator):
             "First copy the input grid to the output grid.",
             "Identify the {color('raster_color')} rows and columns positions in the input grid.",
             "Identify the subgrids to be colored.",
-            "The second subgrid is colored {color('one')}, fourth subgrid is colored {color('two')}, fifth subgrid is colored {color('three')}, sixth subgrid is colored {color('four')} and eighth subgrid is colored {color('five')}.",
+            "The second, fourth, fifth, sixth, and eighth subgrids are colored with five different colors respectively: {color('one')}, {color('two')}, {color('three')}, {color('four')}, and {color('five')}.",
             "The remaining cells remain empty(0)."
         ]
         

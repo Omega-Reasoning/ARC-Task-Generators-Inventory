@@ -11,18 +11,19 @@ class Task25d8a9c8Generator(ARCTaskGenerator):
     def __init__(self):
         # 1) Input reasoning chain
         input_reasoning_chain = [
-            "The input grid has size {vars['rows']} X {vars['rows']}",
-            "All the cells in the input grid have color(between 1-9).",
-            "A random number of rows have all the cells of the same color.",
-            "No cells in the input grid are empty(0)."
+            "The input grid has size {vars['rows']} X {vars['rows']}.",
+            "All cells in the input grid are colored using random colors (between 1 and 9).",
+            "Some rows consist entirely of cells with the same color.",
+            "The number of such uniformly colored rows varies across examples.",
+            "No cells in the input grid are empty (0)."
         ]
         
         # 2) Transformation reasoning chain
         transformation_reasoning_chain = [
             "The output grid has the same size as the input grid.",
-            "First identify all the rows where all the cells have the same color.",
-            "Change all the cells found in the above rows to the color {color('output_color')}",
-            "Remaining all the colors are empty(0) in the output grid."
+            "First, identify all rows in which every cell has the same color.",
+            "Change all cells in those identified rows to a single output color.",
+            "All remaining rows in the output grid are empty (0)."
         ]
 
         # 3) Call super().__init__

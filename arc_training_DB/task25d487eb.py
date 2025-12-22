@@ -5,25 +5,27 @@ from transformation_library import find_connected_objects
 from input_library import create_object, retry
 
 #
-class ARCTask25d487ebGenerator(ARCTaskGenerator):
+class Task25d487ebGenerator(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
-            "The input grid has size {vars['rows']} X {vars['cols']}.",
-            "The input grid has a single 4-way connected object which is an isosceles triangle.",
-            "The triangle is rotated anticlockwise by multiple of 90 degrees in some examples.",
-            "The triangles has color input_color(between 1 and 9), except for the center cell of the last row in the triangle, which is of color cell_color(between 1 and 9).",
-            "The triangle color varies between the examples.",
-            "The cell color varies between the examples.",
+          "The input grid size varies across examples.",
+          "The input grid contains a single 4-way connected object shaped like an isosceles triangle.",
+          "The size of the triangle varies across examples.",
+            "In some examples, the triangle is rotated anticlockwise by a multiple of 90 degrees.",
+            "The triangle is mostly filled with one color, except for a single cell located at the center of the triangle’s base, which is a different color.",
+            "The main triangle color varies across examples.",
+            "The single different-colored cell also varies across examples.",
             "All remaining cells in the grid are empty (0)."
         ]
         
         transformation_reasoning_chain = [
-            "The output grid has the same size as the input grid.",
-            "Identify the 4-way connected triangle object in the input grid.",
-            "Determine the color of the center cell of the row/column with the highest number of cells.",
-            "Extend the cell color along the triangles central axis, moving upward toward its peak rather than from the bottom, and continue the extension outward to the edge of the grid.",
-            "While extending the color, the 4-way connected object cells do not change color, only the empty cells are colored.",
-            "All remaining cells are empty (0)."
+           "The output grid has the same size as the input grid.",
+"Identify the single 4-way connected isosceles triangle in the input grid.",
+"Locate the uniquely colored cell positioned at the center of the triangle base.",
+"Determine the central axis of the triangle based on its orientation.",
+"Extend the color of the uniquely colored cell along the central axis of the triangle, moving from the base toward the peak of the triangle and continuing in that direction until the edge of the grid is reached.",
+"During this extension, only empty cells are filled with the extending color; the original triangle cells remain unchanged.",
+"All remaining cells in the grid are empty (0)."
         ]
         
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
@@ -34,7 +36,8 @@ class ARCTask25d487ebGenerator(ARCTaskGenerator):
         
         def generate_valid_grid():
             grid = np.zeros((rows, cols), dtype=int)
-            rotation_angle = random.choice([0, 90, 180, 270])
+            # Allow explicit rotation override via gridvars for deterministic examples
+            rotation_angle = gridvars.get('rotation_angle', random.choice([0, 90, 180, 270]))
 
             # Define triangle properties
             triangle_color = random.randint(1, 9)
@@ -172,16 +175,28 @@ class ARCTask25d487ebGenerator(ARCTaskGenerator):
             'cols': random.randint(10, 30),
             'x': random.choice([90, 180, 270])
         }
-        
+
+        # Ensure at least one train example with triangle rotated 90 (horizontal extension)
+        # and one with rotation 0 (vertical extension). Fill remaining examples randomly.
+        create_count = random.randint(3, 4)
         train_examples = []
-        for _ in range(random.randint(3, 4)):
+
+        # Guaranteed examples for required rotations
+        for rot in (90, 0):
+            gridvars = {'cell_color': random.randint(1, 9), 'rotation_angle': rot}
+            input_grid = self.create_input(taskvars, gridvars)
+            output_grid = self.transform_input(input_grid, taskvars)
+            train_examples.append({'input': input_grid, 'output': output_grid})
+
+        # Remaining examples (random rotations)
+        for _ in range(max(0, create_count - 2)):
             gridvars = {'cell_color': random.randint(1, 9)}
             input_grid = self.create_input(taskvars, gridvars)
             output_grid = self.transform_input(input_grid, taskvars)
             train_examples.append({'input': input_grid, 'output': output_grid})
-        
+
         test_gridvars = {'cell_color': random.randint(1, 9)}
         test_input = self.create_input(taskvars, test_gridvars)
         test_output = self.transform_input(test_input, taskvars)
-        
+
         return taskvars, {'train': train_examples, 'test': [{'input': test_input, 'output': test_output}]}

@@ -9,15 +9,15 @@ class Task2c608affGenerator(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
             "The input grid has size {vars['rows']} X {vars['cols']}.",
-            "The entire input grid is filled with color grid_color(between 1 and 9).",
-            "There is a single 4-way connected object which is either a square or rectangle of color obj_color(between 1 and 9).",
-            "There are a random number of cells placed in the input grid which are of color cell_color(between 1 and 9)."
+            "The entire input grid is filled with a background color (between 1 and 9).",
+            "A single rectangle or square object of a different color (between 1 and 9) is placed somewhere within the grid, not touching the grid borders.",
+            "There are a random number of cells placed in the input grid which are not connected to the rectangle/square object. These cells are of a third color (between 1 and 9)."
         ]
         transformation_reasoning_chain = [
             "The output grid has the same size as the input grid.",
             "Copy the input grid to the output grid.",
-            "Identify the subgrid which contains the 4 way connected object.",
-            "If the cells with the color cell_color are aligned in the same row or column as the object, then extend that row or column with additional cells of the same color until they reach the objects boundary."
+            "Identify the row and column positions of the rectangle/square object in the input grid.",
+            "For each single-colored cell that is not connected to the rectangle/square object: if it is in the same row as the rectangle/square object, fill all cells between that cell and the nearest edge of the rectangle/square object with the same color as that cell; if it is in the same column as the rectangle/square object, fill all cells between that cell and the nearest edge of the rectangle/square object with the same color as that cell."
         ]
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
     
@@ -86,6 +86,19 @@ class Task2c608affGenerator(ARCTaskGenerator):
                 c = random.randint(0, cols - 1)
                 # Check if position overlaps with the rectangle/square object
                 if r_start <= r < r_start + h and c_start <= c < c_start + w:
+                    return None
+                # Ensure the cell is NOT 4-way adjacent to the rectangle (no connection)
+                # Above the rect
+                if (r == r_start - 1) and (c_start <= c < c_start + w):
+                    return None
+                # Below the rect
+                if (r == r_start + h) and (c_start <= c < c_start + w):
+                    return None
+                # Left of the rect
+                if (c == c_start - 1) and (r_start <= r < r_start + h):
+                    return None
+                # Right of the rect
+                if (c == c_start + w) and (r_start <= r < r_start + h):
                     return None
                 return (r, c)
             
