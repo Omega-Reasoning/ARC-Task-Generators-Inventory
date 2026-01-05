@@ -4,18 +4,19 @@ from arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
 from transformation_library import find_connected_objects
 from input_library import retry
 
-class ARCTask2281f1f4Generator(ARCTaskGenerator):
+class task2281f1f4Generator(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
-            "The input grid has size {vars['rows']} X {vars['rows']}",
-            "Random numbers of cells are placed along the first row and the last column of color {color('cell_color')}",
-            "All the other remaining cells are empty(0)"
+            "The input is a square grid with size {vars['rows']}×{vars['rows']}.",
+            "Some cells on the top row (row 0) and some cells on the rightmost column (the last column) are filled with color {color('cell_color')}.",
+            "All other cells are empty (0)."
         ]
-        
+
         transformation_reasoning_chain = [
             "The output grid has the same size as the input grid.",
-            "Copy the input grid to the output grid.",
-            "If there is a cell of color {color('cell_color')} at position (0,j) and (i, n-1), where n is the number of rows/columns in input grid, then the cell at position (i,j) is colored {color('output_color')}."
+            "Start from a copy of the input grid for the output.",
+            "For each cell (i, j) with i > 0 and j < n-1 (where n is the grid size): if the cell at the top row (0, j) is color {color('cell_color')} AND the cell at the rightmost column (i, n-1) is also color {color('cell_color')}, then set the output cell at (i, j) to color {color('output_color')}",
+            "Leave all other cells unchanged."
         ]
         
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)

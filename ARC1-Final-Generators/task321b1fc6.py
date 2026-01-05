@@ -12,7 +12,7 @@ class Task321b1fc6Generator(ARCTaskGenerator):
         # Input reasoning chain
         input_reasoning_chain = [
             "Input grids can have different sizes.",
-            "They contain a variable number of objects (between 3 and 6, depending on grid size), each completely separated from the others by empty (0) cells.",
+            "They contain {vars['num_objects']} objects, each completely separated from the others by empty (0) cells.",
             "Exactly one object is multi-colored (cells 1-9) and the remaining objects are monochromatic with color {color('object_color')}",
             "All objects have the exact same shape."
         ]
@@ -40,7 +40,7 @@ class Task321b1fc6Generator(ARCTaskGenerator):
 
         # 1) Choose grid size dynamically, adjusting if needed
         min_size = 7
-        max_size = 15
+        max_size = 30
         base_size = random.randint(min_size, max_size)
 
         grid = np.zeros((base_size, base_size), dtype=int)
@@ -90,7 +90,13 @@ class Task321b1fc6Generator(ARCTaskGenerator):
 
         # Decide how many objects to place: at least 3, up to 6, limited by grid size
         max_possible = min(6, max(3, base_size // 3))
-        num_objects = random.randint(3, max_possible)
+        # Use task variable 'num_objects' when provided; otherwise choose randomly
+        desired_num = taskvars.get('num_objects', None)
+        if desired_num is None:
+            num_objects = random.randint(3, max_possible)
+        else:
+            # Clamp the provided task variable to allowed range for this grid
+            num_objects = max(3, min(int(desired_num), max_possible))
 
         # 5) Ensure separated object placement
         max_attempts = 100
@@ -177,7 +183,11 @@ class Task321b1fc6Generator(ARCTaskGenerator):
         """
         Generates training and test data.
         """
-        taskvars = {'object_color': random.randint(1, 9)}
+        # Introduce task variable for number of objects per grid
+        taskvars = {
+            'object_color': random.randint(1, 9),
+            'num_objects': random.randint(3, 6)
+        }
         nr_train = random.choice([3, 4])
         nr_test = 1
 

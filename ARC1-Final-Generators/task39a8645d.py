@@ -9,14 +9,14 @@ class Task39a8645dGenerator(ARCTaskGenerator):
         input_reasoning_chain = [
             "Input grids are of size {vars['grid_size']}x{vars['grid_size']}.",
             "They contain at least three colored objects, where each object is made of 8-way connected cells, with the remaining cells being empty (0).",
-            "Each object is confined within a 3x3 subgrid and is completely surrounded by empty (0) cells.",
+            "Each object is confined within a {vars['square_size']}x{vars['square_size']} subgrid and is completely surrounded by empty (0) cells.",
             "There are two or three different colors used in each input grid, with one color appearing more frequently than the others.",
             "Objects of the same color must have the exact same shape and structure."
         ]
         
         transformation_reasoning_chain = [
-            "Output grids are always of size 3x3.",
-            "The output grid is constructed by identifying the most frequently occurring object and copying it into the grid."
+            "Output grids are always of size {vars['square_size']}x{vars['square_size']}.",
+            "The output grid is constructed by identifying the most frequently occurring object (by color and shape) and copying the confined {vars['square_size']}x{vars['square_size']} subgrid of that object into the output grid."
         ]
         
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
@@ -24,7 +24,15 @@ class Task39a8645dGenerator(ARCTaskGenerator):
     def create_grids(self) -> tuple:
         # Initialize task variables
         grid_size = random.randint(10, 30)
-        taskvars = {'grid_size': grid_size}
+        # Choose square_size (3, 4, or 5) depending on grid_size so objects fit sensibly
+        if grid_size < 12:
+            square_size = 3
+        elif grid_size < 22:
+            square_size = 4
+        else:
+            square_size = 5
+
+        taskvars = {'grid_size': grid_size, 'square_size': square_size}
         
         # Randomize number of training examples
         num_train = random.randint(3, 6)
@@ -68,39 +76,45 @@ class Task39a8645dGenerator(ARCTaskGenerator):
         return taskvars, train_test_data
     
     def create_object_template(self, color):
-        """Create a random object template of specified color that fits in a 3x3 grid"""
-        # Create a 3x3 grid with cells set to 0
-        template = np.zeros((3, 3), dtype=int)
-        
-        # Randomly add 4-6 colored cells
-        num_cells = random.randint(4, 6)
-        cells = []
-        for r in range(3):
-            for c in range(3):
-                cells.append((r, c))
-        
+        """Create a random object template of specified color that fits in a square of given size.
+
+        This method will be called with the size value stored in `taskvars['square_size']`.
+        """
+        # We'll fetch size from the current taskvars if available, otherwise default to 3
+        size = getattr(self, '_current_template_size', 3)
+
+        # Create an empty `size x size` template
+        template = np.zeros((size, size), dtype=int)
+
+        # Choose number of colored cells: at least `size`, at most a reasonable fraction of the area
+        min_cells = max(4, size)
+        max_cells = min(size * size - 1, size * 2)
+        num_cells = random.randint(min_cells, max_cells)
+
+        cells = [(r, c) for r in range(size) for c in range(size)]
         selected_cells = random.sample(cells, num_cells)
         for r, c in selected_cells:
             template[r, c] = color
-            
+
         # Ensure object is 8-way connected
         connected = find_connected_objects(template, diagonal_connectivity=True, background=0)
         if len(connected.objects) != 1:
-            # Try again if not connected
             return self.create_object_template(color)
-        
-        # Ensure object occupies all 3 rows and all 3 columns
-        rows_used = set(r for r, c in [(r, c) for r in range(3) for c in range(3) if template[r, c] != 0])
-        cols_used = set(c for r, c in [(r, c) for r in range(3) for c in range(3) if template[r, c] != 0])
-        
-        if len(rows_used) < 3 or len(cols_used) < 3:
-            # Try again if not using all rows and columns
+
+        # Ensure object occupies all rows and all columns of the subgrid
+        rows_used = set(r for r, c in [(r, c) for r in range(size) for c in range(size) if template[r, c] != 0])
+        cols_used = set(c for r, c in [(r, c) for r in range(size) for c in range(size) if template[r, c] != 0])
+
+        if len(rows_used) < size or len(cols_used) < size:
             return self.create_object_template(color)
-        
+
         return template
     
     def create_input(self, taskvars, gridvars):
         grid_size = taskvars['grid_size']
+        square_size = taskvars.get('square_size', 3)
+        # make the current template size accessible to create_object_template
+        self._current_template_size = square_size
 
         # Determine desired total number of objects for this grid (must be >=4)
         desired_total = gridvars.get('desired_total_objects')
@@ -176,13 +190,19 @@ class Task39a8645dGenerator(ARCTaskGenerator):
                 attempts_place = 0
                 while not placed and attempts_place < 200:
                     # Choose a random position ensuring a 1-cell border around object
-                    r = random.randint(1, grid_size - 4)
-                    c = random.randint(1, grid_size - 4)
+                    # valid top-left range: 1 .. grid_size - (square_size + 1)
+                    if grid_size - (square_size + 1) < 1:
+                        # grid too small for this object + border -- force retry by enlarging grid
+                        taskvars['grid_size'] = min(30, grid_size + 4)
+                        return self.create_input(taskvars, gridvars)
+
+                    r = random.randint(1, grid_size - (square_size + 1))
+                    c = random.randint(1, grid_size - (square_size + 1))
 
                     # Check if the area (including surrounding cells) is clear
                     clear = True
-                    for check_r in range(r-1, r+4):  # check 5x5 area (3x3 object + surrounding cells)
-                        for check_c in range(c-1, c+4):
+                    for check_r in range(r-1, r + square_size + 1):
+                        for check_c in range(c-1, c + square_size + 1):
                             if 0 <= check_r < grid_size and 0 <= check_c < grid_size:
                                 if grid[check_r, check_c] != 0:
                                     clear = False
@@ -192,8 +212,8 @@ class Task39a8645dGenerator(ARCTaskGenerator):
 
                     if clear:
                         # Place the template
-                        for tr in range(3):
-                            for tc in range(3):
+                        for tr in range(square_size):
+                            for tc in range(square_size):
                                 if template[tr, tc] != 0:
                                     grid[r+tr, c+tc] = template[tr, tc]
                         placed = True
@@ -225,13 +245,14 @@ class Task39a8645dGenerator(ARCTaskGenerator):
     def transform_input(self, grid, taskvars):
         # Find all objects in the grid
         objects = find_connected_objects(grid, diagonal_connectivity=True, background=0)
-        
+        size = taskvars.get('square_size', 3)
+
         # Group objects by color
         color_objects = {}
         for obj in objects.objects:
-            # Verify object occupies a 3x3 subgrid
+            # Verify object occupies a square subgrid of the expected size
             box = obj.bounding_box
-            if (box[0].stop - box[0].start != 3) or (box[1].stop - box[1].start != 3):
+            if (box[0].stop - box[0].start != size) or (box[1].stop - box[1].start != size):
                 continue
                 
             # Get the object's color
@@ -247,8 +268,8 @@ class Task39a8645dGenerator(ARCTaskGenerator):
         
         # Find the most frequent color
         if not color_counts:
-            # If no valid objects found, return empty grid
-            return np.zeros((3, 3), dtype=int)
+            # If no valid objects found, return empty grid of the appropriate size
+            return np.zeros((size, size), dtype=int)
             
         most_frequent_color = max(color_counts, key=color_counts.get)
         
@@ -257,5 +278,5 @@ class Task39a8645dGenerator(ARCTaskGenerator):
             return color_objects[most_frequent_color][0].to_array()
         else:
             # This should never happen given our checks, but just in case
-            return np.zeros((3, 3), dtype=int)
+            return np.zeros((size, size), dtype=int)
 

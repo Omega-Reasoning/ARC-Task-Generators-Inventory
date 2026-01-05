@@ -7,15 +7,16 @@ from input_library import retry
 class task2281f1f4Generator(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
-            "The input grid has size {vars['rows']}x{vars['rows']}.",
-            "Random counts of cells appear on the first row and on the last column in color {color('cell_color')}.",
-            "All remaining cells are empty (0)."
+            "The input is a square grid with size {vars['rows']}×{vars['rows']}.",
+            "Some cells on the top row (row 0) and some cells on the rightmost column (the last column) are filled with color {color('cell_color')}.",
+            "All other cells are empty (0)."
         ]
 
         transformation_reasoning_chain = [
-            "The output grid has the same dimensions as the input grid.",
-            "Copy the input grid to the output grid.",
-            "If a cell of color {color('cell_color')} occurs at position (0,j) and at position (i, n-1), where n equals the number of rows and columns in the input grid, then set the cell at position (i,j) to color {color('output_color')}."
+            "The output grid has the same size as the input grid.",
+            "Start from a copy of the input grid for the output.",
+            "For each cell (i, j) with i > 0 and j < n-1 (where n is the grid size): if the cell at the top row (0, j) is color {color('cell_color')} AND the cell at the rightmost column (i, n-1) is also color {color('cell_color')}, then set the output cell at (i, j) to color {color('output_color')}",
+            "Leave all other cells unchanged."
         ]
         
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)

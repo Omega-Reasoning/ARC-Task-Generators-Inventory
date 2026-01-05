@@ -169,10 +169,3 @@ class Taskbda2d7a6Generator(ARCTaskGenerator):
             'test': test_examples
         }
 
-# Test code
-if __name__ == "__main__":
-    generator = Taskbda2d7a6Generator()
-    taskvars, train_test_data = generator.create_grids()
-    
-    print("Task Variables:", taskvars)
-    ARCTaskGenerator.visualize_train_test_data(train_test_data)

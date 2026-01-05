@@ -9,8 +9,8 @@ class Task3af2c5a8Generator(ARCTaskGenerator):
         input_reasoning_chain = [
             "Input grids are of size {vars['rows']}x{vars['cols']}.",
             "They contain single-colored cells and empty (0) cells.",
-            "The single-colored cells form an 8-way connected object in the grid.",
-            "The color of the object varies across examples."
+            "The single-colored cells form one or more 8-way connected objects in the grid.",
+            "The color of the objects varies across examples."
 
         ]
         

@@ -7,15 +7,16 @@ import random
 class Task23581191Generator(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
-            "The input grid has size {vars['rows']} X {vars['rows']}.",
-            "Two cells are randomly placed in the input grid of color {color('color1')} and {color('color2')}.",
-            "The remaining cells of the input grid are empty(0)."
+            "Create an empty square grid with {vars['rows']} rows and {vars['rows']} columns.",
+            "Place two single colored cells at random positions: one cell of color {color('color1')} and one cell of color {color('color2')}.",
+            "Ensure the two colored cells do not share the same row or the same column. All other cells remain empty (0)."
         ]
         transformation_reasoning_chain = [
-            "The output grid has the same size as the input grid.",
-            "First copy the input grid to the output grid.",
-            "If a colored cell occupies position (i,j), the ith row and jth column are filled with the same cell color.",
-            "If the row of one colored cell crosses the column of the other colored cell, the intersection point is colored {color('color3')} and vice versa",
+            "Start with an output grid identical to the input grid (same size and initial values).",
+            "For the cell colored {color('color1')}: fill its entire row and its entire column with color {color('color1')}.",
+            "Next, for the cell colored {color('color2')}: fill its entire row and its entire column with color {color('color2')}, except where a cell is already colored {color('color1')}.",
+            "If a cell would be assigned both {color('color1')} and {color('color2')} (i.e., at the overlap), color that intersection cell {color('color3')}.",
+            "Return the resulting output grid."
         ]
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
 
@@ -69,7 +70,7 @@ class Task23581191Generator(ARCTaskGenerator):
 
     def create_grids(self) -> tuple:
         taskvars = {
-            'rows': random.randint(9, 20),
+            'rows': random.randint(9, 30),
             'color1': random.randint(1, 9),
             'color2': random.randint(1, 9),
             'color3': random.randint(1, 9),

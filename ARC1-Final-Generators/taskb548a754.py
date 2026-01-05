@@ -7,7 +7,7 @@ import random
 class Taskb548a754Generator(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
-            "The input grids vary in size, typically squares or near-square rectangles.",
+            "The input grids vary in size, typically squares or near-square rectangles..",
             "Each grid contains a single block that holds a shape either a square or a rectangle.",
             "The block is colored with a two-tone pattern where one color for the boundary and a different color for the interior.",
             "Additionally, each grid contains exactly one pointer cell, marked with the color {color('pointer_color')}. This pointer is always positioned either horizontally or vertically aligned with the block and never diagonally."
