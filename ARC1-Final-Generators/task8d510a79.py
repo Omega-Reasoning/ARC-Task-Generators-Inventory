@@ -3,13 +3,15 @@ import numpy as np
 import random
 from typing import Dict, Any, Tuple, List
 
+
 class Task8d510a79Generator(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
             "The input grids are of size {vars['grid_size']} × {vars['grid_size']}.",
-            "Each input grid contains a completely filled row with {color('middle_row')} color , which can be any row within two rows above or below the middle row.",
+            "Each input grid contains a completely filled row of {color('middle_row')}, positioned within two rows of the grid center, with at least three rows both above and below this row.",
             "Several {color('cell_color1')} and {color('cell_color2')} cells are placed above and below the {color('middle_row')} line.",
-            "There can be at most one colored cell in each column above and at most one colored cell in each column below the {color('middle_row')} line."
+            "There can be at most one colored cell in each column above and at most one colored cell in each column below the {color('middle_row')} line.",
+            "Ensure that there is at least one {color('cell_color1')} cell and one {color('cell_color2')} cell both above and below the {color('middle_row')} line, and that no two {color('cell_color1')} or {color('cell_color2')} cells appear in consecutive columns."
         ]
 
         transformation_reasoning_chain = [
@@ -23,18 +25,25 @@ class Task8d510a79Generator(ARCTaskGenerator):
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
 
     # ---------------------------
-    # Helpers (bounded placement)
+    # Helpers
     # ---------------------------
     @staticmethod
+    @staticmethod
     def _choose_middle_row_pos(grid_size: int, center: int) -> int:
-        # Keep a 1-row buffer from the outer border and a 1-row buffer around the middle row
-        lo = max(2, center - 2)
-        hi = min(grid_size - 3, center + 2)
+        # Ensure at least 3 rows above and 3 rows below the middle row.
+        # (0-indexed: rows 0..middle_row_pos-1 are above; rows middle_row_pos+1..grid_size-1 are below)
+        lo = 3
+        hi = grid_size - 4
+
+        # If you still want it "near the center" within ±2, intersect with that window:
+        lo = max(lo, center - 2)
+        hi = min(hi, center + 2)
+
         return random.randint(lo, hi)
+
 
     @staticmethod
     def _plan_counts(cap: int, must_be_at_least: int, default_low: int, default_high: int) -> int:
-        """Pick a count between [default_low..default_high], clipped by 'cap', but >= must_be_at_least if possible."""
         if cap <= 0:
             return 0
         low = min(default_low, cap)
@@ -47,17 +56,54 @@ class Task8d510a79Generator(ARCTaskGenerator):
         return n
 
     @staticmethod
-    def _assign_colors(num_cells: int, color1: int, color2: int, min_each: int = 2) -> List[int]:
-        """Return a shuffled list of length num_cells with at least 'min_each' of each color when possible."""
-        if num_cells == 0:
+    def _max_nonconsecutive_slots(n_cols: int) -> int:
+        # maximum size of a set with no adjacent indices in [0..n_cols-1]
+        return (n_cols + 1) // 2
+
+    @staticmethod
+    def _sample_nonconsecutive_columns(n_cols: int, k: int) -> List[int]:
+        """
+        Sample k columns from range(n_cols) such that no two are consecutive.
+        Bounded constructive approach: shuffle candidates, greedily accept valid columns,
+        and if not enough, retry a few times (still bounded).
+        """
+        if k <= 0:
             return []
-        # If not enough capacity for 2+2, relax gracefully
-        need_each = min(min_each, max(0, num_cells // 2))
-        base = [color1] * need_each + [color2] * need_each
-        remaining = max(0, num_cells - len(base))
-        base += [random.choice([color1, color2]) for _ in range(remaining)]
+        k = min(k, (n_cols + 1) // 2)
+
+        cols = list(range(n_cols))
+        for _ in range(20):  # bounded retries
+            random.shuffle(cols)
+            chosen = []
+            chosen_set = set()
+            for c in cols:
+                if (c - 1) in chosen_set or (c + 1) in chosen_set:
+                    continue
+                chosen.append(c)
+                chosen_set.add(c)
+                if len(chosen) == k:
+                    return chosen
+        # Fallback: deterministic pattern then shuffle subset
+        base = list(range(0, n_cols, 2))
+        if len(base) < k:
+            base = list(range(1, n_cols, 2))
         random.shuffle(base)
-        return base
+        return base[:k]
+
+    @staticmethod
+    def _assign_colors_side(num_cells: int, color1: int, color2: int, require_both: bool = True) -> List[int]:
+        """
+        Return list of length num_cells.
+        If require_both and num_cells>=2 -> guarantee at least one of each color.
+        """
+        if num_cells <= 0:
+            return []
+        if require_both and num_cells >= 2:
+            palette = [color1, color2] + [random.choice([color1, color2]) for _ in range(num_cells - 2)]
+        else:
+            palette = [random.choice([color1, color2]) for _ in range(num_cells)]
+        random.shuffle(palette)
+        return palette
 
     def create_input(self, taskvars: Dict[str, Any], gridvars: Dict[str, Any]) -> np.ndarray:
         grid_size = taskvars['grid_size']
@@ -73,119 +119,84 @@ class Task8d510a79Generator(ARCTaskGenerator):
         # Fill the middle row fully
         grid[middle_row_pos, :] = middle_row_color
 
-        # Valid rows strictly above/below, leaving one-row gap next to the middle row (as in your original)
+        # Valid rows strictly above/below with a 1-row gap from the middle row
         above_rows = list(range(1, middle_row_pos - 1)) if middle_row_pos > 2 else []
         below_rows = list(range(middle_row_pos + 2, grid_size - 1)) if middle_row_pos < grid_size - 3 else []
 
-        all_cols = list(range(grid_size))
+        # If one side has no available rows (should be rare with your bounds), just return the base grid.
+        if not above_rows or not below_rows:
+            return grid
 
-        # Decide how many cells to place on each side (bounded; no unbounded while-loops)
-        # We try to ensure at least 1 on each side when possible
-        max_above_cols = grid_size  # at most one per column per side
-        max_below_cols = grid_size
+        # ---- Enforce: at least one c1 and one c2 above AND below -> need >=2 per side
+        # Also enforce: no consecutive columns globally -> total columns <= ceil(grid_size/2)
+        cap_total = self._max_nonconsecutive_slots(grid_size)
 
+        # Pick base counts (bounded), but force at least 2 per side (so each side can have both colors)
+        # We'll still clip if cap_total is tight.
         n_above = self._plan_counts(
-            cap=min(len(above_rows), max_above_cols),
-            must_be_at_least=1 if len(above_rows) > 0 else 0,
-            default_low=1,
-            default_high=min(4, grid_size // 2)
+            cap=grid_size,
+            must_be_at_least=2,
+            default_low=2,
+            default_high=min(5, grid_size // 2 + 1)
         )
         n_below = self._plan_counts(
-            cap=min(len(below_rows), max_below_cols),
-            must_be_at_least=1 if len(below_rows) > 0 else 0,
-            default_low=1,
-            default_high=min(4, grid_size // 2)
+            cap=grid_size,
+            must_be_at_least=2,
+            default_low=2,
+            default_high=min(5, grid_size // 2 + 1)
         )
 
-        # Guarantee at least 4 total cells if capacity allows (to help with min 2 per color)
-        total_cap = (len(above_rows) > 0) * grid_size + (len(below_rows) > 0) * grid_size
-        target_total = 4 if total_cap >= 4 else min(total_cap, 3)
-        if n_above + n_below < target_total:
-            # Add the remainder to the side(s) with capacity
-            need = target_total - (n_above + n_below)
-            for _ in range(need):
-                if len(above_rows) > 0 and n_above < grid_size:
-                    n_above += 1
-                elif len(below_rows) > 0 and n_below < grid_size:
-                    n_below += 1
+        # If total exceeds nonconsecutive capacity, reduce while keeping >=2 per side if possible.
+        total = n_above + n_below
+        if total > cap_total:
+            # reduce the larger side first, but never below 2 unless absolutely necessary
+            while total > cap_total and (n_above > 2 or n_below > 2):
+                if n_above >= n_below and n_above > 2:
+                    n_above -= 1
+                elif n_below > 2:
+                    n_below -= 1
+                total = n_above + n_below
 
-        # Pick distinct columns for each side to ensure ≤1 per column per side
-        random.shuffle(all_cols)
-        above_cols = all_cols[:n_above] if n_above > 0 else []
-        remaining_cols = [c for c in all_cols if c not in above_cols]
-        random.shuffle(remaining_cols)
-        below_cols = remaining_cols[:n_below] if n_below > 0 else []
+            # still too many (extreme small grids) -> relax below 2 (but your grid sizes make this unlikely)
+            while total > cap_total and (n_above > 1 or n_below > 1):
+                if n_above >= n_below and n_above > 1:
+                    n_above -= 1
+                elif n_below > 1:
+                    n_below -= 1
+                total = n_above + n_below
 
-        # Assign colors with at least two of each when possible
-        colors_above = self._assign_colors(len(above_cols), cell_color1, cell_color2, min_each=2)
-        colors_below = self._assign_colors(len(below_cols), cell_color1, cell_color2, min_each=2)
+        # Now sample TOTAL columns with no adjacency, then split into above/below
+        chosen_cols = self._sample_nonconsecutive_columns(grid_size, n_above + n_below)
+        random.shuffle(chosen_cols)
+        above_cols = chosen_cols[:n_above]
+        below_cols = chosen_cols[n_above:n_above + n_below]
 
-        # If after combining we still don't have ≥2 of each and capacity is small, relax gracefully
-        def enforce_minimums(col_list_a, col_list_b, cols_a, cols_b):
-            total = len(cols_a) + len(cols_b)
-            if total == 0:
-                return col_list_a, col_list_b
-            want = 2
-            # Count current
-            c1 = col_list_a.count(cell_color1) + col_list_b.count(cell_color1)
-            c2 = total - c1
-            # Try to flip some colors to meet minimums (bounded small loops)
-            if c1 < want:
-                need = min(want - c1, total)
-                for palette in (col_list_a, col_list_b):
-                    for i in range(len(palette)):
-                        if need == 0:
-                            break
-                        if palette[i] == cell_color2:
-                            palette[i] = cell_color1
-                            need -= 1
-                    if need == 0:
-                        break
-            elif c2 < want:
-                need = min(want - c2, total)
-                for palette in (col_list_a, col_list_b):
-                    for i in range(len(palette)):
-                        if need == 0:
-                            break
-                        if palette[i] == cell_color1:
-                            palette[i] = cell_color2
-                            need -= 1
-                    if need == 0:
-                        break
-            return col_list_a, col_list_b
+        # Assign colors ensuring both colors exist on each side (since n_* >= 2 normally)
+        colors_above = self._assign_colors_side(len(above_cols), cell_color1, cell_color2, require_both=True)
+        colors_below = self._assign_colors_side(len(below_cols), cell_color1, cell_color2, require_both=True)
 
-        colors_above, colors_below = enforce_minimums(colors_above, colors_below, above_cols, below_cols)
-
-        # Place cells: pick a random eligible row per (side, column)
+        # Place cells: one per chosen column per side, random eligible row
         for col, col_color in zip(above_cols, colors_above):
-            if not above_rows:
-                break
-            row = random.choice(above_rows)
-            grid[row, col] = col_color
+            r = random.choice(above_rows)
+            grid[r, col] = col_color
 
         for col, col_color in zip(below_cols, colors_below):
-            if not below_rows:
-                break
-            row = random.choice(below_rows)
-            grid[row, col] = col_color
+            r = random.choice(below_rows)
+            grid[r, col] = col_color
 
-        # Optional: sprinkle a few extra cells (still bounded and respecting per-side uniqueness)
-        # We'll add at most one extra per side in a new column, with small probability.
-        def sprinkle(side_rows: List[int], used_cols: set, color_choices: List[int]):
-            if not side_rows:
-                return
-            if random.random() < 0.3:  # small chance to add one more
-                free_cols = [c for c in all_cols if c not in used_cols]
-                if free_cols:
-                    c = random.choice(free_cols)
-                    r = random.choice(side_rows)
-                    grid[r, c] = random.choice(color_choices)
-                    used_cols.add(c)
-
-        used_above = set(above_cols)
-        used_below = set(below_cols)
-        sprinkle(above_rows, used_above, [cell_color1, cell_color2])
-        sprinkle(below_rows, used_below, [cell_color1, cell_color2])
+        # Optional sprinkle (still respecting "no consecutive columns"):
+        # At most one extra globally, and only if it does not touch an existing column.
+        if random.random() < 0.25:
+            used = set(above_cols) | set(below_cols)
+            free = [c for c in range(grid_size) if c not in used and (c - 1) not in used and (c + 1) not in used]
+            if free:
+                c = random.choice(free)
+                # choose side randomly
+                if random.random() < 0.5:
+                    r = random.choice(above_rows)
+                else:
+                    r = random.choice(below_rows)
+                grid[r, c] = random.choice([cell_color1, cell_color2])
 
         return grid
 
@@ -205,33 +216,27 @@ class Task8d510a79Generator(ARCTaskGenerator):
                 break
 
         if middle_row_pos is None:
-            return output_grid  # Safety: unchanged
+            return output_grid
 
-        # Process each column exactly once
         for col in range(grid_size):
-            # Scan above -> nearest colored cell
+            # Scan above (closest to middle is not required; your original uses first encountered from top)
             for row in range(0, middle_row_pos):
                 val = grid[row, col]
                 if val == cell_color1:
-                    # extend downward up to just before the middle row
                     output_grid[row + 1:middle_row_pos, col] = cell_color1
                 elif val == cell_color2:
-                    # extend upward to top boundary
                     if row > 0:
                         output_grid[0:row, col] = cell_color2
-                # Only extend from the first colored cell encountered on this side
                 if val in (cell_color1, cell_color2):
                     break
 
-            # Scan below -> nearest colored cell
+            # Scan below
             for row in range(grid_size - 1, middle_row_pos, -1):
                 val = grid[row, col]
                 if val == cell_color1:
-                    # extend upward just after the middle row
                     if middle_row_pos + 1 < row:
                         output_grid[middle_row_pos + 1:row, col] = cell_color1
                 elif val == cell_color2:
-                    # extend downward to bottom boundary
                     if row + 1 < grid_size:
                         output_grid[row + 1:grid_size, col] = cell_color2
                 if val in (cell_color1, cell_color2):
@@ -240,7 +245,7 @@ class Task8d510a79Generator(ARCTaskGenerator):
         return output_grid
 
     def create_grids(self) -> Tuple[Dict[str, Any], TrainTestData]:
-        grid_size = random.choice([7, 9, 11, 13, 15, 17, 19])  # odd sizes
+        grid_size = random.choice([7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29])  # odd sizes between 7 and 29
         colors = list(range(1, 10))
         chosen_colors = random.sample(colors, 3)
 
@@ -251,21 +256,18 @@ class Task8d510a79Generator(ARCTaskGenerator):
             'cell_color2': chosen_colors[2]
         }
 
-        # Training examples
         num_train = random.randint(3, 5)
         train_examples = []
         center = grid_size // 2
+
         for _ in range(num_train):
             middle_row_pos = self._choose_middle_row_pos(grid_size, center)
-            gridvars = {'middle_row_pos': middle_row_pos}
-            inp = self.create_input(taskvars, gridvars)
+            inp = self.create_input(taskvars, {'middle_row_pos': middle_row_pos})
             out = self.transform_input(inp, taskvars)
             train_examples.append({'input': inp, 'output': out})
 
-        # Test example
         test_middle_row_pos = self._choose_middle_row_pos(grid_size, center)
-        test_gridvars = {'middle_row_pos': test_middle_row_pos}
-        test_input = self.create_input(taskvars, test_gridvars)
+        test_input = self.create_input(taskvars, {'middle_row_pos': test_middle_row_pos})
         test_output = self.transform_input(test_input, taskvars)
 
         train_test_data = {

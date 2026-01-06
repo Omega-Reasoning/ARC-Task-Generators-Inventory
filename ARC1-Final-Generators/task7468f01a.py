@@ -4,6 +4,7 @@ import random
 from input_library import create_object, Contiguity, retry
 from transformation_library import find_connected_objects, GridObject, GridObjects
 
+
 class Task7468f01aGenerator(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
@@ -26,40 +27,25 @@ class Task7468f01aGenerator(ARCTaskGenerator):
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
 
     def create_grids(self) -> tuple[dict[str, any], TrainTestData]:
-        # Choose a fixed number of columns for all examples; rows will vary per-example
         cols = random.randint(10, 30)
         taskvars = {'cols': cols}
-        
-        # Create train and test data
+
         train_examples = []
-        
-        # Ensure we have at least one example with multiple inner objects
-        # track counts used in training so test can be different
-        training_counts = set()
-        
-        for i in range(3):  # 3 training examples
-            # For the second example, bias toward multiple inner objects
+
+        for i in range(3):
             if i == 1:
                 num_inners = random.randint(2, 4)
             else:
-                # First and third examples can have any number 1..3
                 num_inners = random.randint(1, 3)
 
-            # pick rows for this example (rows vary across examples)
             rows_i = random.randint(10, 30)
-
             gridvars = {'rows': rows_i, 'num_inner_objects': num_inners}
-            training_counts.add(num_inners)
-            
+
             input_grid = self.create_input(taskvars, gridvars)
             output_grid = self.transform_input(input_grid, taskvars)
-            
-            train_examples.append({
-                'input': input_grid,
-                'output': output_grid
-            })
-        
-        # Compute actual inner-object counts for training examples (creation can fail to place requested number)
+
+            train_examples.append({'input': input_grid, 'output': output_grid})
+
         def _count_inner_objects(grid: np.ndarray) -> int:
             objs = find_connected_objects(grid, diagonal_connectivity=False, background=0)
             if len(objs) == 0:
@@ -76,151 +62,212 @@ class Task7468f01aGenerator(ARCTaskGenerator):
             inner_objs = find_connected_objects(mask, diagonal_connectivity=False, background=0)
             return len(inner_objs)
 
-        actual_training_counts = set()
-        for ex in train_examples:
-            actual_training_counts.add(_count_inner_objects(ex['input']))
+        actual_training_counts = set(_count_inner_objects(ex['input']) for ex in train_examples)
 
-        # Choose a test count different from actual training counts
         possible_nums = [1, 2, 3, 4]
-        test_num = None
-        for n in possible_nums:
-            if n not in actual_training_counts:
-                test_num = n
-                break
+        test_num = next((n for n in possible_nums if n not in actual_training_counts), None)
         if test_num is None:
-            # fallback to a number just beyond possible range
             test_num = max(possible_nums) + 1
 
-        # Generate a test input that actually contains `test_num` inner objects.
         test_rows = random.randint(10, 30)
         test_gridvars = {'rows': test_rows, 'num_inner_objects': test_num}
+
         max_test_attempts = 30
+        test_input = None
         for attempt in range(max_test_attempts):
-            test_input = self.create_input(taskvars, test_gridvars)
-            actual = _count_inner_objects(test_input)
+            candidate = self.create_input(taskvars, test_gridvars)
+            actual = _count_inner_objects(candidate)
             if actual == test_num:
+                test_input = candidate
                 break
-            # if not matched, try again; after many failures, pick a different available number
-            remaining = [n for n in possible_nums if n not in actual_training_counts]
-            if attempt == max_test_attempts - 1 and remaining:
-                test_num = remaining[0]
-                test_gridvars = {'num_inner_objects': test_num}
-        else:
-            # if all attempts failed, accept the last generated grid
-            pass
+
+            if attempt == max_test_attempts - 1:
+                remaining = [n for n in possible_nums if n not in actual_training_counts]
+                if remaining:
+                    test_num = remaining[0]
+                    test_gridvars = {'rows': test_rows, 'num_inner_objects': test_num}
+
+        if test_input is None:
+            test_input = self.create_input(taskvars, test_gridvars)
 
         test_output = self.transform_input(test_input, taskvars)
-        
+
         return taskvars, {
             'train': train_examples,
-            'test': [{
-                'input': test_input,
-                'output': test_output
-            }]
+            'test': [{'input': test_input, 'output': test_output}]
         }
 
+    # ---------- helpers for inner object shapes ----------
+
+    def _shape_library(self) -> list[list[tuple[int, int]]]:
+        """
+        Each shape is a list of (dr, dc) offsets.
+        All shapes have >= 2 cells, and several are clearly non-rectangular to make flips obvious.
+        """
+        return [
+            # 2-cells
+            [(0, 0), (0, 1)],  # horizontal domino
+            [(0, 0), (1, 0)],  # vertical domino
+
+            # 3-cells L
+            [(0, 0), (1, 0), (1, 1)],
+            [(0, 1), (1, 1), (1, 0)],
+
+            # 4-cells L
+            [(0, 0), (1, 0), (2, 0), (2, 1)],
+            [(0, 1), (1, 1), (2, 1), (2, 0)],
+
+            # 4-cells T (not symmetric under horizontal flip if positioned/combined with others, still good)
+            [(0, 0), (0, 1), (0, 2), (1, 1)],
+
+            # 4-cells zigzag
+            [(0, 0), (0, 1), (1, 1), (1, 2)],
+            [(0, 1), (0, 2), (1, 0), (1, 1)],
+
+            # 5-cells "P" like (asymmetric)
+            [(0, 0), (0, 1), (1, 0), (2, 0), (1, 1)],
+        ]
+
+    def _shape_bbox(self, offsets: list[tuple[int, int]]) -> tuple[int, int]:
+        rs = [dr for dr, _ in offsets]
+        cs = [dc for _, dc in offsets]
+        h = max(rs) - min(rs) + 1
+        w = max(cs) - min(cs) + 1
+        return h, w
+
+    def _normalize_shape(self, offsets: list[tuple[int, int]]) -> list[tuple[int, int]]:
+        min_r = min(dr for dr, _ in offsets)
+        min_c = min(dc for _, dc in offsets)
+        return sorted([(dr - min_r, dc - min_c) for dr, dc in offsets])
+
+    def _hflip_shape(self, offsets: list[tuple[int, int]]) -> list[tuple[int, int]]:
+        """Horizontal flip within the shape's own bounding box."""
+        norm = self._normalize_shape(offsets)
+        _, w = self._shape_bbox(norm)
+        flipped = [(dr, (w - 1) - dc) for dr, dc in norm]
+        return sorted(self._normalize_shape(flipped))
+
+    def _is_self_horiz_symmetric(self, offsets: list[tuple[int, int]]) -> bool:
+        norm = self._normalize_shape(offsets)
+        return norm == self._hflip_shape(norm)
+
     def create_input(self, taskvars: dict[str, any], gridvars: dict[str, any]) -> np.ndarray:
-        # rows vary per-grid and are passed via gridvars; columns are fixed in taskvars
         rows = gridvars.get('rows', random.randint(10, 30))
         cols = taskvars['cols']
-        
-        # Create empty grid
+
         grid = np.zeros((rows, cols), dtype=int)
-        
-        # Select random colors for the outer rectangle and inner objects
+
         outer_color = random.randint(1, 9)
         inner_color = random.choice([c for c in range(1, 10) if c != outer_color])
-        
-        # Determine rectangle size (at least 4x3 or 3x4)
-        rect_height = random.randint(4, min(rows-4, 15))
-        rect_width = random.randint(4, min(cols-4, 15))
-        
-        # Minimum size constraint
-        if rect_height < 3:
-            rect_width = max(rect_width, 4)
-        if rect_width < 3:
-            rect_height = max(rect_height, 4)
-        
-        # Place rectangle with padding to ensure it doesn't touch borders
+
+        rect_height = random.randint(6, min(rows - 4, 15))  # slightly larger to support richer shapes
+        rect_width = random.randint(6, min(cols - 4, 15))
+
         row_start = random.randint(1, rows - rect_height - 1)
         col_start = random.randint(1, cols - rect_width - 1)
-        
-        # Create rectangle
-        for r in range(row_start, row_start + rect_height):
-            for c in range(col_start, col_start + rect_width):
-                grid[r, c] = outer_color
-        
-        # Determine number of inner objects to create
+
+        grid[row_start:row_start + rect_height, col_start:col_start + rect_width] = outer_color
+
         num_inner_objects = gridvars.get('num_inner_objects', random.randint(1, 3))
-        
-        # Track inner object positions to avoid overlap
-        inner_positions = []
-        
-        # Create inner objects
-        for _ in range(num_inner_objects):
-            # Size of inner object (significantly smaller than rectangle)
-            inner_height = random.randint(1, max(1, min(rect_height // 3, 3)))
-            inner_width = random.randint(1, max(1, min(rect_width // 3, 3)))
-            
-            # Try to place inner object without overlapping
-            # increase attempts to reduce chance of failing to place requested number
-            max_attempts = 200
-            for _ in range(max_attempts):
-                # Place within the rectangle with padding
-                inner_row = random.randint(row_start + 1, row_start + rect_height - inner_height - 1)
-                inner_col = random.randint(col_start + 1, col_start + rect_width - inner_width - 1)
-                
-                # Check for overlap with existing inner objects
-                overlap = False
-                for pos in inner_positions:
-                    pos_row, pos_col, pos_height, pos_width = pos
-                    # enforce at least one-cell separation (no touching orthogonally or diagonally)
-                    # expanded area of the existing object by 1 cell on all sides
-                    exp_top = pos_row - 1
-                    exp_bottom = pos_row + pos_height
-                    exp_left = pos_col - 1
-                    exp_right = pos_col + pos_width
 
+        # We enforce: at least one inner object is clearly "flip-obvious"
+        # (either non-rect / non-self-symmetric), AND the whole rectangle content is not horizontally symmetric.
+        max_global_attempts = 50
+        shapes = self._shape_library()
+
+        for _global_try in range(max_global_attempts):
+            # reset the rectangle interior to outer_color before placing inner objects
+            grid[row_start:row_start + rect_height, col_start:col_start + rect_width] = outer_color
+
+            inner_positions = []
+            placed = 0
+            placed_has_flip_obvious_shape = False
+
+            for k in range(num_inner_objects):
+                # bias towards non-rect / more complex shapes
+                # and ensure at least one flip-obvious shape exists
+                if (not placed_has_flip_obvious_shape) and (k == num_inner_objects - 1):
+                    # force a shape that is NOT self horizontally symmetric
+                    candidates = [s for s in shapes if not self._is_self_horiz_symmetric(s)]
+                    shape = random.choice(candidates) if candidates else random.choice(shapes)
+                else:
+                    # usually pick from full library, but slightly prefer non-symmetric ones
+                    if random.random() < 0.7:
+                        candidates = [s for s in shapes if not self._is_self_horiz_symmetric(s)]
+                        shape = random.choice(candidates) if candidates else random.choice(shapes)
+                    else:
+                        shape = random.choice(shapes)
+
+                shape = self._normalize_shape(shape)
+                sh_h, sh_w = self._shape_bbox(shape)
+
+                # place within rectangle with 1-cell padding from rectangle border
+                max_attempts = 250
+                success = False
+                for _ in range(max_attempts):
+                    inner_row = random.randint(row_start + 1, row_start + rect_height - sh_h - 1)
+                    inner_col = random.randint(col_start + 1, col_start + rect_width - sh_w - 1)
+
+                    # compute candidate bbox
                     cand_top = inner_row
-                    cand_bottom = inner_row + inner_height - 1
                     cand_left = inner_col
-                    cand_right = inner_col + inner_width - 1
+                    cand_bottom = inner_row + sh_h - 1
+                    cand_right = inner_col + sh_w - 1
 
-                    # if candidate intersects expanded existing box, it's too close
-                    if not (cand_bottom < exp_top or cand_top > exp_bottom or cand_right < exp_left or cand_left > exp_right):
-                        overlap = True
-                        break
-                
-                if not overlap:
-                    # Place inner object
-                    for r in range(inner_row, inner_row + inner_height):
-                        for c in range(inner_col, inner_col + inner_width):
-                            grid[r, c] = inner_color
-                    
-                    # Record position
-                    inner_positions.append((inner_row, inner_col, inner_height, inner_width))
+                    # check separation from existing inner objects (1-cell expanded bbox)
+                    too_close = False
+                    for (pr, pc, ph, pw) in inner_positions:
+                        exp_top = pr - 1
+                        exp_left = pc - 1
+                        exp_bottom = pr + ph
+                        exp_right = pc + pw
+                        if not (cand_bottom < exp_top or cand_top > exp_bottom or cand_right < exp_left or cand_left > exp_right):
+                            too_close = True
+                            break
+
+                    if too_close:
+                        continue
+
+                    # place shape cells
+                    for dr, dc in shape:
+                        grid[inner_row + dr, inner_col + dc] = inner_color
+
+                    inner_positions.append((inner_row, inner_col, sh_h, sh_w))
+                    placed += 1
+                    if not self._is_self_horiz_symmetric(shape):
+                        placed_has_flip_obvious_shape = True
+                    success = True
                     break
-        
+
+                if not success:
+                    # couldn't place this one; continue trying others (the counting logic later handles mismatch)
+                    continue
+
+            # If we failed to place at least one inner object, try again globally (rare, but possible)
+            if placed == 0:
+                continue
+
+            # Ensure the rectangle region is NOT horizontally symmetric (so the flip changes something)
+            rect_region = grid[row_start:row_start + rect_height, col_start:col_start + rect_width]
+            if np.array_equal(rect_region, np.fliplr(rect_region)):
+                continue
+
+            # Ensure at least one inner object is >=2 cells AND "flip-obvious" (non-self-symmetric)
+            if not placed_has_flip_obvious_shape:
+                continue
+
+            return grid
+
+        # Fallback: return whatever we have (should be extremely rare)
         return grid
 
     def transform_input(self, grid: np.ndarray, taskvars: dict[str, any]) -> np.ndarray:
-        # Find all objects in the grid
         objects = find_connected_objects(grid, diagonal_connectivity=False, background=0)
-        
-        # Find the largest object (the rectangle)
         if len(objects) == 0:
-            return np.zeros((1, 1), dtype=int)  # Fallback if no objects found
-        
-        rectangle = objects.sort_by_size(reverse=True)[0]
-        
-        # Get the bounding box
-        box = rectangle.bounding_box
-        
-        # Extract the rectangular region
-        rect_region = grid[box[0], box[1]].copy()
-        
-        # Flip horizontally
-        output_grid = np.fliplr(rect_region)
-        
-        return output_grid
+            return np.zeros((1, 1), dtype=int)
 
+        rectangle = objects.sort_by_size(reverse=True)[0]
+        box = rectangle.bounding_box
+        rect_region = grid[box[0], box[1]].copy()
+
+        return np.fliplr(rect_region)

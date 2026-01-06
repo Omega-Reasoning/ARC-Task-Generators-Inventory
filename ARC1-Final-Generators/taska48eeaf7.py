@@ -34,8 +34,8 @@ class Taska48eeaf7Generator(ARCTaskGenerator):
     def create_input(self, taskvars: Dict[str, Any], gridvars: Dict[str, Any]) -> np.ndarray:
         """Create a single input grid according to the input reasoning chain."""
         # Grid size between 5 and 20 (keeps outputs readable and well inside ARC limit 30)
-        rows = random.randint(5, 20)
-        cols = random.randint(5, 20)
+        rows = random.randint(5, 30)
+        cols = random.randint(5, 30)
 
         # Use task-level fixed colors when provided, otherwise pick and return them via gridvars
         if 'object_color' in taskvars and 'cell_color' in taskvars:

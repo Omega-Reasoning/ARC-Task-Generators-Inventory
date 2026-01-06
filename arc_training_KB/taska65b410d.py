@@ -67,13 +67,13 @@ class Taska65b410dGenerator(ARCTaskGenerator):
         # Generate random grid dimensions
         # Choose number of rows and a tentative number of columns; we'll adjust columns
         # until the placement constraints are satisfied.
-        rows = random.randint(8, 20)
+        rows = random.randint(8, 30)
         line_width = random.randint(2, 5)
 
         min_row_position = 1  # Not in first row
         max_row_position = rows // 2 - 1  # In top half, with room for triangle below
 
-        cols = random.randint(8, 20)
+        cols = random.randint(8, 30)
 
         # Find a valid line_row and (if needed) adjust cols so that:
         # 1) there are at least (line_width-1) rows below the line for the bottom triangle

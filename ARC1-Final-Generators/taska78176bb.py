@@ -6,7 +6,7 @@ import random
 from typing import Dict, Any, Tuple, List
 
 
-class Task78176bbGenerator(ARCTaskGenerator):
+class Taska78176bbGenerator(ARCTaskGenerator):
     
     def __init__(self):
         input_reasoning_chain = [
@@ -14,6 +14,7 @@ class Task78176bbGenerator(ARCTaskGenerator):
             "Each grid contains exactly one diagonal line parallel to the main diagonal (top-left to bottom-right).",
             "The diagonal line may be offset from the main diagonal by a few cells, either above or below it.",
             "One or two {color('cell_color')} triangular regions may appear, either above the diagonal, below it, or both.",
+            "No two triangular regions are formed on the same side of the diagonal.",
             "To form a triangle below the diagonal, choose n consecutive diagonal cells, then from the last chosen cell add n–1 {color('cell_color')} cells to the left, extend upwards toward the diagonal, and fill the enclosed area.",
             "To form a triangle above the diagonal, choose n consecutive diagonal cells, then from the first chosen cell add n–1 {color('cell_color')} cells to the right, extend downwards toward the diagonal, and fill the enclosed area.",
             "The triangular regions occupy the area between the diagonal and their constructed boundaries.",
@@ -249,7 +250,7 @@ class Task78176bbGenerator(ARCTaskGenerator):
     
     def create_grids(self) -> Tuple[Dict[str, Any], TrainTestData]:
         # Initialize task variables
-        grid_size = random.randint(8, 15)
+        grid_size = random.randint(8, 30)
         cell_color = random.randint(1, 9)
         
         taskvars = {
@@ -260,36 +261,32 @@ class Task78176bbGenerator(ARCTaskGenerator):
         # Create training examples with varying diagonal colors
         num_train = random.randint(3, 5)
         train_pairs = []
-        
-        # Track whether we have examples with 1 and 2 triangles
-        has_one_triangle = False
-        has_two_triangles = False
-        
+
+        # Choose two distinct indices to ensure at least one example with 2 triangles
+        # and one example with 1 triangle, but choose their positions randomly.
+        force_two_idx, force_one_idx = random.sample(range(num_train), 2)
+
         for i in range(num_train):
             # Each training example gets a different diagonal color and offset
             diag_color = random.choice([c for c in range(1, 10) if c != cell_color])
             diag_offset = random.choice([-3, -2, -1, 0, 1, 2, 3])
-            
+
             gridvars = {
                 'diag_color': diag_color,
                 'diag_offset': diag_offset
             }
-            
-            # Ensure we have at least one example with 1 triangle and one with 2 triangles
-            if i == 0 and not has_two_triangles:
-                # Force first example to have 2 triangles (one above, one below)
+
+            # Force the chosen indices to have the required number of triangles,
+            # but place those indices randomly instead of fixing to i==0/i==1.
+            if i == force_two_idx:
                 input_grid = self._create_input_with_num_triangles(taskvars, gridvars, 2)
-                has_two_triangles = True
-            elif i == 1 and not has_one_triangle:
-                # Force second example to have 1 triangle (randomly above or below)
+            elif i == force_one_idx:
                 input_grid = self._create_input_with_num_triangles(taskvars, gridvars, 1)
-                has_one_triangle = True
             else:
-                # Random for remaining examples
                 input_grid = self.create_input(taskvars, gridvars)
-            
+
             output_grid = self.transform_input(input_grid, taskvars)
-            
+
             train_pairs.append({
                 'input': input_grid,
                 'output': output_grid

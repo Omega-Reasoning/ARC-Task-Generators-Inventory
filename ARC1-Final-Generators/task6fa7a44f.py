@@ -151,7 +151,7 @@ class Task6fa7a44fGenerator(ARCTaskGenerator):
     def create_grids(self):
         # Set up task variables
         taskvars = {
-            'grid_size': random.randint(5, 30)  # Choose a grid size between 5 and 15
+            'grid_size': random.randint(5, 15)  # Choose a grid size between 5 and 15
         }
         
         # Create 3 train pairs and 1 test pair
