@@ -7,7 +7,7 @@ class Task6e19193cGenerator(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
             "Input grids are of size {vars['grid_size']} x {vars['grid_size']}.",
-            "The grid contains two objects, with the objects being upward and downward arrowheads.", 
+            "The grid contains two or three objects, with the objects being upward and downward arrowheads.", 
             "An upward arrowhead object is defined as [[c, c], [0, c]] or [[c, c], [c, 0]] for a color c., and a downward arrowhead object is defined as [[0, c], [c, c]] or [[c, 0], [c, c]] for a color c.",
             "The upward and downward arrowhead objects should never be placed on the border of the grid.", 
             "They must be positioned so that if a continuous diagonal line were added to complete the arrow shape, it would not be interrupted by another arrowhead or its respective diagonal line, and only by the grid border.",

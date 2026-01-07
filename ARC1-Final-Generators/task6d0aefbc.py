@@ -23,7 +23,7 @@ class Task6d0aefbcGenerator(ARCTaskGenerator):
     
     def create_grids(self) -> tuple[dict[str, any], TrainTestData]:
         # Initialize task variables
-        grid_size = random.randint(5, 10)  # Keeping it smaller for better visualization
+        grid_size = random.randint(5, 15)  # Keeping it smaller for better visualization
         
         # Choose 3 different colors between 1 and 9
         available_colors = list(range(1, 10))
@@ -44,12 +44,20 @@ class Task6d0aefbcGenerator(ARCTaskGenerator):
         # Ensure we have one example with 2 colors and one with 3 colors
         colors_used_in_examples = []
         
+        # Randomize which of the first three training examples is the two-color case
+        # and ensure one of the first three is a three-color example as well.
+        first_three_indices = [0, 1, 2]
+        two_color_index = random.choice(first_three_indices)
+        # pick a different index for the three-color example
+        three_color_candidates = [i for i in first_three_indices if i != two_color_index]
+        three_color_index = random.choice(three_color_candidates)
+
         for i in range(num_train):
-            if i == 0:  # First example uses 2 colors
+            if i == two_color_index:
                 colors_used = [color1, color2]
-            elif i == 1:  # Second example uses 3 colors
+            elif i == three_color_index:
                 colors_used = [color1, color2, color3]
-            else:  # Other examples use 2 or 3 colors randomly
+            else:  # Other examples use 2 or 3 colors randomly (preserve original behavior)
                 colors_used = [color1, color2]
                 if random.choice([True, False]):
                     colors_used.append(color3)

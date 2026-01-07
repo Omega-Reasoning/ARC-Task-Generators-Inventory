@@ -24,7 +24,7 @@ class Task6d58a25dGenerator(ARCTaskGenerator):
         ]
         
         taskvars_definitions = {
-            "grid_size": lambda: random.randint(15, 25)
+            "grid_size": lambda: random.randint(15, 30)
         }
         
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
@@ -32,7 +32,7 @@ class Task6d58a25dGenerator(ARCTaskGenerator):
     def create_grids(self) -> tuple[dict[str, any], TrainTestData]:
         # Set task variables
         taskvars = {
-            "grid_size": random.randint(15, 25)
+            "grid_size": random.randint(10, 30)
         }
         
         # Generate 3-4 training examples
