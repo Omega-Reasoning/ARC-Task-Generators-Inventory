@@ -7,7 +7,7 @@ class Taskd4a91cb9(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
             "Input grids can have different sizes.",
-            "The grid contains exactly two uniquely colored cells: one of {color('color_1')} and one of {color('color_2')}.",
+            "The grid contains exactly two uniquely colored cells: one of {color('color_1')} color and one of {color('color_2')} color.",
             "These two colored cells are positioned such that they do not share the same row or the same column.",
             "All other cells in the grid are empty (0)."
         ]

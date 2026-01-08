@@ -5,7 +5,7 @@ import random
 class Taskeb281b96(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
-            "Input grids are of size rows x {vars['columns']}, where {vars['columns']} % 4 is equal to 1.",
+            "Input grids are of size rows x {vars['columns']}.",
             "A wave-like pattern is filled using one random color. The pattern is defined as follows: In the bottom row, all cells in columns where the index j satisfies j % 4 == 0 are colored. In the top row, the column located midway between each pair of consecutive colored columns in the bottom row is identified, and the corresponding cell is colored. In all intermediate rows (excluding the top and bottom), all cells in columns with an odd index are colored."
         ]
         

@@ -8,7 +8,7 @@ from typing import Dict, Any, Tuple, List
 class Taskf25ffba3(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
-            "Input grids are of size {vars['rows']} x {vars['columns']}, where number of rows is always greater than number of columns.",
+            "Input grids are of size {vars['rows']} x {vars['columns']}.",
             "In each input grid, each column contains a vertical bar starting from the bottom of the grid and extending upward to a height that is at most half the number of rows.",
             "In each input grid, the bars vary in both height and color.",
             "Most of the bars are of a single, uniform color, but a few contain two distinct colors, one stacked on top of the other."

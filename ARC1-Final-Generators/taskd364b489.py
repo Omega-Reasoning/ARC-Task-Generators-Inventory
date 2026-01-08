@@ -8,7 +8,7 @@ from typing import Dict, Any, Tuple, List
 class Taskd364b489Generator(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
-            "Input grids are of size {vars['n']} * {vars['n']}.",
+            "Input grids are of size {vars['n']} x {vars['n']}.",
             "The input grid contains a number of single-colored cells of color {color('object_color')}.",
             "Each single-colored cell is fully enclosed by a border of empty cells wherever the border lies within the grid, meaning it may be placed at an edge or corner as long as all neighboring cells inside the grid are empty.",
             "The border around each single-colored cell is unique and non-overlapping, no two single-colored cells share any border cell.",

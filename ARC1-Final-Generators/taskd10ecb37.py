@@ -7,7 +7,7 @@ class Taskd10ecb37Generator(ARCTaskGenerator):
     
     def __init__(self):
         input_reasoning_chain = [
-            "Input grids are of size {vars['columns']} × {vars['rows']} where both {vars['columns']} and {vars['rows']} are even numbers.",
+            "Input grids are of size {vars['columns']} × {vars['rows']}.",
             "The top-left 2×2 subgrid of the input serves as the initial main pattern. Each of the four cells in this 2×2 block is either filled with a distinct color or left empty (0). At most one of these four cells may be empty.",
             "The grid is divided into consecutive 2-row blocks (rows 0–1, 2–3, 4–5, etc.).",
             "The first two rows (rows 0–1) are filled with successive 90-degree clockwise rotations of the initial main pattern. Each consecutive 2×2 block, placed at 2-column intervals, is rotated 90 degrees clockwise relative to the preceding block.",

@@ -8,8 +8,8 @@ from typing import Dict, Any, Tuple, List
 class Taske98196abGenerator(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
-            "Input grids are of size {vars['n']} x {vars['n']}, where {vars['n']} is an odd number.",
-            "Each grid contains a central row (at index n // 2), consistently colored with {color('middle_color')}, effectively dividing the grid into top and bottom halves.",
+            "Input grids are of size {vars['n']} x {vars['n']}.",
+            "Each grid contains a central row, consistently colored with {color('middle_color')}, effectively dividing the grid into top and bottom halves.",
             "The top half contains a random number of single-colored cells, all in a specific color that is different from the {color('middle_color')}.",
             "The bottom half contains a random number of single-colored cells, all in a color that is different from both the top half and the {color('middle_color')}.",
             "For each single-colored cell in one half, the same position in the other half is empty.",

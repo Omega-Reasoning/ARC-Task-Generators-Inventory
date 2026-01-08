@@ -7,7 +7,7 @@ from typing import Dict, Any, Tuple, List
 class Taskd631b094(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
-            "Input grids are of size {vars['n']} * {vars['n']}.",
+            "Input grids are of size {vars['n']} x {vars['n']}.",
             "Each input grid contains a random number of colored cells, all of which share the same randomly chosen color.",
             "Color of the colored cells varies in each input grid.",
             "The positions and count of these colored cells vary, in each input grid.",
