@@ -29,7 +29,7 @@ class Task5c0a986eGenerator(ARCTaskGenerator):
         taskvars = {}
         
         # Randomly choose grid size
-        taskvars['grid_size'] = random.randint(9, 15)  # Increased minimum size to 9
+        taskvars['grid_size'] = random.randint(9, 30)  # Increased minimum size to 9
         
         # Randomly choose block colors, ensuring they are different
         block1_color = random.randint(1, 9)

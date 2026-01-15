@@ -7,7 +7,7 @@ from transformation_library import find_connected_objects
 class Task5614dbcfGenerator(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
-            "Input grids are of size {vars['grid_size']}x{vars['grid_size']}..",
+            "Input grids are of size {vars['grid_size']}x{vars['grid_size']}.",
             "They contain 3x3 same-colored (1-9) and empty (0) blocks.",
             "The entire grid is first divided into {vars['grid_size']}, 3x3 subgrids, where some subgrids are completely filled with same-colored (1–9) cells, forming colored blocks, while others remain entirely empty (0), forming empty blocks.",
             "After placing these 3x3 blocks, {vars['grid_size'] - 3} {color('cell_color')} cells are added to the grid, which are randomly distributed.",

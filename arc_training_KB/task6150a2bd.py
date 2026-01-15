@@ -25,8 +25,8 @@ class Task6150a2bdGenerator(ARCTaskGenerator):
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
     
     def create_grids(self) -> tuple[dict[str, any], TrainTestData]:
-        # Initialize task variables
-        grid_size = random.randint(3, 30)
+        
+        grid_size = random.randint(5, 30)
         taskvars = {'grid_size': grid_size}
         
         # Generate train and test grids

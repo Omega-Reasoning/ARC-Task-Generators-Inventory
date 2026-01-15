@@ -9,7 +9,8 @@ class Task673ef223Generator(ARCTaskGenerator):
         input_reasoning_chain = [
             "Input grids can have different sizes.",
             "They contain two {color('object_color')} vertical lines and several {color('cell_color')} cells, with the remaining cells being empty (0).",
-            "The two {color('object_color')} vertical lines have the exact same length and are always placed in the first and last columns, with one line appearing in the top half and the other in the bottom half of the grid.",
+            "One {color('object_color')} vertical line is placed in the first column, and the other {color('object_color')} vertical line is placed in the last column, with one of them in the top half and the other in the bottom half of the grid.",
+            "The {color('object_color')} lines are separated by at least two empty rows.",
             "The number of {color('cell_color')} cells is less than the length of the {color('object_color')} line, with exactly one {color('cell_color')} cell placed in a single row, and the row must be one of those occupied by the top {color('object_color')} line.",
             "Each {color('cell_color')} cell can be positioned anywhere within the row but must never touch the {color('object_color')} line."
         ]
@@ -22,7 +23,7 @@ class Task673ef223Generator(ARCTaskGenerator):
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
 
     def create_grids(self):
-        # 1. Initialize task variables
+        
         taskvars = {}
         
         # Choose distinct colors
@@ -80,8 +81,8 @@ class Task673ef223Generator(ARCTaskGenerator):
 
     def create_input(self, taskvars, gridvars):
         # 1. Determine grid size
-        num_rows = random.randint(10, 24)  # Ensuring enough rows for two lines with half separation
-        num_cols = random.randint(5, 15)
+        num_rows = random.randint(10, 30)  # Ensuring enough rows for two lines with half separation
+        num_cols = random.randint(5, 30)
         
         # Ensure we have at least 3 columns (needed for cell placement)
         num_cols = max(3, num_cols)

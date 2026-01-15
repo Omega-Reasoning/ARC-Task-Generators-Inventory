@@ -17,14 +17,14 @@ class Task5521c0d9Generator(ARCTaskGenerator):
         
         transformation_reasoning_chain = [
             "The output grid is constructed by copying the input grid and moving the three colored blocks vertically upwards.",
-            "The number of cells each block is moved matches the length of that particular block.",
+            "The number of cells each block is moved matches the vertical length of that particular block.",
             "This transformation preserves the size and color of each block."
         ]
         
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
     
     def create_grids(self):
-        # Set task variables
+        
         taskvars = {}
         # Ensure grid is big enough to accommodate our blocks
         taskvars['grid_size'] = random.randint(7, 30)  

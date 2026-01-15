@@ -24,9 +24,9 @@ class Task62c24649Generator(ARCTaskGenerator):
     
     def create_grids(self) -> tuple:
         """Initialize task variables and create train/test data grids."""
-        # Initialize task variables
+        
         taskvars = {
-            'grid_size': random.randint(3, 10),  # Random grid size between 3 and 7
+            'grid_size': random.randint(3, 15),  # Random grid size between 3 and 7
             'color1': random.randint(1, 9),  # Random colors between 1 and 9
             'color2': 0,
             'color3': 0

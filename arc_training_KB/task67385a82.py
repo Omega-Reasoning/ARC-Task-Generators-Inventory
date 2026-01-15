@@ -16,14 +16,14 @@ class Task67385a82Generator(ARCTaskGenerator):
         
         transformation_reasoning_chain = [
             "The output grids are constructed by copying the input grids and identifying all {color('object_color')} objects made of more than one 4-way connected  {color('object_color')} cells.",
-            "Once identified, the color of each {color('object_color')} object is changed to {color('object_color2')}.",
-            "All single {color('object_color')} cells remain unchanged."
+            "Once identified, the color of each {color('object_color')} cell that is 4-way (left, right, up, down) connected to another {color('object_color')} cell is changed to {color('object_color2')}.",
+            "All completely isolated single {color('object_color')} cells or those only diagonally connected to other {color('object_color')} cells remain unchanged."
         ]
         
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
     
     def create_grids(self) -> tuple[dict[str, any], TrainTestData]:
-        # Initialize task variables
+        
         taskvars = {
             'object_color': random.choice([1, 2, 3, 4, 5, 6, 7, 8, 9]),
         }
@@ -35,8 +35,8 @@ class Task67385a82Generator(ARCTaskGenerator):
         # Generate 4 train examples and 1 test example
         train_examples = []
         for _ in range(4):
-            grid_height = random.randint(6, 15)
-            grid_width = random.randint(6, 15)
+            grid_height = random.randint(6, 30)
+            grid_width = random.randint(6, 30)
             gridvars = {
                 'height': grid_height,
                 'width': grid_width,

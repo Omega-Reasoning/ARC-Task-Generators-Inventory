@@ -17,14 +17,14 @@ class Task6455b5f5Generator(ARCTaskGenerator):
         transformation_reasoning_chain = [
             "The output grids are constructed by copying the input grids and identifying the largest and smallest subgrids created by the {color('line_color')} lines.",
             "The largest subgrid is filled with {color('fill_color1')}, and the smallest subgrid is filled with {color('fill_color2')}.",
-            "If there are more than one subgrids that have the smallest size, all are filled with {color('fill_color2')}.",
+            "If there are more than one subgrids that have the smallest size, all of them are filled with {color('fill_color2')}.",
             "All other cells remain unchanged."
         ]
         
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
 
     def create_grids(self):
-        # Select random colors that are different from each other
+        
         taskvars = self._generate_task_variables()
         
         # Generate train and test examples

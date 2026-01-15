@@ -19,14 +19,14 @@ class Task543a7ed5Generator(ARCTaskGenerator):
         transformation_reasoning_chain = [
             "Output grids are constructed by copying the input grids and identifying the rectangular blocks of {color('block_color')} color, which may or may not be completely filled with {color('block_color')} color but always have at least a {color('block_color')} frame around them.",
             "Once identified, add a one-cell wide {color('frame_color')} colored frame around each block.",
-            "If any of the rectangular blocks consist of {color('background')} cells within their interior, change the color of those {color('background')} cells to {color('new_color')} within the framed area."
+            "If any of the {color('block_color')} rectangular blocks consist of {color('background')} cells within their interior, change the color of those {color('background')} cells to {color('new_color')} within the framed area."
         ]
         
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
     
     def create_grids(self):
-        # Initialize variables with constraints
-        grid_size = random.randint(14, 22)  # Reasonable size for 3 blocks with separation
+        
+        grid_size = random.randint(14, 30)  # Reasonable size for 3 blocks with separation
         
         # Choose distinct colors for block, background, frame, and new interior
         available_colors = list(range(1, 10))

@@ -14,7 +14,9 @@ class Task63613498Generator(ARCTaskGenerator):
             "There is one vertical line starting from (0, 3) to (3, 3), and one horizontal line starting from (3, 0) to (3, 3), both lines are made of {color('frame_color')} color.",
             "These two lines form a 3x3 subgrid in the top-left corner that always contains one colored object made of 4-way connected cells.",
             "One of the objects outside this 3x3 subgrid bounded by {color('frame_color')} lines has the exact same shape as the object inside the top-left 3x3 subgrid.",
-            "All the objects outside the {color('frame_color')} boundary, must be completely separated from each other."
+            "There are at least 3 objects outside the {color('frame_color')} boundary.",
+            "The number of objects outside the {color('frame_color')} boundary varies across examples.",
+            "All the objects outside the {color('frame_color')} boundary must be completely separated from each other."
         ]
 
         transformation_reasoning_chain = [
@@ -27,7 +29,7 @@ class Task63613498Generator(ARCTaskGenerator):
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
 
     def create_grids(self):
-        # Define task variables
+        
         grid_size = random.randint(9, 30)  # Keeping slightly smaller than max for performance
 
         # Now new_color and frame_color are the same
@@ -45,16 +47,22 @@ class Task63613498Generator(ARCTaskGenerator):
 
         # Helper to compute a feasible maximum number of objects outside the 3x3 region
         def max_outside_objects(gs: int) -> int:
-            # Rough heuristic: about 1 object per 20 cells, between 2 and 6
-            return min(6, max(2, (gs * gs) // 20))
+            # Rough heuristic: about 1 object per 20 cells, between 3 and 6
+            return min(6, max(3, (gs * gs) // 20))
 
         max_count = max_outside_objects(grid_size)
 
-        # Choose a count of colored objects outside the 3x3 region for train (2..max_count)
-        train_outside_count = random.randint(2, max_count)
-        # Choose a different count for test within the same bounds
-        possible_test_counts = [c for c in range(2, max_count + 1) if c != train_outside_count]
-        test_outside_count = random.choice(possible_test_counts)
+        # Choose counts of colored objects outside the 3x3 region per example (each between 3..max_count)
+        train_counts = [random.randint(3, max_count) for _ in range(num_train)]
+        # Encourage variation across train examples
+        if len(set(train_counts)) == 1 and max_count > 3:
+            train_counts[0] = random.randint(3, max_count)
+
+        test_counts = [random.randint(3, max_count) for _ in range(num_test)]
+        # Encourage variation across all examples
+        all_counts = train_counts + test_counts
+        if len(set(all_counts)) == 1 and max_count > 3:
+            test_counts[0] = random.randint(3, max_count)
 
         # Helper to count colored objects outside the 3x3 region (ignoring frame_color)
         def count_outside_objects(grid):
@@ -73,21 +81,21 @@ class Task63613498Generator(ARCTaskGenerator):
             return count
 
         train_examples = []
-        for _ in range(num_train):
-            # Generate grids until we get exactly train_outside_count objects outside the 3x3
+        # Create one train example per requested count in train_counts
+        for count in train_counts:
             input_grid = retry(
-                lambda: self.create_input(taskvars, {}, desired_outside_count=train_outside_count),
-                lambda g: count_outside_objects(g) == train_outside_count,
+                (lambda c=count: self.create_input(taskvars, {}, desired_outside_count=c)),
+                (lambda g, c=count: count_outside_objects(g) == c),
                 max_attempts=200
             )
             output_grid = self.transform_input(input_grid, taskvars)
             train_examples.append({'input': input_grid, 'output': output_grid})
 
         test_examples = []
-        for _ in range(num_test):
+        for count in test_counts:
             input_grid = retry(
-                lambda: self.create_input(taskvars, {}, desired_outside_count=test_outside_count),
-                lambda g: count_outside_objects(g) == test_outside_count,
+                (lambda c=count: self.create_input(taskvars, {}, desired_outside_count=c)),
+                (lambda g, c=count: count_outside_objects(g) == c),
                 max_attempts=200
             )
             output_grid = self.transform_input(input_grid, taskvars)

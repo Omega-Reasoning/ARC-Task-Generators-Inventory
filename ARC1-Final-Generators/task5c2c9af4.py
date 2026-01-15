@@ -28,7 +28,7 @@ class Task5c2c9af4Generator(ARCTaskGenerator):
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
     
     def create_grids(self) -> Tuple[Dict[str, Any], TrainTestData]:
-        # Choose grid size and generate train/test examples
+        
         grid_size = random.randint(9, 30)  # Increased minimum size to ensure enough space
         
         # Define task variables
@@ -41,16 +41,27 @@ class Task5c2c9af4Generator(ARCTaskGenerator):
         train_examples = []
         
         used_colors = set()
+
+        # --- Enforce at least one main-diagonal and one inverse-diagonal example in TRAIN ---
+        # We'll force the first two training examples to be one of each.
+        forced_diagonals = [True, False]  # True = main, False = inverse
+        random.shuffle(forced_diagonals)  # randomize which comes first
         
-        for _ in range(num_train_examples):
+        for i in range(num_train_examples):
             # Choose a color that hasn't been used yet
             color = random.randint(1, 9)
             while color in used_colors:
                 color = random.randint(1, 9)
             used_colors.add(color)
             
-            # Create an input grid with the chosen color
-            gridvars = {'color': color}
+            # Force diagonal type for first two examples; random afterwards
+            if i < 2:
+                is_main_diagonal = forced_diagonals[i]
+            else:
+                is_main_diagonal = random.choice([True, False])
+            
+            # Create an input grid with the chosen color + enforced diagonal
+            gridvars = {'color': color, 'is_main_diagonal': is_main_diagonal}
             input_grid = self.create_input(taskvars, gridvars)
             output_grid = self.transform_input(input_grid, taskvars)
             
@@ -64,7 +75,8 @@ class Task5c2c9af4Generator(ARCTaskGenerator):
         while test_color in used_colors:
             test_color = random.randint(1, 9)
         
-        test_gridvars = {'color': test_color}
+        # Test diagonal can remain random (or you can force it too if you want)
+        test_gridvars = {'color': test_color, 'is_main_diagonal': random.choice([True, False])}
         test_input = self.create_input(taskvars, test_gridvars)
         
         test_examples = [{
@@ -85,7 +97,8 @@ class Task5c2c9af4Generator(ARCTaskGenerator):
         grid = np.zeros((grid_size, grid_size), dtype=int)
         
         # Determine diagonal type (main or inverse)
-        is_main_diagonal = random.choice([True, False])
+        # If provided (forced), use it; otherwise pick randomly.
+        is_main_diagonal = gridvars.get('is_main_diagonal', random.choice([True, False]))
         
         # Calculate spacing - ensure at least 2 (so there's at least 1 empty cell between points)
         min_spacing = 2  # Minimum spacing to ensure at least one empty cell between points
@@ -101,7 +114,6 @@ class Task5c2c9af4Generator(ARCTaskGenerator):
             spacing = random.randint(min_spacing, max_spacing)
         
         # Calculate safe boundaries to place the three points
-        # Avoid placing points in the last two rows/columns as per constraints
         safe_margin = 2
         
         # Ensure we have enough space for the pattern
@@ -161,8 +173,6 @@ class Task5c2c9af4Generator(ARCTaskGenerator):
         middle_r, middle_c, color = middle_cell
         
         # Determine if this is a main diagonal or inverse diagonal
-        # For main diagonal, row and column both increase
-        # For inverse diagonal, row increases but column decreases
         is_main_diagonal = (cells[2][1] > cells[0][1])
         
         # First and last cells define corners of the innermost frame
@@ -208,4 +218,3 @@ class Task5c2c9af4Generator(ARCTaskGenerator):
                 break
         
         return output_grid
-
