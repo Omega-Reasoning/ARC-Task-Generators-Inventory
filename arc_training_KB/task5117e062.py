@@ -8,7 +8,7 @@ class Task5117e062Generator(ARCTaskGenerator):
     def __init__(self):
         self.input_reasoning_chain = [
             "Input grids are of size {vars['rows']}x{vars['cols']}.",
-            "They contain three or four colored (1-9) objects, each made of 4-way connected, same-colored (1-9) cells, with all objects being differently colored.",
+            "They contain a random number of colored (1-9) objects, each made of 4-way connected, same-colored (1-9) cells, with all objects being differently colored.",
             "The objects are shaped and sized to fit within a 3x3 subgrid, ensuring each object has a distinct shape.",
             "One of these objects contains exactly one {color('cell_color')} cell within it.",
             "Each colored object is completely separated from the others."
@@ -24,7 +24,7 @@ class Task5117e062Generator(ARCTaskGenerator):
         super().__init__(self.input_reasoning_chain, self.transformation_reasoning_chain)
     
     def create_grids(self) -> tuple[dict[str, any], TrainTestData]:
-        # Initialize random task variables
+        
         taskvars = {
             'rows': random.randint(10, 30),
             'cols': random.randint(10, 30),
@@ -125,8 +125,8 @@ class Task5117e062Generator(ARCTaskGenerator):
         # Create an empty grid
         grid = np.zeros((rows, cols), dtype=int)
         
-        # Determine number of objects (3 or 4)
-        num_objects = random.randint(3, 4)
+        # Determine number of objects (random between 2 and 7)
+        num_objects = random.randint(2, 7)
         
         # Generate available colors (different from cell_color)
         available_colors = [c for c in range(1, 10) if c != cell_color]

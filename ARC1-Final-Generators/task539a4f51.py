@@ -28,8 +28,8 @@ class Task539a4f51Generator(ARCTaskGenerator):
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
     
     def create_grids(self):
-        # Randomly determine grid size between 4 and 9
-        grid_size = random.randint(4, 9)
+        
+        grid_size = random.randint(4, 15)
         
         # Create task variables dictionary
         taskvars = {'grid_size': grid_size}
