@@ -18,7 +18,6 @@ class Task47c1f68cGenerator(ARCTaskGenerator):
         
         transformation_reasoning_chain = [
             "The output grids are of size {vars['grid_size']-1}x{vars['grid_size']-1}.",
-            "First, identify the cross color as the color of the middle cell.",
             "Reflect the colored object in the top-left quadrant to the second quadrant, using the fully colored middle column as the line of reflection.",
             "Then, both objects from the first and second quadrants are reflected vertically downward, using the fully colored middle row as the line of reflection.",
             "Finally, remove the completely colored middle row and column changing the grid size from {vars['grid_size']}x{vars['grid_size']} to {vars['grid_size']-1}x{vars['grid_size']-1}."
@@ -34,7 +33,7 @@ class Task47c1f68cGenerator(ARCTaskGenerator):
             'grid_size': grid_size
         }
         
-        # Generate 3-4 training examples
+        
         num_train_examples = random.randint(3, 4)
         
         train_examples = []

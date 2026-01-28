@@ -11,24 +11,20 @@ from transformation_library import find_connected_objects
 class Task49d1d64fGenerator(ARCTaskGenerator):
 
     def __init__(self):
-        # 1) The input reasoning chain (exactly as given)
+        # 1) The input reasoning chain 
         input_reasoning_chain = [
             "Input grids can have different sizes.",
-            "They contain a multi-colored grid that only includes empty (0) cells when the grid has more than two rows or columns.",
+            "They contain a multi-colored grid that only includes empty (0) cells when the grid has more than two rows and columns.",
             "The grid consists of the following possible colors: {color('cell_color1')}, {color('cell_color2')}, {color('cell_color3')}, {color('cell_color4')}, and {color('cell_color5')}.",
-            "If the grid has more than two rows and columns, all interior cells are empty, with only the border filled with multi-colored cells.",
-            "Each colored cell must be 4-way connected to a differently colored cell."
+            "If the grid has more than two rows and columns, all interior cells are empty, with only the border filled with multi-colored cells."
         ]
 
         # 2) The transformation reasoning chain (exactly as given)
         transformation_reasoning_chain = [
             "The output grids are larger than the input grids.",
             "They always have two more rows and two more columns than the input grids.",
-            "They are constructed by expanding the four corner cells from the input grids.",
-            "Each corner cell expands into adjacent empty (0) cells: the top-left expands left and upward, the top-right expands right and upward, the bottom-left expands left and downward, and the bottom-right expands right and downward.",
-            "The non-corner cells in the first row of the input grid expand one cell upward, while those in the last row expand one cell downward.",
-            "Similarly, the non-corner cells in the first column expand one cell to the left, while those in the last column expand one cell to the right.",
-            "If there are any interior cells in the input grid, they remain unchanged in the output grid.",
+            "They are constructed by expanding all cells from the first and last rows and columns outward by one cell.",
+            "All cells from the first and last rows expand one cell upward and downward respectively, while all cells from the first and last columns expand one cell to the left and right respectively.",
             "This expansion results in the output grid having four empty (0) corner cells."
         ]
 
@@ -185,8 +181,8 @@ class Task49d1d64fGenerator(ARCTaskGenerator):
         #    (We’ll generate 4 distinct (height, width) pairs).
         possible_dims = []
         while len(possible_dims) < 4:
-            h = random.randint(2, 15)
-            w = random.randint(2, 15)
+            h = random.randint(2, 30)
+            w = random.randint(2, 30)
             if (h, w) not in possible_dims:
                 possible_dims.append((h, w))
 

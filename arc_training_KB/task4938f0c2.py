@@ -8,15 +8,15 @@ class Task4938f0c2Generator(ARCTaskGenerator):
         input_reasoning_chain = [
             "Input grids are of size {vars['rows']}x{vars['cols']}.",
             "They contain two colored objects, one {color('objectcol1')} and one {color('objectcol2')}, with the remaining cells being empty (0).",
-            "The {color('objectcol1')} object consists of 8-way connected cells, with its shape varying across grids, while the {color('objectcol2')} object is always a 2x2 colored block.",
-            "The bottom-right corner of the {color('objectcol1')} object is always connected to the top-left corner of the 2x2 block.",
-            "The two objects are positioned to ensure sufficient space is available for attaching three additional {color('objectcol1')} objects, identical in shape and size to the existing one, at the top-right, bottom-left, and bottom-right corners of the 2x2 block."
+            "The {color('objectcol1')} object consists of 8-way connected cells, with its shape varying across grids, while the {color('objectcol2')} object is always a {vars['block_size']}x{vars['block_size']} colored block.",
+            "The bottom-right corner of the {color('objectcol1')} object is always connected to the top-left corner of the {vars['block_size']}x{vars['block_size']} block.",
+            "The two objects are positioned to ensure sufficient space is available for attaching three additional {color('objectcol1')} objects, identical in shape and size to the existing one, at the top-right, bottom-left, and bottom-right corners of the {vars['block_size']}x{vars['block_size']} block."
         ]
 
         transformation_reasoning_chain = [
             "The output grids are constructed by copying the input grids and identifying the two colored objects.",
-            "The {color('objectcol1')} object is reflected to the right by considering the two columns containing the {color('objectcol2')} block as the line of reflection.",
-            "Next, the two {color('objectcol1')} objects; original and the mirrored copy of the original, are reflected vertically downward by considering the two rows containing the 2x2 block as the line of reflection."
+            "The {color('objectcol1')} object is reflected to the right by considering the columns containing the {color('objectcol2')} block as the line of reflection.",
+            "Next, the two {color('objectcol1')} objects; original and the mirrored copy of the original, are reflected vertically downward by considering the rows containing the {vars['block_size']}x{vars['block_size']} block as the line of reflection."
         ]
 
         taskvars_definitions = {}
@@ -27,21 +27,37 @@ class Task4938f0c2Generator(ARCTaskGenerator):
         cols = taskvars.get('cols', 15)
         objectcol1 = taskvars['objectcol1']
         objectcol2 = taskvars['objectcol2']
+        block_size = int(taskvars.get('block_size', 2))
         
-        # Create an empty grid
+        
         grid = np.zeros((rows, cols), dtype=int)
         
-        # Create a 2x2 block at a position that allows for reflections
+        # Create a block of size block_size x block_size at a position that allows for reflections
         # Ensure it's not too close to the edges to allow for the reflections
-        block_row = np.random.randint(rows // 3, 2 * rows // 3 - 1)
-        block_col = np.random.randint(cols // 3, 2 * cols // 3 - 1)
+        min_block_row = rows // 3
+        max_block_row_exclusive = 2 * rows // 3 - block_size + 1
+        if max_block_row_exclusive <= min_block_row:
+            min_block_row = 0
+            max_block_row_exclusive = rows - block_size + 1
+        block_row = np.random.randint(min_block_row, max_block_row_exclusive)
+
+        min_block_col = cols // 3
+        max_block_col_exclusive = 2 * cols // 3 - block_size + 1
+        if max_block_col_exclusive <= min_block_col:
+            min_block_col = 0
+            max_block_col_exclusive = cols - block_size + 1
+        block_col = np.random.randint(min_block_col, max_block_col_exclusive)
+
+        # Create block
+        grid[block_row:block_row+block_size, block_col:block_col+block_size] = objectcol2
         
-        # Create 2x2 block
-        grid[block_row:block_row+2, block_col:block_col+2] = objectcol2
-        
+        # Ensure there is enough space above/left of the block for the object
+        if block_row < 3 or block_col < 3:
+            return self.create_input(taskvars, gridvars)
+
         # Define the size of the objectcol1 object
-        object_height = np.random.randint(3, min(6, block_row))
-        object_width = np.random.randint(3, min(6, block_col))
+        object_height = np.random.randint(3, min(6, block_row) + 1)
+        object_width = np.random.randint(3, min(6, block_col) + 1)
         
         def generate_valid_object():
             # Create a random connected object
@@ -62,7 +78,7 @@ class Task4938f0c2Generator(ARCTaskGenerator):
                 obj_grid[-1, -1] = objectcol1  # Force bottom-right cell to be filled
             
             # Place the object so that its bottom-right corner is diagonally connected 
-            # to the top-left corner of the 2x2 block
+            # to the top-left corner of the block (at (block_row, block_col))
             tl_row = block_row - object_height
             tl_col = block_col - object_width
             
@@ -93,8 +109,8 @@ class Task4938f0c2Generator(ARCTaskGenerator):
         valid_grid = retry(generate_valid_object, lambda g: g is not None, max_attempts=100)
         
         # Check if we have enough space for reflections
-        # We need space on the right and below the 2x2 block
-        if block_col + 2 + object_width > cols or block_row + 2 + object_height > rows:
+        # We need space on the right and below the block
+        if block_col + block_size + object_width > cols or block_row + block_size + object_height > rows:
             # If not enough space, try again with a smaller grid (recursively)
             return self.create_input(taskvars, gridvars)
             
@@ -114,7 +130,7 @@ class Task4938f0c2Generator(ARCTaskGenerator):
         obj1 = objects.with_color(objectcol1)[0]
         obj2 = objects.with_color(objectcol2)[0]
         
-        # Find the 2x2 block's bounding box
+        # Find the block's bounding box
         block_box = obj2.bounding_box
         block_top = block_box[0].start
         block_left = block_box[1].start
@@ -130,7 +146,7 @@ class Task4938f0c2Generator(ARCTaskGenerator):
         obj1_top = obj1_box[0].start
         obj1_left = obj1_box[1].start
         
-        # Reflect horizontally across the column line of the 2x2 block
+        # Reflect horizontally across the column line of the block
         # Calculate the new position for the horizontally reflected object
         h_reflect_left = block_right + 1
         h_reflect_top = obj1_top  # Same top position
@@ -147,7 +163,7 @@ class Task4938f0c2Generator(ARCTaskGenerator):
                     if 0 <= new_r < output_grid.shape[0] and 0 <= new_c < output_grid.shape[1]:
                         output_grid[new_r, new_c] = objectcol1
         
-        # Now reflect both objects vertically across the row line of the 2x2 block
+        # Now reflect both objects vertically across the row line of the block
         # First, reflect the original object
         v_reflect_top = block_bottom + 1
         v_reflect_left = obj1_left  # Same left position
@@ -197,6 +213,8 @@ class Task4938f0c2Generator(ARCTaskGenerator):
             
         taskvars['objectcol1'] = objectcol1
         taskvars['objectcol2'] = objectcol2
+        # Allow different block sizes (1x1, 2x2, 3x3, 4x4)
+        taskvars['block_size'] = int(np.random.choice([1, 2, 3, 4]))
         
         # Create random number of training examples (3-4)
         num_train = np.random.randint(3, 5)

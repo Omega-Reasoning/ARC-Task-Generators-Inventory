@@ -9,7 +9,7 @@ class Task48d8fb45Generator(ARCTaskGenerator):
     def __init__(self):
         input_reasoning_chain = [
             "Input grids are of size {vars['rows']}x{vars['cols']}.",
-            "They contain two or three same-colored (1-9) objects, each consisting of 8-way connected cells, with the object color varying across examples.",
+            "They contain a random number of same-colored (1-9) objects, each consisting of 8-way connected cells, with the object color varying across examples.",
             "The objects are shaped and sized to fit within a 3x3 subgrid, with each object having a distinct shape.",
             "Exactly one {color('topcell')} cell is placed directly above one of the colored objects, ensuring vertical connectivity.",
             "Each colored object should be completely separated from the others."
@@ -18,18 +18,22 @@ class Task48d8fb45Generator(ARCTaskGenerator):
         transformation_reasoning_chain = [
             "The output grids are of size 3x3.",
             "They are constructed by identifying all colored objects in the input grid.",
-            "Once identified, locate the 8-way connected object vertically below the {color('topcell')} cell and paste it to the output grid."
+            "Once identified, locate the 8-way connected object that is directly below the {color('topcell')} marker cell.",
+            "Extract this object and place it within the 3x3 output grid excluding the {color('topcell')} marker cell."
         ]
         
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
     
     def create_grids(self) -> Tuple[Dict[str, Any], TrainTestData]:
-        # Initialize task variables
+       
         taskvars = {
             'rows': random.randint(10, 30),
             'cols': random.randint(10, 30),
             'topcell': random.randint(1, 9)
         }
+        # Compute maximum objects that can reasonably fit (each object fits in 3x3)
+        max_objects_possible = (taskvars['rows'] // 3) * (taskvars['cols'] // 3)
+        max_objects = min(6, max(2, max_objects_possible))
         
         # Determine number of train examples
         n_train = random.randint(3, 4)
@@ -39,8 +43,8 @@ class Task48d8fb45Generator(ARCTaskGenerator):
         used_object_colors = set()
         
         for _ in range(n_train):
-            # Each example may have different number of objects (2 or 3)
-            num_objects = random.randint(2, 3)
+            # Each example may have a different number of objects (2..max_objects)
+            num_objects = random.randint(2, max_objects)
             
             # Choose a color for objects different from topcell and not used before
             object_color_options = [c for c in range(1, 10) 
@@ -70,7 +74,7 @@ class Task48d8fb45Generator(ARCTaskGenerator):
             train_data.append({'input': input_grid, 'output': output_grid})
         
         # Generate test data (always with just one example)
-        num_objects = random.randint(2, 3)  # Test can have 2 or 3 objects
+        num_objects = random.randint(2, max_objects)  # Test can have 2..max_objects objects
         
         # Choose a different color for test example
         object_color_options = [c for c in range(1, 10) 
@@ -105,7 +109,10 @@ class Task48d8fb45Generator(ARCTaskGenerator):
         rows, cols = taskvars['rows'], taskvars['cols']
         object_color = gridvars.get('object_color')
         topcell_color = taskvars['topcell']
-        num_objects = gridvars.get('num_objects', random.randint(2, 3))
+        # Fallback to a size-dependent number of objects when not provided
+        max_objects_possible = (rows // 3) * (cols // 3)
+        default_max_objects = min(6, max(2, max_objects_possible))
+        num_objects = gridvars.get('num_objects', random.randint(2, default_max_objects))
         
         # Create empty grid
         grid = np.zeros((rows, cols), dtype=int)

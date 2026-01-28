@@ -25,9 +25,9 @@ class Task4c4377d9Generator(ARCTaskGenerator):
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
     
     def create_grids(self) -> Tuple[Dict[str, Any], TrainTestData]:
-        # Initialize task variables
+        
         rows = random.randint(5, 15)  # Keep reasonable size
-        cols = random.randint(5, 15)
+        cols = random.randint(5, 30)
         
         taskvars = {'rows': rows, 'cols': cols}
         

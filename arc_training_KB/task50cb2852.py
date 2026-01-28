@@ -25,10 +25,10 @@ class Task50cb2852Generator(ARCTaskGenerator):
         transformation_reasoning_chain = [
             "The output grid is constructed by copying the input grid and identifying all colored blocks.",
             "Once identified, change the colors of all interior cells in each colored block to {color('object_color4')}.",
-            "This transformation results in rectangular blocks with a differently colored frame and interior."
+            "This transformation results in rectangular blocks with a differently colored interior while maintaining the original block outlines."
         ]
 
-        # 3) Call the super constructor
+        
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
 
     def create_input(self, taskvars, gridvars) -> np.ndarray:
@@ -177,8 +177,8 @@ class Task50cb2852Generator(ARCTaskGenerator):
             # propose a size that is not already *accepted*; do not mark it used here because
             # generation may fail and we don't want to consume sizes on failed attempts.
             for _ in range(1000):
-                r = random.randint(8, 15)
-                c = random.randint(8, 15)
+                r = random.randint(8, 30)
+                c = random.randint(8, 30)
                 if (r, c) not in used_sizes:
                     return r, c
             # fallback (should be extremely rare)
