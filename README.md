@@ -1,4 +1,4 @@
-# ARC Task Generators
+# ARC-TGI: ARC Task Generators Inventory
 
 A project for writing generators for Abstraction and Reasoning Corpus (ARC) tasks.
 
