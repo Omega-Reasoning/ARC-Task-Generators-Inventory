@@ -1,6 +1,10 @@
-# ARC-TGI: ARC Task Generators Inventory
+<div align="center">
+  <img src="./images/ARC-TGI.png" alt="ARC-TGI Logo" height="120">
+  <h1>ARC-TGI: ARC Task Generators Inventory</h1>
+  <p><em>A project for writing generators for Abstraction and Reasoning Corpus (ARC) tasks.</em></p>
+</div>
 
-A project for writing generators for Abstraction and Reasoning Corpus (ARC) tasks.
+<!-- <hr> -->
 
 ## Prerequisites
 
