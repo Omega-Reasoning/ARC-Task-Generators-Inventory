@@ -6,6 +6,16 @@
 
 <!-- <hr> -->
 
+## Example Output
+
+<div align="center">
+  <img src="./images/Task_e509e548.png" alt="Generated ARC-TGI examples" width="100%">
+  <p><em>Generated ARC-TGI examples illustrating within-family variation for the original ARC task. 
+The tasks are sampled from the same generator and share the same latent transformation rule, while differing in nuisance instantiations. 
+Within each generated sample, task variables such as object colors remain consistent between the input and output grids, whereas object positions, sizes, number of objects, and grid sizes vary across training and test examples. 
+Across samples within the same family, the colors of the objects in the input grids and their corresponding colors in the output grids vary, while the task remains solvable from the provided training examples.</em></p>
+</div>
+
 ## Prerequisites
 
 - Python 3.12 or higher
