@@ -16,6 +16,16 @@ Within each generated sample, task variables such as object colors remain consis
 Across samples within the same family, the colors of the objects in the input grids and their corresponding colors in the output grids vary, while the task remains solvable from the provided training examples.</em></p>
 </div>
 
+## Generators
+
+The `Generators/` directory contains three main subfolders: **ARC-AGI-1**, **ARC-AGI-2**, and **ARC-Mini**.
+
+**ARC-AGI-1** contains our ARC-TGI generators constructed for tasks from the ARC-AGI-1 benchmark (https://arcprize.org/arc-agi/1/). Each generator preserves the latent transformation logic and task-level generalization properties of the original ARC-AGI-1 tasks while allowing systematic variation in object configurations, layouts, and grid properties.
+
+**ARC-AGI-2** contains our ARC-TGI generators constructed for tasks from the ARC-AGI-2 benchmark (https://arcprize.org/arc-agi/2/). Each generator preserves the latent transformation logic and task-level generalization properties of the original ARC-AGI-2 tasks while allowing systematic variation in object configurations, layouts, and grid properties.
+
+**ARC-Mini** contains simplified generators created by us to model elementary ARC-style reasoning patterns. In ARC-Mini, each task is designed around a single core transformation rule, enabling controlled experiments and analysis of fundamental reasoning primitives.
+
 ## Prerequisites
 
 - Python 3.12 or higher
