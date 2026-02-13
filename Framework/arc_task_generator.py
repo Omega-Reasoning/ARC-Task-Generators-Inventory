@@ -3,7 +3,7 @@ from typing import Dict, List, Any, Tuple, TypedDict
 from abc import ABC, abstractmethod
 import matplotlib.pyplot as plt
 
-from arc_task import ARCTask
+from Framework.arc_task import ARCTask
 
 class GridPair(TypedDict):
     input: np.ndarray
