@@ -5,9 +5,9 @@ import numpy as np
 from typing import Dict, Any, Tuple, List
 
 # --- IMPORTS FROM THE INSTRUCTIONS ---
-from arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
-from transformation_library import find_connected_objects  # Potentially unused, just an example
-from input_library import retry  # Potentially unused
+from Framework.arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
+from Framework.transformation_library import find_connected_objects  # Potentially unused, just an example
+from Framework.input_library import retry  # Potentially unused
 # We do not use input_library.py in transform_input(), but we may use it in create_input().
 # The instructions specifically said we can optionally use them.
 

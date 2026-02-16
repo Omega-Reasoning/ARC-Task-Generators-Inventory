@@ -1,6 +1,6 @@
-from arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
-from transformation_library import find_connected_objects, GridObjects, GridObject
-from input_library import create_object, retry, Contiguity
+from Framework.arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
+from Framework.transformation_library import find_connected_objects, GridObjects, GridObject
+from Framework.input_library import create_object, retry, Contiguity
 import numpy as np
 import random
 from typing import Dict, Any, Tuple, List, Optional

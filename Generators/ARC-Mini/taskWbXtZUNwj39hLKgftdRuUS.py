@@ -1,5 +1,5 @@
-from arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
-from input_library import random, np
+from Framework.arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
+from Framework.input_library import random, np
 from typing import Dict, Any, Tuple, List
 
 

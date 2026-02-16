@@ -1,11 +1,11 @@
 # my_arc_generator.py
-from arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
+from Framework.arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
 import numpy as np
 import random
 from typing import Dict, Any, Tuple
 # Optional but encouraged: we can use our input_library / transformation_library if needed
-# from input_library import create_object, retry, Contiguity
-# from transformation_library import find_connected_objects, GridObject, GridObjects
+# from Framework.input_library import create_object, retry, Contiguity
+# from Framework.transformation_library import find_connected_objects, GridObject, GridObjects
 
 class TaskA9KQWNurWPPwxye5H3bq5vGenerator(ARCTaskGenerator):
 

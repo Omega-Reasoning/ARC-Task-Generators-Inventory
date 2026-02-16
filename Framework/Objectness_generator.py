@@ -1,4 +1,4 @@
-from arc_task_generator import ARCTaskGenerator, GridPair
+from Framework.arc_task_generator import ARCTaskGenerator, GridPair
 from abc import ABC, abstractmethod
 import numpy as np
 from typing import Dict, Any, Union, Tuple, List, Optional, TypedDict, NamedTuple

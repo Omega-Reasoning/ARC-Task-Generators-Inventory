@@ -1,13 +1,13 @@
 # arc_task_generator_subclass.py
 
-from arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
-from input_library import retry
+from Framework.arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
+from Framework.input_library import retry
 import numpy as np
 import random
 from typing import Dict, Any, Tuple, List
 
 # Import transformation functions if needed
-# from transformation_library import find_connected_objects, GridObject, GridObjects
+# from Framework.transformation_library import find_connected_objects, GridObject, GridObjects
 
 class TaskQ7PVog2EvMiogz6MUD9g8Generator(ARCTaskGenerator):
     def __init__(self):

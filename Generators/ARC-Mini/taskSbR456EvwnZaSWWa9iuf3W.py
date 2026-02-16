@@ -1,8 +1,8 @@
 import numpy as np
 import random
-from arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
-from input_library import retry
-from transformation_library import GridObject, parse_objects_by_color
+from Framework.arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
+from Framework.input_library import retry
+from Framework.transformation_library import GridObject, parse_objects_by_color
 
 class TaskSbR456EvwnZaSWWa9iuf3WGenerator(ARCTaskGenerator):
     def __init__(self):

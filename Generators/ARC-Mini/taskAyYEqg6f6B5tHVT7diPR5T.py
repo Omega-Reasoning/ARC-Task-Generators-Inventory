@@ -3,8 +3,8 @@
 import numpy as np
 import random
 
-from arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
-from transformation_library import find_connected_objects, BorderBehavior
+from Framework.arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
+from Framework.transformation_library import find_connected_objects, BorderBehavior
 
 class TaskAyYEqg6f6B5tHVT7diPR5TGenerator(ARCTaskGenerator):
     def __init__(self):

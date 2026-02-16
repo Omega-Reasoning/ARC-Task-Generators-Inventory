@@ -4,7 +4,7 @@ import sys
 import os
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from transformation_library import get_objects
+from Framework.transformation_library import get_objects
 from utilities import visualize_grid, visualize_objects
 
 import unittest

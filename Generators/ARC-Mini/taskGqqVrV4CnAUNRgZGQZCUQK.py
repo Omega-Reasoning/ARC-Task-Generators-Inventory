@@ -2,10 +2,10 @@ import numpy as np
 import random
 
 # Importing the necessary utility libraries
-from input_library import create_object, Contiguity
-from transformation_library import find_connected_objects
+from Framework.input_library import create_object, Contiguity
+from Framework.transformation_library import find_connected_objects
 
-from arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
+from Framework.arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
 
 class TaskGqqVrV4CnAUNRgZGQZCUQKGenerator(ARCTaskGenerator):
     def __init__(self):

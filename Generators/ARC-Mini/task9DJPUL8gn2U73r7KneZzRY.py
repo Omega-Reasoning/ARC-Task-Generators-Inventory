@@ -1,6 +1,6 @@
 import random
 import numpy as np
-from arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
+from Framework.arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
 
 class Task9DJPUL8gn2U73r7KneZzRYGenerator(ARCTaskGenerator):
     def __init__(self):

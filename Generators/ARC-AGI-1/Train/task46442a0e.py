@@ -1,7 +1,7 @@
-from arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
+from Framework.arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
 import numpy as np
 import random
-from input_library import random_cell_coloring
+from Framework.input_library import random_cell_coloring
 
 class Task46442a0eGenerator(ARCTaskGenerator):
     def __init__(self):

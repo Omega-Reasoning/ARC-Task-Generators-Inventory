@@ -1,6 +1,6 @@
 # my_row_major_color_filling_task.py
 
-from arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
+from Framework.arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
 import numpy as np
 import random
 from typing import Dict, Any, Tuple

@@ -1,6 +1,6 @@
-from arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
-from transformation_library import find_connected_objects, GridObjects
-from input_library import retry, random_cell_coloring
+from Framework.arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
+from Framework.transformation_library import find_connected_objects, GridObjects
+from Framework.input_library import retry, random_cell_coloring
 import numpy as np
 import random
 

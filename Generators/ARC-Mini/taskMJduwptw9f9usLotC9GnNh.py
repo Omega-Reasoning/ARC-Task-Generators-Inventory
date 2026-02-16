@@ -1,8 +1,8 @@
 # striping_task_generator.py
 
-from arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
-from input_library import create_object, random_cell_coloring, Contiguity
-from transformation_library import find_connected_objects, GridObject
+from Framework.arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
+from Framework.input_library import create_object, random_cell_coloring, Contiguity
+from Framework.transformation_library import find_connected_objects, GridObject
 import numpy as np
 import random
 from typing import Dict, Any, Tuple, List

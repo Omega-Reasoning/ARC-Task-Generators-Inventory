@@ -1,13 +1,13 @@
-from arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
+from Framework.arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
 import numpy as np
 import random
 from typing import Dict, Any, Tuple
 # We can import from the libraries provided:
 # input_library.py (for create_input) and transformation_library.py
 # though the solution below only needs minor array indexing for transform_input.
-from input_library import retry
-from input_library import Contiguity
-from transformation_library import find_connected_objects  # example usage if needed
+from Framework.input_library import retry
+from Framework.input_library import Contiguity
+from Framework.transformation_library import find_connected_objects  # example usage if needed
 
 class TaskcmBhVbGzL8ZgWXDE5CUS6BGenerator(ARCTaskGenerator):
     def __init__(self):

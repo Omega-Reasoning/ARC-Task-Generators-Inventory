@@ -1,14 +1,14 @@
 # diagonal_duplicate_task_generator.py
 
-from arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
+from Framework.arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
 import numpy as np
 import random
 
 # Optionally use functions from the transformation library (though this task doesn't strictly need them)
-# from transformation_library import ...
+# from Framework.transformation_library import ...
 
 # We do use input_library for generating the input grid logic if we want, but here we'll implement it manually
-# from input_library import ...
+# from Framework.input_library import ...
 
 class TaskcenVXPA4aNeA34ece59fraGenerator(ARCTaskGenerator):
     def __init__(self):

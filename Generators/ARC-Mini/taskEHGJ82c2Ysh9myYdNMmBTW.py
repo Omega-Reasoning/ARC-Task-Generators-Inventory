@@ -1,8 +1,8 @@
 # corner_diagonal_task_generator.py
 
-from arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
-from input_library import create_object, retry  # (Optional) you can import more if desired
-from transformation_library import find_connected_objects  # (Optional) you can import more if desired
+from Framework.arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
+from Framework.input_library import create_object, retry  # (Optional) you can import more if desired
+from Framework.transformation_library import find_connected_objects  # (Optional) you can import more if desired
 import numpy as np
 import random
 from typing import Dict, Any, Tuple, List

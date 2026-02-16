@@ -1,7 +1,7 @@
-from arc_task_generator import ARCTaskGenerator
+from Framework.arc_task_generator import ARCTaskGenerator
 import numpy as np
 import random
-from transformation_library import find_connected_objects
+from Framework.transformation_library import find_connected_objects
 
 
 class Task681b3aebGenerator(ARCTaskGenerator):

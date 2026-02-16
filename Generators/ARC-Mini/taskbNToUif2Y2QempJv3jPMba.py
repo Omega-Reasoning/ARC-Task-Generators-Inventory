@@ -1,12 +1,12 @@
 # my_arc_task_generator.py
 
-from arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
+from Framework.arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
 import numpy as np
 import random
 
 # We'll still import 'retry' in case you want it, but we'll no longer rely on it for shape generation:
-from input_library import retry, Contiguity  # Not strictly necessary now
-# from transformation_library import find_connected_objects, GridObject  # If desired
+from Framework.input_library import retry, Contiguity  # Not strictly necessary now
+# from Framework.transformation_library import find_connected_objects, GridObject  # If desired
 
 class TaskbNToUif2Y2QempJv3jPMbaGenerator(ARCTaskGenerator):
     def __init__(self):

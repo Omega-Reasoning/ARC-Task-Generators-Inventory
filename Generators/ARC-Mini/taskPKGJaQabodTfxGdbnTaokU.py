@@ -3,12 +3,12 @@
 import numpy as np
 import random
 from typing import Dict, Any, Tuple, List
-from arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
+from Framework.arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
 # If you wish to use from the transformation_library, you can import it here
-# e.g. from transformation_library import find_connected_objects, GridObjects, GridObject
+# e.g. from Framework.transformation_library import find_connected_objects, GridObjects, GridObject
 
 # We only use input_library for create_input() usage:
-from input_library import Contiguity
+from Framework.input_library import Contiguity
 
 class TaskPKGJaQabodTfxGdbnTaokUGenerator(ARCTaskGenerator):
     def __init__(self):

@@ -17,8 +17,8 @@ Usage:
 import numpy as np
 import random
 
-from arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
-# We can optionally import from transformation_library, but for this example,
+from Framework.arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
+# We can optionally import from Framework.transformation_library, but for this example,
 # a simple manual approach is sufficient to fill columns.
 
 class TaskXL7W8LmN2kTVYPztmzcN67Generator(ARCTaskGenerator):

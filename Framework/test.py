@@ -2,9 +2,9 @@ import argparse
 import importlib
 import sys
 from pathlib import Path
-from arc_task_generator import ARCTaskGenerator
+from Framework.arc_task_generator import ARCTaskGenerator
 
-from execution import get_generator_class
+from Framework.execution import get_generator_class
 
 def main():
     parser = argparse.ArgumentParser(description='Generate ARC tasks from a generator class.')

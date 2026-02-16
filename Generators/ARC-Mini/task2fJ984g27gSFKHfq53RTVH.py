@@ -2,9 +2,9 @@
 import numpy as np
 import random
 
-from arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
-from transformation_library import find_connected_objects
-from input_library import retry  # we only use 'retry' here for demonstration
+from Framework.arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
+from Framework.transformation_library import find_connected_objects
+from Framework.input_library import retry  # we only use 'retry' here for demonstration
 # We do not strictly need create_object() etc. for this puzzle, so we omit them.
 
 class Task2fJ984g27gSFKHfq53RTVHGenerator(ARCTaskGenerator):

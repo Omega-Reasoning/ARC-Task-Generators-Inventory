@@ -1,6 +1,6 @@
 import numpy as np
 from typing import Dict, List, Any, Tuple
-from arc_task_generator import ARCTaskGenerator, TrainTestData
+from Framework.arc_task_generator import ARCTaskGenerator, TrainTestData
 
 class Task007bbfb7Generator(ARCTaskGenerator):
 

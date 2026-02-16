@@ -1,9 +1,9 @@
 from typing import Dict, Any, Tuple, List
 import numpy as np
 import random
-from arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
-from input_library import create_object, retry, Contiguity
-from transformation_library import GridObject, GridObjects, find_connected_objects
+from Framework.arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
+from Framework.input_library import create_object, retry, Contiguity
+from Framework.transformation_library import GridObject, GridObjects, find_connected_objects
 
 class Task195ba7dcTask(ARCTaskGenerator):
     def __init__(self):

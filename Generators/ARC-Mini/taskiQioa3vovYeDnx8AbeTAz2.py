@@ -1,6 +1,6 @@
 import numpy as np
 from typing import Dict, Any, Tuple
-from arc_task_generator import ARCTaskGenerator, TrainTestData
+from Framework.arc_task_generator import ARCTaskGenerator, TrainTestData
 
 # Subclassing the ARCTaskGenerator
 class TaskiQioa3vovYeDnx8AbeTAz2Generator(ARCTaskGenerator):

@@ -1,7 +1,7 @@
 # my_arc_generator.py
 
-from arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
-from input_library import retry
+from Framework.arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
+from Framework.input_library import retry
 import numpy as np
 import random
 from typing import Dict, Any, Tuple, List

@@ -3,9 +3,9 @@
 import random
 import numpy as np
 
-from arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
-# You can import from transformation_library if needed; for this example, we do straightforward array operations
-# from transformation_library import ...
+from Framework.arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
+# You can import from Framework.transformation_library if needed; for this example, we do straightforward array operations
+# from Framework.transformation_library import ...
 # We do not need input_library here beyond basic random generation, so no import required
 
 class Taske4crEhS4WEEtG9KYKprPn8Generator(ARCTaskGenerator):

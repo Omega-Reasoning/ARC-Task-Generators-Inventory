@@ -4,8 +4,8 @@ import os
 import sys
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from transformation_library import flood_fill
-from input_library import create_object, Contiguity
+from Framework.transformation_library import flood_fill
+from Framework.input_library import create_object, Contiguity
 
 class TestFloodFill(unittest.TestCase):
     def setUp(self):

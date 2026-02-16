@@ -1,8 +1,8 @@
 # my_task_generator.py
 
-from arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
-from transformation_library import find_connected_objects
-from input_library import create_object, Contiguity, retry
+from Framework.arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
+from Framework.transformation_library import find_connected_objects
+from Framework.input_library import create_object, Contiguity, retry
 from typing import Dict, Any, Tuple, List
 import numpy as np
 import random
@@ -60,7 +60,7 @@ class TaskYwjo5bXdxBZ34ycdhmadhsGenerator(ARCTaskGenerator):
 
         # We define a function to generate a single 4-connected object of random shape
         # with a chosen color from color_pair, ensuring object size in [min_size, max_size].
-        # We'll use create_object from input_library, then place it randomly if possible.
+        # We'll use create_object from Framework.input_library, then place it randomly if possible.
         def generate_single_object(color) -> np.ndarray:
             # We'll generate an object in a bounding box that is somewhat smaller
             # than the entire grid. Then we place that bounding box somewhere inside the grid.

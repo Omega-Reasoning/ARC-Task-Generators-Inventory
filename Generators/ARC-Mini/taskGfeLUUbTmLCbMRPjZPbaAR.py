@@ -16,9 +16,9 @@ import numpy as np
 import random
 
 # Imports from the provided libraries
-from arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
-from transformation_library import find_connected_objects
-# We may import from input_library if desired (for randomness / creation helpers),
+from Framework.arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
+from Framework.transformation_library import find_connected_objects
+# We may import from Framework.input_library if desired (for randomness / creation helpers),
 # but here we implement a straightforward custom approach.
 
 class TaskGfeLUUbTmLCbMRPjZPbaARGenerator(ARCTaskGenerator):

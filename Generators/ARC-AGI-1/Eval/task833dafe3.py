@@ -1,5 +1,5 @@
-from arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
-from input_library import random_cell_coloring, retry
+from Framework.arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
+from Framework.input_library import random_cell_coloring, retry
 import numpy as np
 import random
 from typing import Dict, Any, Tuple

@@ -1,4 +1,4 @@
-from arc_task_generator import ARCTaskGenerator
+from Framework.arc_task_generator import ARCTaskGenerator
 import numpy as np
 import random
 

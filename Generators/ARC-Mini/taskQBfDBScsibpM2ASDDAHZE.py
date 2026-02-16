@@ -1,6 +1,6 @@
-from arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
-from transformation_library import find_connected_objects
-from input_library import Contiguity, create_object, enforce_object_height, enforce_object_width, retry
+from Framework.arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
+from Framework.transformation_library import find_connected_objects
+from Framework.input_library import Contiguity, create_object, enforce_object_height, enforce_object_width, retry
 import numpy as np
 import random
 

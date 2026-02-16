@@ -1,10 +1,10 @@
-from arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
+from Framework.arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
 import numpy as np
 import random
 from typing import Dict, Any, Tuple
 # Optional but encouraged: we can use these libraries in create_input().
-from input_library import retry, random_cell_coloring
-from transformation_library import find_connected_objects
+from Framework.input_library import retry, random_cell_coloring
+from Framework.transformation_library import find_connected_objects
 
 class Task5WKhJgUJdkVm7Nc2aU9ZMkGenerator(ARCTaskGenerator):
     def __init__(self):

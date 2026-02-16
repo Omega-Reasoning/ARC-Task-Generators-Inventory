@@ -1,12 +1,12 @@
 import numpy as np
 from collections import defaultdict
 from typing import Any, Callable, Dict, List, Tuple
-from arc_task_generator import ARCTaskGenerator
+from Framework.arc_task_generator import ARCTaskGenerator
 
 import importlib
 import sys
 
-import transformation_library as tlib
+import Framework.transformation_library as tlib
 
 def get_generator_class(module_path: str) -> type:
     """

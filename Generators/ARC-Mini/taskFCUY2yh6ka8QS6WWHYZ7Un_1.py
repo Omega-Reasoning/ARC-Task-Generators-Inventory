@@ -3,8 +3,8 @@
 import numpy as np
 import random
 
-from arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
-from input_library import Contiguity, create_object, retry
+from Framework.arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
+from Framework.input_library import Contiguity, create_object, retry
 # We don't actually need transformation_library here, but it's available if needed.
 from typing import Dict, Any, Tuple
 class TaskFCUY2yh6ka8QS6WWHYZ7Un_1Generator(ARCTaskGenerator):

@@ -1,11 +1,11 @@
-from arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
+from Framework.arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
 import numpy as np
 import random
 
 # Optionally use these if you need them within create_input() (not transform_input()):
-from input_library import retry
-from input_library import Contiguity
-from transformation_library import find_connected_objects
+from Framework.input_library import retry
+from Framework.input_library import Contiguity
+from Framework.transformation_library import find_connected_objects
 
 class Taskj7mpCWkYUkayEYV7dUoUaC_1Generator(ARCTaskGenerator):
     def __init__(self):

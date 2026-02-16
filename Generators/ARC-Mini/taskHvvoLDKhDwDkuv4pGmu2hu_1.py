@@ -4,9 +4,9 @@ import random
 import numpy as np
 
 # Required imports from the specification
-from arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
-from input_library import create_object, Contiguity, retry
-from transformation_library import find_connected_objects
+from Framework.arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
+from Framework.input_library import create_object, Contiguity, retry
+from Framework.transformation_library import find_connected_objects
 
 class TaskHvvoLDKhDwDkuv4pGmu2hu_1Generator(ARCTaskGenerator):
     def __init__(self):

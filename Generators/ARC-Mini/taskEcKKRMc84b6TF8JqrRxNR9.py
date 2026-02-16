@@ -4,7 +4,7 @@ import numpy as np
 import random
 
 # Mandatory imports per specifications
-from arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
+from Framework.arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
 
 
 

@@ -3,9 +3,9 @@ import random
 from typing import Dict, Any, Tuple
 
 # Import from the provided base class and libraries:
-from arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
-from transformation_library import find_connected_objects
-from input_library import Contiguity
+from Framework.arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
+from Framework.transformation_library import find_connected_objects
+from Framework.input_library import Contiguity
 
 class Task1e32b0e9Generator(ARCTaskGenerator):
     def __init__(self):

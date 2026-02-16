@@ -1,17 +1,17 @@
 # Filename: arc_agi_generator.py
 
-from arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
+from Framework.arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
 import numpy as np
 import random
 from typing import Dict, Any, Tuple
 
-# We only import from input_library.py in create_input()
-# and from transformation_library.py if needed in transform_input() (allowed).
+# We only import from Framework.input_library.py in create_input()
+# and from Framework.transformation_library.py if needed in transform_input() (allowed).
 # But we must not use input_library.py inside transform_input().
 # Here we do not strictly need transformation_library for these particular transformations.
 # If you wish to expand or detect objects, you could import relevant functions:
-# from transformation_library import find_connected_objects, GridObject, GridObjects
-# from input_library import create_object, retry, ...
+# from Framework.transformation_library import find_connected_objects, GridObject, GridObjects
+# from Framework.input_library import create_object, retry, ...
 
 class TaskCzSeQxLDe3AmrK2nfCZtcKGenerator(ARCTaskGenerator):
     def __init__(self):

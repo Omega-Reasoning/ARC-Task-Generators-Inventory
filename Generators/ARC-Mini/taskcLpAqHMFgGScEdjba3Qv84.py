@@ -2,7 +2,7 @@ import numpy as np
 import random
 
 # Required imports from the framework
-from arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
+from Framework.arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
 
 
 

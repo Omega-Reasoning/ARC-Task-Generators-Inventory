@@ -4,10 +4,10 @@ import numpy as np
 import random
 from typing import Dict, Any, Tuple
 # Required imports from the provided base classes and libraries
-from arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
-from input_library import retry  # we use retry for demonstration if needed
+from Framework.arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
+from Framework.input_library import retry  # we use retry for demonstration if needed
 # (We do not need create_object or others here, but you could import them.)
-# from transformation_library import find_connected_objects   # not needed here
+# from Framework.transformation_library import find_connected_objects   # not needed here
 
 class Task5PJUgdaxHdKx8X4YhscY9aGenerator(ARCTaskGenerator):
     def __init__(self):

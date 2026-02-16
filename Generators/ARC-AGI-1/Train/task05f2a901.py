@@ -2,9 +2,9 @@ import numpy as np
 import random
 from typing import Dict, Any, Set, Tuple, List
 
-from arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
-from input_library import Contiguity, create_object, enforce_object_height, enforce_object_width
-from transformation_library import GridObject, find_connected_objects
+from Framework.arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
+from Framework.input_library import Contiguity, create_object, enforce_object_height, enforce_object_width
+from Framework.transformation_library import GridObject, find_connected_objects
 
 class Task05f2a901Generator(ARCTaskGenerator):
     """

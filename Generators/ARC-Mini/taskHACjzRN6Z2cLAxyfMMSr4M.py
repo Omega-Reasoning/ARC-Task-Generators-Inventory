@@ -1,12 +1,12 @@
 # Filename: arc_task_example_generator.py
 
-from arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
+from Framework.arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
 import numpy as np
 import random
 
 # We can optionally use functions from these libraries:
-from input_library import create_object, Contiguity, retry
-from transformation_library import find_connected_objects
+from Framework.input_library import create_object, Contiguity, retry
+from Framework.transformation_library import find_connected_objects
 
 class TaskHACjzRN6Z2cLAxyfMMSr4MGenerator(ARCTaskGenerator):
     def __init__(self):

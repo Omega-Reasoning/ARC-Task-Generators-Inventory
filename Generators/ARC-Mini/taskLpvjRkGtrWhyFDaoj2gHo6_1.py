@@ -1,13 +1,13 @@
 # my_arcagi_task.py
-from arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
+from Framework.arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
 import numpy as np
 import random
 
-# We only need a subset of functions from transformation_library.py and input_library.py.
+# We only need a subset of functions from Framework.transformation_library.py and input_library.py.
 # However, we import them here to demonstrate how they could be used, if desired:
-# (Nothing from input_library is strictly required, but it's available for more complex generation.)
-from transformation_library import find_connected_objects
-from input_library import retry, create_object, random_cell_coloring
+# (Nothing from Framework.input_library is strictly required, but it's available for more complex generation.)
+from Framework.transformation_library import find_connected_objects
+from Framework.input_library import retry, create_object, random_cell_coloring
 
 class TaskLpvjRkGtrWhyFDaoj2gHo6_1Generator(ARCTaskGenerator):
     def __init__(self):

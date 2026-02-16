@@ -1,13 +1,13 @@
 # my_corner_rectangle_filler.py
 
-from arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
+from Framework.arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
 import numpy as np
 import random
 from typing import Dict, Any, Tuple
 # (Optional) If you wish to use input_library or transformation_library,
 # you can import them as well. For example:
-# from input_library import retry, create_object, ...
-# from transformation_library import find_connected_objects, GridObject, ...
+# from Framework.input_library import retry, create_object, ...
+# from Framework.transformation_library import find_connected_objects, GridObject, ...
 
 class TaskX6HCwSYD7eu8ZURWuN5EVgGenerator(ARCTaskGenerator):
     def __init__(self):

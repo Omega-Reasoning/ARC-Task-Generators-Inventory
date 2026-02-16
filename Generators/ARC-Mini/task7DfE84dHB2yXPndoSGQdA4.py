@@ -1,10 +1,10 @@
-from arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
+from Framework.arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
 import numpy as np
 import random
 
 # Optionally import from the provided libraries
-from input_library import create_object, retry, Contiguity
-from transformation_library import find_connected_objects
+from Framework.input_library import create_object, retry, Contiguity
+from Framework.transformation_library import find_connected_objects
 
 class Task7DfE84dHB2yXPndoSGQdA4Generator(ARCTaskGenerator):
     def __init__(self):
@@ -80,7 +80,7 @@ class Task7DfE84dHB2yXPndoSGQdA4Generator(ARCTaskGenerator):
 
         # Now generate a single connected object of color object_color1 within that left side
         def object_generator() -> np.ndarray:
-            # create_object from input_library can randomly fill a matrix with one or more color cells
+            # create_object from Framework.input_library can randomly fill a matrix with one or more color cells
             # but we want to ensure it is 4-way connected
             return create_object(
                 height=height,

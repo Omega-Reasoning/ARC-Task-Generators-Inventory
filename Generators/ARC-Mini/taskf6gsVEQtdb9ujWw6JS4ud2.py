@@ -1,6 +1,6 @@
 # my_arc_generator.py
-from arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
-from input_library import random_cell_coloring   # optionally use for more interesting randomization
+from Framework.arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
+from Framework.input_library import random_cell_coloring   # optionally use for more interesting randomization
 import numpy as np
 import random
 from typing import Dict, Any, Tuple
@@ -39,7 +39,7 @@ class Taskf6gsVEQtdb9ujWw6JS4ud2Generator(ARCTaskGenerator):
         m = taskvars['m']
         
         # Here we simply do a uniform random assignment of colors in [0..9].
-        # If desired, you can call a utility from input_library to create more interesting patterns.
+        # If desired, you can call a utility from Framework.input_library to create more interesting patterns.
         # e.g. use random_cell_coloring on an initially empty grid
         grid = np.random.randint(low=0, high=10, size=(n, m))
         

@@ -1,9 +1,9 @@
 import numpy as np
 import random
 
-from arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
+from Framework.arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
 
-# (Optional) If you need certain functions from input_library or transformation_library,
+# (Optional) If you need certain functions from Framework.input_library or transformation_library,
 # you can import them here. Below, we only rely on direct NumPy calls for simplicity.
 
 class TaskBmszN4FfYKKSiswJRzvBeQ_1Generator(ARCTaskGenerator):

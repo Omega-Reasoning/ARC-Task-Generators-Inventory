@@ -1,8 +1,8 @@
-from arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
+from Framework.arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
 import numpy as np
 import random
 
-from input_library import create_object, retry
+from Framework.input_library import create_object, retry
 
 
 class Task00d62c1bGenerator(ARCTaskGenerator):

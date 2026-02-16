@@ -1,15 +1,15 @@
 # my_arc_generator.py
 
 # 1) Required imports
-from arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
+from Framework.arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
 import numpy as np
 import random
 from typing import Dict, Any, Tuple, List
-# We may optionally use functions from input_library, but only in create_input():
-from input_library import retry  # as an example, not strictly needed here
+# We may optionally use functions from Framework.input_library, but only in create_input():
+from Framework.input_library import retry  # as an example, not strictly needed here
 
 # We may also optionally use transformation_library in either create_input or transform_input:
-from transformation_library import find_connected_objects, GridObject, GridObjects
+from Framework.transformation_library import find_connected_objects, GridObject, GridObjects
 
 
 class TaskULXmq8k24GG7tNvmdgfKFvGenerator(ARCTaskGenerator):

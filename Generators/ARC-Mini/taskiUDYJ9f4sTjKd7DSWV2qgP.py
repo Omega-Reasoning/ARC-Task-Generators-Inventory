@@ -2,10 +2,10 @@ import numpy as np
 import random
 from typing import Dict, Any
 # Required imports from your instructions
-from arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
+from Framework.arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
 # Optional, but recommended libraries
-from input_library import create_object, retry, Contiguity
-from transformation_library import find_connected_objects
+from Framework.input_library import create_object, retry, Contiguity
+from Framework.transformation_library import find_connected_objects
 
 class TasktiUDYJ9f4sTjKd7DSWV2qgPGenerator(ARCTaskGenerator):
     def __init__(self):

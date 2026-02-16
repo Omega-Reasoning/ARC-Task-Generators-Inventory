@@ -1,10 +1,10 @@
-from arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
+from Framework.arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
 import numpy as np
 import random
 
 # Utility functions from libraries
-from input_library import Contiguity
-from transformation_library import find_connected_objects, GridObject
+from Framework.input_library import Contiguity
+from Framework.transformation_library import find_connected_objects, GridObject
 
 class TaskWQYEzNmJ3MSqQYjGYJEenWGenerator(ARCTaskGenerator):
 

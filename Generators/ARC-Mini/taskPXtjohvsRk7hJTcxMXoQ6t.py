@@ -11,10 +11,10 @@ import random
 import numpy as np
 
 # These imports are required by the instructions:
-from arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
-# (Optional) We could import from input_library.py or transformation_library.py if needed
-# e.g. from input_library import ...
-# e.g. from transformation_library import ...
+from Framework.arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
+# (Optional) We could import from Framework.input_library.py or transformation_library.py if needed
+# e.g. from Framework.input_library import ...
+# e.g. from Framework.transformation_library import ...
 
 class TaskPXtjohvsRk7hJTcxMXoQ6tGenerator(ARCTaskGenerator):
     def __init__(self):

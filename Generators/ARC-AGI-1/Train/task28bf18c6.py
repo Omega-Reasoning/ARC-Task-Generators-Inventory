@@ -1,9 +1,9 @@
 import random
 import numpy as np
 from typing import Dict, Any, Tuple
-from arc_task_generator import ARCTaskGenerator, TrainTestData
-from input_library import create_object, retry, Contiguity
-from transformation_library import find_connected_objects
+from Framework.arc_task_generator import ARCTaskGenerator, TrainTestData
+from Framework.input_library import create_object, retry, Contiguity
+from Framework.transformation_library import find_connected_objects
 
 
 class Task28bf18c6Generator(ARCTaskGenerator):

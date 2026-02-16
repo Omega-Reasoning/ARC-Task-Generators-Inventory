@@ -4,7 +4,7 @@ import sys
 import os
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from transformation_library import GridObject, find_connected_objects, get_objects_from_raster
+from Framework.transformation_library import GridObject, find_connected_objects, get_objects_from_raster
 from utilities import visualize_grid, visualize_grid_object
 
 class TestTransformations(unittest.TestCase):

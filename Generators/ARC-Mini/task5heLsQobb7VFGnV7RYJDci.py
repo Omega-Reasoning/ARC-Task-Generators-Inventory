@@ -1,11 +1,11 @@
 # my_task_generator.py
 
-from arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
+from Framework.arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
 import numpy as np
 import random
 
 # We will use a few helper methods from the transformation library (optional).
-from transformation_library import (
+from Framework.transformation_library import (
     find_connected_objects,
     GridObject,
     GridObjects

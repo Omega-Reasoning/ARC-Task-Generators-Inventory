@@ -5,14 +5,14 @@ from pathlib import Path
 import sys
 from typing import List, Type
 from tqdm import tqdm
-from arc_task_generator import ARCTaskGenerator
+from Framework.arc_task_generator import ARCTaskGenerator
 
-from execution import get_generator_class
+from Framework.execution import get_generator_class
 
 def get_generator_files(folder: str) -> List[str]:
     """Get all Python files in a folder that contain generator classes."""
     python_files = []
-    for file in Path(folder).glob('*.py'):
+    for file in Path(folder).rglob('*.py'):
         if not file.name.startswith('__'):
             python_files.append(str(file))
     return python_files
@@ -134,11 +134,19 @@ def main():
     args = parser.parse_args()
     
     if not args.generator_folders and not args.generator_files:
-        args.generator_folders = [d for d in os.listdir('.')
-                                if os.path.isdir(d) 
-                                and d != 'datasets'
-                                and not d.startswith('.')
-                                and not d.startswith('_')]
+        generators_root = Path("Generators")
+        
+        if not generators_root.exists():
+            print("Generators folder not found.")
+            return
+        
+        args.generator_folders = [
+            str(d) for d in generators_root.iterdir()
+            if d.is_dir()
+            and not d.name.startswith('.')
+            and not d.name.startswith('_')
+        ]
+
     
     generate_dataset(args.generator_folders or [], args.generator_files or [], args.nr_of_tasks, args.output)
 

@@ -5,7 +5,7 @@ import sys
 from scipy.ndimage import label
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from input_library import create_object, enforce_object_width, enforce_object_height, Contiguity
+from Framework.input_library import create_object, enforce_object_width, enforce_object_height, Contiguity
 
 class TestCreateObject(unittest.TestCase):
     """Test cases for object creation functions in input_library."""

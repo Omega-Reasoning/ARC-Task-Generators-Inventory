@@ -1,7 +1,7 @@
 import numpy as np
 import random
 from typing import Dict, Any, Tuple, List
-from arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
+from Framework.arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
 
 class Taskbbc9ae5dGenerator(ARCTaskGenerator):
     def __init__(self):

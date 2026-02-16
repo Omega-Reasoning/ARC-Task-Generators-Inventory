@@ -1,11 +1,11 @@
 # my_arc_task_generator.py
-from arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
+from Framework.arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
 import numpy as np
 import random
 
-# Optionally import from transformation_library or input_library if desired:
-# from transformation_library import ...
-# from input_library import ...
+# Optionally import from Framework.transformation_library or input_library if desired:
+# from Framework.transformation_library import ...
+# from Framework.input_library import ...
 
 class TaskV7GeftPFBHovpSanYostQ2Generator(ARCTaskGenerator):
     def __init__(self):

@@ -1,9 +1,9 @@
-from arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
+from Framework.arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
 import numpy as np
 import random
 from typing import Dict, List, Any, Optional, Tuple, Set
-from input_library import create_object, random_cell_coloring, Contiguity
-from transformation_library import find_connected_objects, GridObject, GridObjects, BorderBehavior
+from Framework.input_library import create_object, random_cell_coloring, Contiguity
+from Framework.transformation_library import find_connected_objects, GridObject, GridObjects, BorderBehavior
 
 class Task3e6067c3Generator(ARCTaskGenerator):
     def __init__(self):

@@ -57,9 +57,9 @@ pip install -r requirements.txt
 ## Use generators
 
 You have three options to use the generators described below:
-* test them in a Streamlit app (app.py)
-* run a single generator via commandline (test.py)
-* create a full dataset (dataset_generator.py) 
+* test them in a Streamlit app (Framework/app.py)
+* run a single generator via commandline (Framework/test.py)
+* create a full dataset (Framework/dataset_generator.py) 
 
 ### Streamlit
 
@@ -68,18 +68,18 @@ Run the Streamlit app to interactively test and visualize task generators:
 streamlit run Framework/app.py
 ```
 
-This allows you to select a generator, create new tasks using and view the output.
+This allows you to select a generator, create new tasks, and view the output.
 
 ### Command line
 
 #### Generate an ARC task 
 ```bash
-python test.py arc_training/task007bbfb7.py 
+python -m Framework.test  Generators/ARC-AGI-1/Train/task0b148d64.py 
 ```
 
 #### Generate and visualize a task
 ```bash
-python test.py arc_training/task007bbfb7.py -v
+python -m Framework.test  Generators/ARC-AGI-1/Train/task0b148d64.py  -v
 ```
 
 ### Dataset generator
@@ -87,50 +87,50 @@ python test.py arc_training/task007bbfb7.py -v
 Use the dataset generator to create a dataset of ARC tasks from multiple generators:
 
 ```bash
-python dataset_generator.py [options]
+python -m Framework.dataset_generator [options]
 ```
 
 #### Options:
 - `-g, --generator_folders`: Specify one or more folders containing generators
-  - Default: All non-hidden subfolders (except 'datasets')
-  - Example: `python dataset_generator.py -g arc_training arc_test`
+  - Default: All non-hidden subfolders inside `Generators/`
+  - Example: `python -m Framework.dataset_generator -g Generators/ARC-AGI-1/Train  Generators/ARC-AGI-1/Eval`
 
 - `-f, --generator_files`: Specify individual generator files to use
-  - Example: `python dataset_generator.py -f path/to/generator1.py path/to/generator2.py`
+  - Example: `python -m Framework.dataset_generator -f path/to/generator1.py path/to/generator2.py`
 
 - `-n, --nr_of_tasks`: Number of tasks to generate per generator
   - Default: 100
-  - Example: `python dataset_generator.py -n 50`
+  - Example: `python -m Framework.dataset_generator -n 50`
 
 - `-o, --output`: Output directory for generated datasets
   - Default: "datasets"
-  - Example: `python dataset_generator.py -o my_datasets`
+  - Example: `python -m Framework.dataset_generator -o my_datasets`
 
 #### Examples:
 
 Generate default number of tasks from all generators:
 ```bash
-python dataset_generator.py
+python -m Framework.dataset_generator
 ```
 
 Generate 50 tasks from specific folders:
 ```bash
-python dataset_generator.py -g arc_training arc_test -n 50
+python -m Framework.dataset_generator -g Generators/ARC-AGI-1/Train  Generators/ARC-AGI-1/Eval -n 50
 ```
 
 Generate tasks from specific generator files:
 ```bash
-python dataset_generator.py -f arc_training/task007bbfb7.py arc_test/task123abc4.py
+python -m Framework.dataset_generator -f Generators/ARC-AGI-1/Train/task0b148d64.py  Generators/ARC-AGI-1/Eval/task1a2e2828.py 
 ```
 
 Generate tasks from both folders and individual files:
 ```bash
-python dataset_generator.py -g arc_training -f custom_generators/special_task.py -n 100
+python -m Framework.dataset_generator -g Generators/ARC-AGI-1/Train -f  Generators/ARC-AGI-1/Eval/task1a2e2828.py -n 100
 ```
 
 Generate tasks with custom output location:
 ```bash
-python dataset_generator.py -o custom_datasets -n 200
+python -m Framework.dataset_generator -o custom_datasets -n 200
 ```
 
 The generator creates both individual CSV files for each folder and a combined 'all.csv' file in the output directory. Individual generator files are saved to an 'individual_files.csv' file.

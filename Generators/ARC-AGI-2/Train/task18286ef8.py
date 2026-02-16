@@ -1,4 +1,4 @@
-from arc_task_generator import ARCTaskGenerator, TrainTestData
+from Framework.arc_task_generator import ARCTaskGenerator, TrainTestData
 from typing import Dict, Any, Tuple
 import numpy as np
 import random

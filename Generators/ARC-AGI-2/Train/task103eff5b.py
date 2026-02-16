@@ -3,9 +3,9 @@ from typing import Dict, Any, Tuple, List
 
 import numpy as np
 
-from arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
-from input_library import Contiguity, retry
-from transformation_library import find_connected_objects, GridObject
+from Framework.arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
+from Framework.input_library import Contiguity, retry
+from Framework.transformation_library import find_connected_objects, GridObject
 
 
 class Task103eff5bGenerator(ARCTaskGenerator):

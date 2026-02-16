@@ -1,8 +1,8 @@
-from arc_task_generator import ARCTaskGenerator, TrainTestData
+from Framework.arc_task_generator import ARCTaskGenerator, TrainTestData
 import numpy as np
 import random
-from input_library import create_object, random_cell_coloring, Contiguity
-from transformation_library import find_connected_objects
+from Framework.input_library import create_object, random_cell_coloring, Contiguity
+from Framework.transformation_library import find_connected_objects
 
 class Task3bdb4adaGenerator(ARCTaskGenerator):
     def __init__(self):

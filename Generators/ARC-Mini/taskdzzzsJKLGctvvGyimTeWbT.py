@@ -2,12 +2,12 @@ import numpy as np
 import random
 
 # Required imports from the framework:
-from arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
+from Framework.arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
 # We may use functions from the transformation library to detect/transform objects
-from transformation_library import find_connected_objects
+from Framework.transformation_library import find_connected_objects
 # We use randomization utilities from the input library to ensure variety
 # though here we implement custom placement logic for 2x2 squares.
-# (We do not use any advanced object creation from input_library here, but we could if needed.)
+# (We do not use any advanced object creation from Framework.input_library here, but we could if needed.)
 
 class TaskdzzzsJKLGctvvGyimTeWbTGenerator(ARCTaskGenerator):
     def __init__(self):

@@ -1,14 +1,14 @@
-from arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
+from Framework.arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
 import numpy as np
 import random
 from typing import Dict, Any, Tuple
-# (Optional) import from transformation_library if you need transformations/detections
+# (Optional) import from Framework.transformation_library if you need transformations/detections
 # But here, we only need a simple fill of interior cells, so no complicated transformations are used.
-# from transformation_library import find_connected_objects, GridObject, GridObjects
+# from Framework.transformation_library import find_connected_objects, GridObject, GridObjects
 
-# (Optional) import from input_library if you need advanced random object creation
+# (Optional) import from Framework.input_library if you need advanced random object creation
 # But here, we only need a uniform fill, so we'll just create the array directly.
-# from input_library import create_object, retry, random_cell_coloring
+# from Framework.input_library import create_object, retry, random_cell_coloring
 
 class Task835KeL6Q7CdGEz9HhVZqmUGenerator(ARCTaskGenerator):
     def __init__(self):

@@ -1,12 +1,12 @@
 # rectangle_width_ordering_generator.py
-from arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
+from Framework.arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
 import numpy as np
 import random
 
 # Optional: You can import from the provided libraries if desired.
 # Below we use only Python's built-in random, but you could also do:
-# from input_library import create_object, retry, Contiguity
-# from transformation_library import find_connected_objects, GridObject, GridObjects
+# from Framework.input_library import create_object, retry, Contiguity
+# from Framework.transformation_library import find_connected_objects, GridObject, GridObjects
 
 class Taskc8748oGCfemZNKsbPPkagiGenerator(ARCTaskGenerator):
     def __init__(self):

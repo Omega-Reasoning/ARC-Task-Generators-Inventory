@@ -12,7 +12,7 @@ import numpy as np
 import random
 
 # Required imports from the provided framework
-from arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
+from Framework.arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
 
 
 class TaskPVSHqpkUWgoBxd5tR9xUo6Generator(ARCTaskGenerator):

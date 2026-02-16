@@ -1,5 +1,5 @@
-from arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
-from input_library import create_object
+from Framework.arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
+from Framework.input_library import create_object
 import numpy as np
 import random
 
