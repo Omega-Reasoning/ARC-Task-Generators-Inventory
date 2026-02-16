@@ -65,7 +65,7 @@ You have three options to use the generators described below:
 
 Run the Streamlit app to interactively test and visualize task generators:
 ```bash
-streamlit run app.py
+streamlit run Framework/app.py
 ```
 
 This allows you to select a generator, create new tasks using and view the output.

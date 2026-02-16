@@ -16,6 +16,12 @@ def load_task_generator(file_path):
         module_dir = os.path.dirname(os.path.abspath(file_path))
         if module_dir not in sys.path:
             sys.path.insert(0, module_dir)
+
+        # Also ensure project root (parent of this Framework folder) is on sys.path
+        # so imports like 'from Framework...' in generator files resolve correctly.
+        project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+        if project_root not in sys.path:
+            sys.path.insert(0, project_root)
         
         # Load the spec
         spec = importlib.util.spec_from_file_location(module_name, file_path)
@@ -95,8 +101,8 @@ def main():
     st.set_page_config(layout="wide") 
     st.title("ARC Task Generator Viewer")
 
-    # Get list of Python files in the project
-    base_path = os.path.dirname(os.path.abspath(__file__))
+    # Get list of Python files in the project (point to parent-level Generators folder)
+    base_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'Generators'))
     
     # Create a dictionary to store files by folder
     folder_files = {}
