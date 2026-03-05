@@ -325,220 +325,167 @@ class Task1ae2feb7Generator(ARCTaskGenerator):
                     grid[row, col] = color
 
     def transform_input(self, grid: np.ndarray, taskvars: Dict[str, Any]) -> np.ndarray:
-        """Transform the input grid according to the specified rules."""
-        # Create a copy of the input grid
+
+        import numpy as np
+
         output = grid.copy()
         height, width = grid.shape
-        
-        # Find the vertical line
-        line_color = taskvars['line_color']
+
+        # --------------------------------
+        # Find vertical line column
+        # --------------------------------
         line_col = None
-        
-        # If we cannot find the line with line_color, find it with any color in the first column
-        line_found = False
-        for col in range(width):
-            if np.sum(grid[:, col] > 0) > height / 3:  # If more than 1/3 of the cells in a column have color
-                line_col = col
-                line_found = True
+        for c in range(width):
+            if np.sum(grid[:, c] > 0) > height / 3:
+                line_col = c
                 break
-        
-        if not line_found:
-            return output  # Return unchanged if no vertical line found
-        
-        # Process each row to identify styles and apply transformations
+
+        if line_col is None:
+            return output
+
+        # --------------------------------
+        # Process rows
+        # --------------------------------
         for row in range(height):
-            if row >= grid.shape[0] or line_col >= grid.shape[1] or grid[row, line_col] == 0:
-                continue  # Skip if no vertical line in this row or if out of bounds
-            
-            # Check if there are colored cells to the left of the line
-            left_strip = grid[row, :line_col]
-            left_has_color = np.any(left_strip > 0)
-            
-            # Check if there are colored cells to the right of the line
-            right_strip = grid[row, line_col+1:] if line_col + 1 < width else np.array([])
-            right_has_color = len(right_strip) > 0 and np.any(right_strip > 0)
-            
-            # Apply transformations based on the side with strips
-            if left_has_color:
-                self._transform_left_strip(grid, output, row, line_col, width)
-            elif right_has_color:
-                self._transform_right_strip(grid, output, row, line_col)
-        
+
+            if grid[row, line_col] == 0:
+                continue
+
+            left = grid[row, :line_col]
+            right = grid[row, line_col+1:] if line_col+1 < width else np.array([])
+
+            left_has = np.any(left > 0)
+            right_has = right.size > 0 and np.any(right > 0)
+
+            # =====================================
+            # CASE 1 : STRIPS ON LEFT
+            # =====================================
+            if left_has:
+
+                nonzero = left[left > 0]
+
+                if nonzero.size == 0:
+                    continue
+
+                unique_colors = np.unique(nonzero)
+
+                # style detection
+                if nonzero.size == 1 and left[-1] > 0:
+                    style = 5
+                elif len(unique_colors) == 1 and left[0] > 0 and np.all(left > 0):
+                    style = 3
+                elif len(unique_colors) == 1:
+                    style = 1
+                elif len(unique_colors) == 2:
+                    if left[0] > 0:
+                        style = 6
+                    else:
+                        style = 4
+                else:
+                    style = 1
+
+                # ----------------------------
+                # Apply transformations
+                # ----------------------------
+                if style in [1,2,3]:
+
+                    color = nonzero[0]
+                    length = np.sum(left == color)
+
+                    for col in range(line_col+1, width):
+
+                        if (col-line_col-1) % max(1,length) == 0:
+                            output[row, col] = color
+                        else:
+                            output[row, col] = 0
+
+                elif style in [4,5]:
+
+                    if line_col > 0 and grid[row, line_col-1] > 0:
+
+                        color = grid[row, line_col-1]
+
+                        for col in range(line_col+1, width):
+                            output[row, col] = color
+
+                elif style == 6:
+
+                    colors = np.unique(nonzero)
+
+                    if len(colors) >= 2:
+
+                        a,b = colors[1], colors[0]
+
+                        idx = 0
+                        for col in range(line_col+1, width):
+
+                            output[row,col] = a if idx % 2 == 0 else b
+                            idx += 1
+
+            # =====================================
+            # CASE 2 : STRIPS ON RIGHT
+            # =====================================
+            elif right_has:
+
+                nonzero = right[right > 0]
+
+                if nonzero.size == 0:
+                    continue
+
+                unique_colors = np.unique(nonzero)
+
+                if nonzero.size == 1 and right[0] > 0:
+                    style = 5
+                elif len(unique_colors) == 1 and np.all(right > 0):
+                    style = 3
+                elif len(unique_colors) == 1:
+                    style = 1
+                elif len(unique_colors) == 2:
+                    if right[0] > 0:
+                        style = 6
+                    else:
+                        style = 4
+                else:
+                    style = 1
+
+                # ----------------------------
+                # Apply transformations
+                # ----------------------------
+                if style in [1,2,3]:
+
+                    color = nonzero[0]
+                    length = np.sum(right == color)
+
+                    for col in range(line_col-1, -1, -1):
+
+                        if (line_col-col-1) % max(1,length) == 0:
+                            output[row, col] = color
+                        else:
+                            output[row, col] = 0
+
+                elif style in [4,5]:
+
+                    if line_col+1 < width and grid[row,line_col+1] > 0:
+
+                        color = grid[row,line_col+1]
+
+                        for col in range(0,line_col):
+                            output[row,col] = color
+
+                elif style == 6:
+
+                    colors = np.unique(nonzero)
+
+                    if len(colors) >= 2:
+
+                        a,b = colors[1], colors[0]
+
+                        idx = 0
+                        for col in range(0,line_col):
+
+                            output[row,col] = a if idx % 2 == 0 else b
+                            idx += 1
+
         return output
     
-    def _transform_left_strip(self, grid, output, row, line_col, width):
-        """Apply transformation for strips on the left of the vertical line."""
-        left_strip = grid[row, :line_col]
-        
-        # Detect style
-        style = self._detect_style_left(grid, row, line_col)
-        
-        if style in [1, 2, 3]:
-            # Count cells in the horizontal strip
-            non_zero_cells = left_strip[left_strip > 0]
-            if len(non_zero_cells) > 0:
-                strip_color = non_zero_cells[0]  # Use the first color in the strip
-                strip_length = np.sum(left_strip == strip_color)
-                
-                # Apply pattern to the right
-                for col in range(line_col + 1, width):
-                    if (col - line_col - 1) % max(1, strip_length) == 0:
-                        output[row, col] = strip_color
-                    else:
-                        output[row, col] = 0
-        
-        elif style in [4, 5]:
-            # Get the color immediately before the vertical line
-            if line_col > 0 and grid[row, line_col - 1] > 0:
-                last_color = grid[row, line_col - 1]
-                
-                # Fill all cells to the right with this color
-                for col in range(line_col + 1, width):
-                    output[row, col] = last_color
-        
-        elif style == 6:
-            # Find the two colors in the pattern
-            unique_colors = np.unique(left_strip[left_strip > 0])
-            if len(unique_colors) >= 2:
-                color_a, color_b = unique_colors[1], unique_colors[0]  # color_a is the majority color, color_b is the first cell
-                
-                # Create checkerboard pattern to the right
-                col_idx = 0
-                for col in range(line_col + 1, width):
-                    output[row, col] = color_a if col_idx % 2 == 0 else color_b
-                    col_idx += 1
     
-    def _transform_right_strip(self, grid, output, row, line_col):
-        """Apply transformation for strips on the right of the vertical line."""
-        width = grid.shape[1]
-        right_strip = grid[row, line_col+1:] if line_col + 1 < width else np.array([])
-        
-        # Detect style
-        style = self._detect_style_right(grid, row, line_col)
-        
-        if style in [1, 2, 3]:
-            # Count cells in the horizontal strip
-            non_zero_cells = right_strip[right_strip > 0]
-            if len(non_zero_cells) > 0:
-                strip_color = non_zero_cells[0]  # Use the first color in the strip
-                strip_length = np.sum(right_strip == strip_color)
-                
-                # Apply pattern to the left
-                for col in range(line_col - 1, -1, -1):
-                    if (line_col - col - 1) % max(1, strip_length) == 0:
-                        output[row, col] = strip_color
-                    else:
-                        output[row, col] = 0
-        
-        elif style in [4, 5]:
-            # Get the color immediately after the vertical line
-            if line_col + 1 < width and grid[row, line_col + 1] > 0:
-                first_color = grid[row, line_col + 1]
-                
-                # Fill all cells to the left with this color
-                for col in range(0, line_col):
-                    output[row, col] = first_color
-        
-        elif style == 6:
-            # Find the two colors in the pattern
-            unique_colors = np.unique(right_strip[right_strip > 0])
-            if len(unique_colors) >= 2:
-                color_a, color_b = unique_colors[1], unique_colors[0]  # color_a is the majority color, color_b is the first cell
-                
-                # Create checkerboard pattern to the left
-                col_idx = 0
-                for col in range(0, line_col):
-                    output[row, col] = color_a if col_idx % 2 == 0 else color_b
-                    col_idx += 1
-    
-    def _detect_style_left(self, grid, row, line_col):
-        """Detect the style of a horizontal strip on the left of the vertical line."""
-        if line_col <= 0:
-            return 1  # Default to style 1 if there's no space to the left
-            
-        left_strip = grid[row, :line_col]
-        
-        # Style 5: Single colored cell exactly to the left of vertical line
-        if np.sum(left_strip > 0) == 1 and left_strip[-1] > 0:
-            return 5
-        
-        # Style 1: Single color strip with gap
-        if np.sum(left_strip > 0) > 0 and (left_strip.size == 0 or left_strip[-1] == 0):
-            return 1
-        
-        # Style 2: Single color strip from 2nd column, connected
-        if left_strip.size > 1 and left_strip[0] == 0 and np.all(left_strip[1:] > 0) and np.unique(left_strip[left_strip > 0]).size == 1:
-            return 2
-        
-        # Style 3: Single color strip from 1st column, connected
-        if left_strip.size > 0 and left_strip[0] > 0 and np.all(left_strip > 0) and np.unique(left_strip).size == 1:
-            return 3
-        
-        # Style 4: Two colors strip [a,a,...,b]
-        unique_colors = np.unique(left_strip[left_strip > 0])
-        if len(unique_colors) == 2 and left_strip.size > 0 and left_strip[-1] != 0 and left_strip[-1] != left_strip[0]:
-            # Check if all but the last are the same color
-            first_color = left_strip[np.where(left_strip > 0)[0][0]]
-            if np.all(left_strip[:-1][left_strip[:-1] > 0] == first_color) and left_strip[-1] != first_color:
-                return 4
-        
-        # Style 6: Two colors strip [b,a,...,a] starting from first column
-        if len(unique_colors) == 2 and left_strip[0] > 0:
-            first_color = left_strip[0]
-            # Check if all cells after the first are the same different color
-            other_color = None
-            for col in range(1, len(left_strip)):
-                if left_strip[col] > 0 and left_strip[col] != first_color:
-                    other_color = left_strip[col]
-                    break
-            
-            if other_color and np.all(left_strip[1:][left_strip[1:] > 0] == other_color):
-                return 6
-        
-        # Default to style 1 if can't determine
-        return 1
-    
-    def _detect_style_right(self, grid, row, line_col):
-        """Detect the style of a horizontal strip on the right of the vertical line."""
-        width = grid.shape[1]
-        if line_col + 1 >= width:
-            return 1  # Default to style 1 if there's no space to the right
-            
-        right_strip = grid[row, line_col+1:]
-        
-        # Style 5: Single colored cell exactly to the right of vertical line
-        if np.sum(right_strip > 0) == 1 and right_strip[0] > 0:
-            return 5
-        
-        # Style 1: Single color strip with gap
-        if np.sum(right_strip > 0) > 0 and right_strip[0] == 0:
-            return 1
-        
-        # Style 2: Single color strip starts immediately after line but doesn't reach the end
-        if right_strip[0] > 0 and (right_strip.size == 0 or right_strip[-1] == 0) and np.unique(right_strip[right_strip > 0]).size == 1:
-            return 2
-        
-        # Style 3: Single color strip fills the whole right side
-        if np.all(right_strip > 0) and np.unique(right_strip).size == 1:
-            return 3
-        
-        # Style 4: Two colors strip [b,a,a,...] - first cell b, rest a
-        unique_colors = np.unique(right_strip[right_strip > 0])
-        if len(unique_colors) == 2 and right_strip.size > 0 and right_strip[0] > 0:
-            # Check if first color is different from others
-            first_color = right_strip[0]
-            if np.any(right_strip[1:] > 0):
-                other_color = right_strip[np.where(right_strip[1:] > 0)[0][0] + 1]
-                if np.all(right_strip[1:][right_strip[1:] > 0] == other_color) and first_color != other_color:
-                    return 4
-        
-        # Style 6: Two colors strip [b,a,...,a] starting immediately after vertical line
-        if len(unique_colors) == 2 and right_strip[0] > 0:
-            first_color = right_strip[0]
-            if np.any(right_strip[1:] > 0):
-                other_color = right_strip[np.where(right_strip[1:] > 0)[0][0] + 1]
-                if np.all(right_strip[1:][right_strip[1:] > 0] == other_color) and first_color != other_color:
-                    return 6
-        
-        # Default to style 1 if can't determine
-        return 1

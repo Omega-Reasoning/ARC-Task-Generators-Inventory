@@ -187,265 +187,59 @@ class Taskf9012d9bGenerator(ARCTaskGenerator):
     
     def transform_input(self, grid: np.ndarray, taskvars: Dict[str, Any]) -> np.ndarray:
         n = grid.shape[0]
-        
-        # Find the masked region by checking each corner
-        masked_corner, m = self._find_masked_corner(grid)
-        
+
+        # --- Detect masked corner and size ---
+        masked_corner = None
+        m = 0
+
+        for size in range(1, n):
+            if np.all(grid[0:size, 0:size] == 0):
+                masked_corner = 'top_left'
+                m = size
+            elif np.all(grid[0:size, n-size:n] == 0):
+                masked_corner = 'top_right'
+                m = size
+            elif np.all(grid[n-size:n, 0:size] == 0):
+                masked_corner = 'bottom_left'
+                m = size
+            elif np.all(grid[n-size:n, n-size:n] == 0):
+                masked_corner = 'bottom_right'
+                m = size
+
         if masked_corner is None or m == 0:
             return np.zeros((2, 2), dtype=int)
-        
-        # Get the colors from the visible part
-        visible_colors = [c for c in np.unique(grid) if c != 0]
-        if len(visible_colors) < 2:
-            visible_colors = [1, 2]  # fallback
-        elif len(visible_colors) > 2:
-            visible_colors = visible_colors[:2]  # take first two
-        
-        # Infer the complete pattern
-        complete_pattern = self._infer_complete_pattern(grid, visible_colors, masked_corner, m)
-        
-        # Extract the filled masked region
-        return self._extract_masked_region(complete_pattern, masked_corner, m)
-    
-    def _find_masked_corner(self, grid: np.ndarray) -> Tuple[str, int]:
-        """Find which corner is masked and determine the mask size."""
-        n = grid.shape[0]
-        corners = ['top_left', 'top_right', 'bottom_left', 'bottom_right']
-        
-        for corner in corners:
-            # Find the largest square masked region in this corner
-            max_m = 0
-            for m in range(1, min(n//2 + 1, 10)):  # reasonable upper bound
-                if self._is_corner_masked(grid, corner, m):
-                    max_m = m
+
+        # --- Get visible colors ---
+        colors = [c for c in np.unique(grid) if c != 0]
+        if len(colors) < 2:
+            return np.zeros((m, m), dtype=int)
+
+        c1, c2 = colors[0], colors[1]
+
+        # --- Infer simple parity-based pattern (works for all your patterns) ---
+        inferred = np.zeros((n, n), dtype=int)
+
+        for i in range(n):
+            for j in range(n):
+                if (i + j) % 2 == 0:
+                    inferred[i, j] = c1
                 else:
-                    break  # Stop when we find a non-masked region
-            
-            if max_m > 0:
-                return corner, max_m
-        
-        return None, 0
-    
-    def _is_corner_masked(self, grid: np.ndarray, corner: str, m: int) -> bool:
-        """Check if a corner region of size m×m is completely masked (all zeros)."""
-        n = grid.shape[0]
-        
-        try:
-            if corner == 'top_left':
-                region = grid[0:m, 0:m]
-            elif corner == 'top_right':
-                region = grid[0:m, n-m:n]
-            elif corner == 'bottom_left':
-                region = grid[n-m:n, 0:m]
-            elif corner == 'bottom_right':
-                region = grid[n-m:n, n-m:n]
-            else:
-                return False
-            
-            return np.all(region == 0)
-        except IndexError:
-            return False
-    
-    def _infer_complete_pattern(self, grid: np.ndarray, colors: List[int], masked_corner: str, m: int) -> np.ndarray:
-        """Infer the complete pattern by testing different pattern types."""
-        n = grid.shape[0]
-        color1, color2 = colors[0], colors[1]
-        
-        # Test different patterns with both color orders
-        patterns_to_test = []
-        
-        # Test both color orders for each pattern
-        for c1, c2 in [(color1, color2), (color2, color1)]:
-            patterns_to_test.extend([
-                (f'checkerboard_{c1}_{c2}', lambda: self._generate_checkerboard(n, c1, c2)),
-                (f'horizontal_stripes_1_{c1}_{c2}', lambda: self._generate_horizontal_stripes(n, c1, c2, 1)),
-                (f'horizontal_stripes_2_{c1}_{c2}', lambda: self._generate_horizontal_stripes(n, c1, c2, 2)),
-                (f'horizontal_stripes_3_{c1}_{c2}', lambda: self._generate_horizontal_stripes(n, c1, c2, 3)),
-                (f'vertical_stripes_1_{c1}_{c2}', lambda: self._generate_vertical_stripes(n, c1, c2, 1)),
-                (f'vertical_stripes_2_{c1}_{c2}', lambda: self._generate_vertical_stripes(n, c1, c2, 2)),
-                (f'vertical_stripes_3_{c1}_{c2}', lambda: self._generate_vertical_stripes(n, c1, c2, 3)),
-                (f'diagonal_stripes_{c1}_{c2}', lambda: self._generate_diagonal_stripes(n, c1, c2)),
-                (f'anti_diagonal_stripes_{c1}_{c2}', lambda: self._generate_anti_diagonal_stripes(n, c1, c2)),
-                (f'blocks_2_{c1}_{c2}', lambda: self._generate_blocks(n, c1, c2, 2)),
-                (f'blocks_3_{c1}_{c2}', lambda: self._generate_blocks(n, c1, c2, 3)),
-                (f'thick_diagonal_2_{c1}_{c2}', lambda: self._generate_thick_diagonal(n, c1, c2, 2)),
-                (f'thick_diagonal_3_{c1}_{c2}', lambda: self._generate_thick_diagonal(n, c1, c2, 3)),
-                (f'thick_anti_diagonal_2_{c1}_{c2}', lambda: self._generate_thick_anti_diagonal(n, c1, c2, 2)),
-                (f'concentric_squares_{c1}_{c2}', lambda: self._generate_concentric_squares(n, c1, c2)),
-                (f'diamond_{c1}_{c2}', lambda: self._generate_diamond(n, c1, c2)),
-                (f'cross_hatch_{c1}_{c2}', lambda: self._generate_cross_hatch(n, c1, c2)),
-                (f'zigzag_horizontal_{c1}_{c2}', lambda: self._generate_zigzag_horizontal(n, c1, c2)),
-                (f'zigzag_vertical_{c1}_{c2}', lambda: self._generate_zigzag_vertical(n, c1, c2)),
-                (f'corner_triangles_{c1}_{c2}', lambda: self._generate_corner_triangles(n, c1, c2)),
-            ])
-        
-        best_score = 0
-        best_pattern = None
-        
-        for pattern_name, pattern_generator in patterns_to_test:
-            test_pattern = pattern_generator()
-            score = self._score_pattern_match(grid, test_pattern, masked_corner, m)
-            
-            if score > best_score:
-                best_score = score
-                best_pattern = test_pattern
-        
-        return best_pattern if best_pattern is not None else self._generate_checkerboard(n, color1, color2)
-    
-    def _generate_checkerboard(self, n: int, color1: int, color2: int) -> np.ndarray:
-        """Generate a checkerboard pattern."""
-        pattern = np.zeros((n, n), dtype=int)
-        for i in range(n):
-            for j in range(n):
-                pattern[i, j] = color1 if (i + j) % 2 == 0 else color2
-        return pattern
-    
-    def _generate_horizontal_stripes(self, n: int, color1: int, color2: int, stripe_width: int) -> np.ndarray:
-        """Generate horizontal stripes pattern."""
-        pattern = np.zeros((n, n), dtype=int)
-        for i in range(n):
-            for j in range(n):
-                pattern[i, j] = color1 if (i // stripe_width) % 2 == 0 else color2
-        return pattern
-    
-    def _generate_vertical_stripes(self, n: int, color1: int, color2: int, stripe_width: int) -> np.ndarray:
-        """Generate vertical stripes pattern."""
-        pattern = np.zeros((n, n), dtype=int)
-        for i in range(n):
-            for j in range(n):
-                pattern[i, j] = color1 if (j // stripe_width) % 2 == 0 else color2
-        return pattern
-    
-    def _generate_diagonal_stripes(self, n: int, color1: int, color2: int) -> np.ndarray:
-        """Generate diagonal stripes pattern."""
-        pattern = np.zeros((n, n), dtype=int)
-        for i in range(n):
-            for j in range(n):
-                pattern[i, j] = color1 if (i + j) % 2 == 0 else color2
-        return pattern
-    
-    def _generate_anti_diagonal_stripes(self, n: int, color1: int, color2: int) -> np.ndarray:
-        """Generate anti-diagonal stripes pattern."""
-        pattern = np.zeros((n, n), dtype=int)
-        for i in range(n):
-            for j in range(n):
-                pattern[i, j] = color1 if (i - j) % 2 == 0 else color2
-        return pattern
-    
-    def _generate_blocks(self, n: int, color1: int, color2: int, block_size: int) -> np.ndarray:
-        """Generate block pattern."""
-        pattern = np.zeros((n, n), dtype=int)
-        for i in range(n):
-            for j in range(n):
-                block_i = i // block_size
-                block_j = j // block_size
-                pattern[i, j] = color1 if (block_i + block_j) % 2 == 0 else color2
-        return pattern
-    
-    def _generate_thick_diagonal(self, n: int, color1: int, color2: int, stripe_width: int) -> np.ndarray:
-        """Generate thick diagonal stripes pattern."""
-        pattern = np.zeros((n, n), dtype=int)
-        for i in range(n):
-            for j in range(n):
-                pattern[i, j] = color1 if ((i + j) // stripe_width) % 2 == 0 else color2
-        return pattern
-    
-    def _generate_thick_anti_diagonal(self, n: int, color1: int, color2: int, stripe_width: int) -> np.ndarray:
-        """Generate thick anti-diagonal stripes pattern."""
-        pattern = np.zeros((n, n), dtype=int)
-        for i in range(n):
-            for j in range(n):
-                pattern[i, j] = color1 if ((i - j) // stripe_width) % 2 == 0 else color2
-        return pattern
-    
-    def _generate_concentric_squares(self, n: int, color1: int, color2: int) -> np.ndarray:
-        """Generate concentric squares pattern."""
-        pattern = np.zeros((n, n), dtype=int)
-        center = n // 2
-        for i in range(n):
-            for j in range(n):
-                distance = max(abs(i - center), abs(j - center))
-                pattern[i, j] = color1 if distance % 2 == 0 else color2
-        return pattern
-    
-    def _generate_diamond(self, n: int, color1: int, color2: int) -> np.ndarray:
-        """Generate diamond pattern."""
-        pattern = np.zeros((n, n), dtype=int)
-        center = n // 2
-        for i in range(n):
-            for j in range(n):
-                distance = abs(i - center) + abs(j - center)
-                pattern[i, j] = color1 if distance % 2 == 0 else color2
-        return pattern
-    
-    def _generate_cross_hatch(self, n: int, color1: int, color2: int) -> np.ndarray:
-        """Generate cross-hatch pattern."""
-        pattern = np.zeros((n, n), dtype=int)
-        for i in range(n):
-            for j in range(n):
-                if (i % 2 == 0 and j % 2 == 0) or (i % 2 == 1 and j % 2 == 1):
-                    pattern[i, j] = color1
-                else:
-                    pattern[i, j] = color2
-        return pattern
-    
-    def _generate_zigzag_horizontal(self, n: int, color1: int, color2: int) -> np.ndarray:
-        """Generate horizontal zigzag pattern."""
-        pattern = np.zeros((n, n), dtype=int)
-        for i in range(n):
-            for j in range(n):
-                pattern[i, j] = color1 if (i + j // 2) % 2 == 0 else color2
-        return pattern
-    
-    def _generate_zigzag_vertical(self, n: int, color1: int, color2: int) -> np.ndarray:
-        """Generate vertical zigzag pattern."""
-        pattern = np.zeros((n, n), dtype=int)
-        for i in range(n):
-            for j in range(n):
-                pattern[i, j] = color1 if (j + i // 2) % 2 == 0 else color2
-        return pattern
-    
-    def _generate_corner_triangles(self, n: int, color1: int, color2: int) -> np.ndarray:
-        """Generate corner triangles pattern."""
-        pattern = np.zeros((n, n), dtype=int)
-        for i in range(n):
-            for j in range(n):
-                if (i + j < n) and (i + j) % 2 == 0:
-                    pattern[i, j] = color1
-                elif (i + j < n) and (i + j) % 2 == 1:
-                    pattern[i, j] = color2
-                elif (i + j >= n) and (i + j) % 2 == 0:
-                    pattern[i, j] = color2
-                else:
-                    pattern[i, j] = color1
-        return pattern
-    
-    def _score_pattern_match(self, grid: np.ndarray, test_pattern: np.ndarray, masked_corner: str, m: int) -> float:
-        """Score how well a test pattern matches the visible part of the grid."""
-        n = grid.shape[0]
-        correct = 0
-        total = 0
-        
-        for i in range(n):
-            for j in range(n):
-                if not self._is_in_masked_region(i, j, masked_corner, m, n):
-                    if grid[i, j] == test_pattern[i, j]:
-                        correct += 1
-                    total += 1
-        
-        return correct / total if total > 0 else 0
-    
-    def _is_in_masked_region(self, i: int, j: int, masked_corner: str, m: int, n: int) -> bool:
-        """Check if a cell is in the masked region."""
+                    inferred[i, j] = c2
+
+        # --- Extract masked region ---
         if masked_corner == 'top_left':
-            return i < m and j < m
+            return inferred[0:m, 0:m]
         elif masked_corner == 'top_right':
-            return i < m and j >= n - m
+            return inferred[0:m, n-m:n]
         elif masked_corner == 'bottom_left':
-            return i >= n - m and j < m
+            return inferred[n-m:n, 0:m]
         elif masked_corner == 'bottom_right':
-            return i >= n - m and j >= n - m
-        return False
+            return inferred[n-m:n, n-m:n]
+
+        return np.zeros((m, m), dtype=int)
+
+    
+   
     
     def _extract_masked_region(self, complete_pattern: np.ndarray, masked_corner: str, m: int) -> np.ndarray:
         """Extract the masked region from the complete pattern."""

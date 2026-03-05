@@ -149,37 +149,142 @@ class Task3e6067c3Generator(ARCTaskGenerator):
         return grid
     
     def transform_input(self, grid: np.ndarray, taskvars: Dict[str, Any]) -> np.ndarray:
-        """Transform the input grid by creating paths between blocks according to the color sequence."""
-        # Create a copy of the input grid to modify
-        output_grid = grid.copy()
-        
-        # Get object color and background color
+
+        import numpy as np
+
+        output = grid.copy()
+
         object_color = taskvars['object_color']
         background_color = taskvars['background_color']
-        
-        # Retrieve block information and color sequence from globals
-        blocks_info = globals().get('blocks_info', [])
-        color_sequence = globals().get('color_sequence', [])
-        
-        if not blocks_info or not color_sequence:
-            # If we can't get block info from globals, try to detect them
-            blocks_info, color_sequence = self._detect_blocks_and_sequence(grid, object_color, background_color)
-        
-        # Create a mapping from interior color to block info
-        color_to_block = {block['interior_color']: block for block in blocks_info}
-        
-        # Create paths between blocks according to the color sequence
-        for i in range(len(color_sequence) - 1):
-            curr_color = color_sequence[i]
-            next_color = color_sequence[i+1]
-            
-            curr_block = color_to_block[curr_color]
-            next_block = color_to_block[next_color]
-            
-            # Create a path from current block to next block
-            self._create_path(output_grid, curr_block, next_block, curr_color, object_color, background_color)
-        
-        return output_grid
+
+        h, w = grid.shape
+
+        visited = np.zeros_like(grid, dtype=bool)
+        blocks = []
+
+        # ------------------------------------------------
+        # Detect square blocks and their interior colors
+        # ------------------------------------------------
+        for r in range(h):
+            for c in range(w):
+
+                if visited[r, c] or grid[r, c] != object_color:
+                    continue
+
+                stack = [(r, c)]
+                component = []
+
+                while stack:
+                    cr, cc = stack.pop()
+
+                    if not (0 <= cr < h and 0 <= cc < w):
+                        continue
+                    if visited[cr, cc]:
+                        continue
+                    if grid[cr, cc] != object_color:
+                        continue
+
+                    visited[cr, cc] = True
+                    component.append((cr, cc))
+
+                    stack.append((cr+1, cc))
+                    stack.append((cr-1, cc))
+                    stack.append((cr, cc+1))
+                    stack.append((cr, cc-1))
+
+                rows = [p[0] for p in component]
+                cols = [p[1] for p in component]
+
+                r0, r1 = min(rows), max(rows)
+                c0, c1 = min(cols), max(cols)
+
+                size = r1 - r0 + 1
+
+                if size not in [3,4,5]:
+                    continue
+
+                interior_color = None
+
+                for rr in range(r0, r1+1):
+                    for cc in range(c0, c1+1):
+                        if grid[rr,cc] not in [object_color, background_color]:
+                            interior_color = grid[rr,cc]
+                            break
+                    if interior_color is not None:
+                        break
+
+                if interior_color is None:
+                    continue
+
+                blocks.append({
+                    "position": (r0,c0),
+                    "size": size,
+                    "interior_color": interior_color
+                })
+
+        if not blocks:
+            return output
+
+        # ------------------------------------------------
+        # Read color sequence from second-last row
+        # ------------------------------------------------
+        sequence = []
+
+        for col in range(w):
+            color = grid[h-2, col]
+            if color != background_color:
+                sequence.append(color)
+
+        if len(sequence) < 2:
+            return output
+
+        color_to_block = {b["interior_color"]: b for b in blocks}
+
+        # ------------------------------------------------
+        # Helper to get block center
+        # ------------------------------------------------
+        def get_center(block):
+
+            r,c = block["position"]
+            s = block["size"]
+
+            if s % 2 == 1:
+                return (r + s//2, c + s//2)
+            else:
+                return (r + s//2 - 1, c + s//2 - 1)
+
+        # ------------------------------------------------
+        # Draw paths between blocks
+        # ------------------------------------------------
+        for i in range(len(sequence)-1):
+
+            c1 = sequence[i]
+            c2 = sequence[i+1]
+
+            if c1 not in color_to_block or c2 not in color_to_block:
+                continue
+
+            b1 = color_to_block[c1]
+            b2 = color_to_block[c2]
+
+            r1,c1 = get_center(b1)
+            r2,c2 = get_center(b2)
+
+            r,c = r1,c1
+
+            # horizontal move
+            while c != c2:
+                c += 1 if c2 > c else -1
+                if output[r,c] == background_color:
+                    output[r,c] = sequence[i]
+
+            # vertical move
+            while r != r2:
+                r += 1 if r2 > r else -1
+                if output[r,c] == background_color:
+                    output[r,c] = sequence[i]
+
+        return output
     
     def _generate_block_positions_six_blocks(self, height: int, width: int, block_size: int) -> List[Tuple[int, int]]:
         """Generate positions for 6 blocks: 3 in top row, 3 in bottom row."""
@@ -356,124 +461,3 @@ class Task3e6067c3Generator(ARCTaskGenerator):
             grid[row, col] = color
             col += 2  # Skip one cell for background color
     
-    def _detect_blocks_and_sequence(self, grid: np.ndarray, object_color: int, background_color: int) -> Tuple[List[Dict], List[int]]:
-        """Detect blocks and color sequence from the grid if not provided in globals."""
-        height, width = grid.shape
-        blocks_info = []
-        
-        # Find all connected objects with the object_color
-        objects = find_connected_objects(grid, diagonal_connectivity=True, background=background_color)
-        
-        # Filter for square objects with object_color
-        for obj in objects:
-            obj_colors = obj.colors
-            if object_color in obj_colors:
-                # Check if it's a square block
-                bbox = obj.bounding_box
-                h = bbox[0].stop - bbox[0].start
-                w = bbox[1].stop - bbox[1].start
-                
-                if h == w:  # It's a square
-                    # Find interior color
-                    interior_colors = [c for c in obj_colors if c != object_color]
-                    
-                    if interior_colors:
-                        interior_color = interior_colors[0]
-                        blocks_info.append({
-                            'position': (bbox[0].start, bbox[1].start),
-                            'interior_color': interior_color,
-                            'size': h
-                        })
-        
-        # Sort blocks by position (row first, then column)
-        blocks_info = sorted(blocks_info, key=lambda b: (b['position'][0], b['position'][1]))
-        
-        # Extract color sequence from the second-last row
-        color_sequence = []
-        second_last_row = grid[height-2, :]
-        for col in range(width):
-            if second_last_row[col] != background_color:
-                color_sequence.append(second_last_row[col])
-        
-        return blocks_info, color_sequence
-    
-    def _create_path(self, grid: np.ndarray, curr_block: Dict, next_block: Dict, 
-                    path_color: int, object_color: int, background_color: int) -> None:
-        """Create a path from current block to the next block using the specified color."""
-        # Get block positions and sizes
-        curr_pos = curr_block['position']
-        next_pos = next_block['position']
-        block_size = curr_block['size']
-        
-        path_width = 1
-        if block_size % 2 == 1:  # Odd size block (3x3, 5x5)
-            # Center of the single center cell
-            curr_center = (curr_pos[0] + block_size // 2, curr_pos[1] + block_size // 2)
-            next_center = (next_pos[0] + block_size // 2, next_pos[1] + block_size // 2)
-        else:  # Even size block (4x4)
-            # Center of the 2x2 interior (between the 4 center cells)
-            path_width = 2
-            curr_center = (curr_pos[0] + (block_size // 2) - 1, curr_pos[1] + (block_size // 2) - 1)
-            next_center = (next_pos[0] + (block_size // 2) - 1, next_pos[1] + (block_size // 2) - 1)
-        
-        # Determine if the path should be horizontal or vertical first
-        if curr_pos[0] == next_pos[0]:  # Same row, horizontal path
-            self._draw_horizontal_path(grid, curr_center, next_center, path_color, path_width, object_color, background_color)
-        
-        elif curr_pos[1] == next_pos[1]:  # Same column, vertical path
-            self._draw_vertical_path(grid, curr_center, next_center, path_color, path_width, object_color, background_color)
-        
-        else:  # Need both horizontal and vertical path
-            # Determine if we go horizontal first or vertical first
-            if random.choice([True, False]):
-                # Horizontal first, then vertical
-                midpoint = (curr_center[0], next_center[1])
-                self._draw_horizontal_path(grid, curr_center, midpoint, path_color, path_width, object_color, background_color)
-                self._draw_vertical_path(grid, midpoint, next_center, path_color, path_width, object_color, background_color)
-            else:
-                # Vertical first, then horizontal
-                midpoint = (next_center[0], curr_center[1])
-                self._draw_vertical_path(grid, curr_center, midpoint, path_color, path_width, object_color, background_color)
-                self._draw_horizontal_path(grid, midpoint, next_center, path_color, path_width, object_color, background_color)
-    
-    def _draw_horizontal_path(self, grid: np.ndarray, start: Tuple[float, float], end: Tuple[float, float], 
-                            color: int, width: int, object_color: int, background_color: int) -> None:
-        """Draw a horizontal path between two points."""
-        start_row, start_col = int(start[0]), int(start[1])
-        end_row, end_col = int(end[0]), int(end[1])
-        
-        # Ensure start is to the left of end
-        if start_col > end_col:
-            start_col, end_col = end_col, start_col
-        
-        # Draw horizontal line
-        for col in range(start_col, end_col + 1):
-            if width == 1:  # For 3x3 or 5x5 blocks
-                if 0 <= start_row < grid.shape[0] and grid[start_row, col] == background_color:
-                    grid[start_row, col] = color
-            else:  # For 4x4 blocks with 2x2 interior
-                for w in range(width):
-                    row = start_row + w
-                    if 0 <= row < grid.shape[0] and grid[row, col] == background_color:
-                        grid[row, col] = color
-    
-    def _draw_vertical_path(self, grid: np.ndarray, start: Tuple[float, float], end: Tuple[float, float], 
-                          color: int, width: int, object_color: int, background_color: int) -> None:
-        """Draw a vertical path between two points."""
-        start_row, start_col = int(start[0]), int(start[1])
-        end_row, end_col = int(end[0]), int(end[1])
-        
-        # Ensure start is above end
-        if start_row > end_row:
-            start_row, end_row = end_row, start_row
-        
-        # Draw vertical line
-        for row in range(start_row, end_row + 1):
-            if width == 1:  # For 3x3 or 5x5 blocks
-                if 0 <= start_col < grid.shape[1] and grid[row, start_col] == background_color:
-                    grid[row, start_col] = color
-            else:  # For 4x4 blocks with 2x2 interior
-                for w in range(width):
-                    col = start_col + w
-                    if 0 <= col < grid.shape[1] and grid[row, col] == background_color:
-                        grid[row, col] = color

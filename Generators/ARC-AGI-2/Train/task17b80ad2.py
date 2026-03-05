@@ -90,7 +90,30 @@ class Task17b80ad2Generator(ARCTaskGenerator):
         return grid
 
     def transform_input(self, grid: np.ndarray, taskvars: Dict[str, Any]) -> np.ndarray:
-        return self._fill_columns(grid, taskvars["cell_color"])
+        import numpy as np
+
+        cell_color = taskvars["cell_color"]
+
+        out = grid.copy()
+        h, w = out.shape
+
+        for col in range(w):
+
+            # only operate on columns whose last row contains the marker color
+            if out[h - 1, col] != cell_color:
+                continue
+
+            current_color = cell_color
+
+            # move upward filling cells
+            for row in range(h - 1, -1, -1):
+
+                if out[row, col] == 0:
+                    out[row, col] = current_color
+                else:
+                    current_color = out[row, col]
+
+        return out
 
    
     def create_grids(self) -> Tuple[Dict[str, Any], TrainTestData]:

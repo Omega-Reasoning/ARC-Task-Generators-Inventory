@@ -275,10 +275,67 @@ class Taskb527c5c6Generator(ARCTaskGenerator):
         output_grid = grid.copy()
         rectangle_color = taskvars['rectangle_color']
         single_color = taskvars['single_color']
-        
-        # Analyze grid to find rectangles and their properties
-        rectangles_info = self._analyze_rectangles(grid, rectangle_color, single_color)
-        
+
+        rectangles_info = []
+
+        # ---- INLINE _analyze_rectangles ----
+        single_positions = np.where(grid == single_color)
+
+        for i in range(len(single_positions[0])):
+            single_r = single_positions[0][i]
+            single_c = single_positions[1][i]
+
+            min_r = max_r = single_r
+            min_c = max_c = single_c
+
+            visited = set()
+            stack = [(single_r, single_c)]
+
+            while stack:
+                cr, cc = stack.pop()
+                if (cr, cc) in visited:
+                    continue
+                if cr < 0 or cr >= grid.shape[0] or cc < 0 or cc >= grid.shape[1]:
+                    continue
+                if grid[cr, cc] not in (rectangle_color, single_color):
+                    continue
+
+                visited.add((cr, cc))
+                min_r = min(min_r, cr)
+                max_r = max(max_r, cr)
+                min_c = min(min_c, cc)
+                max_c = max(max_c, cc)
+
+                for dr, dc in [(0,1), (0,-1), (1,0), (-1,0)]:
+                    stack.append((cr + dr, cc + dc))
+
+            height = max_r - min_r + 1
+            width = max_c - min_c + 1
+
+            if height > width:  # vertical
+                side = 'left' if single_c == min_c else 'right'
+                rectangles_info.append({
+                    'start_row': min_r,
+                    'start_col': min_c,
+                    'width': width,
+                    'single_row': single_r,
+                    'single_col': single_c,
+                    'single_side': side,
+                    'orientation': 'vertical'
+                })
+            else:  # horizontal
+                side = 'top' if single_r == min_r else 'bottom'
+                rectangles_info.append({
+                    'start_row': min_r,
+                    'start_col': min_c,
+                    'width': height,
+                    'single_row': single_r,
+                    'single_col': single_c,
+                    'single_side': side,
+                    'orientation': 'horizontal'
+                })
+
+        # ---- APPLY TRANSFORMATION ----
         for rect_info in rectangles_info:
             single_row = rect_info['single_row']
             single_col = rect_info['single_col']
@@ -287,61 +344,33 @@ class Taskb527c5c6Generator(ARCTaskGenerator):
             width = rect_info['width']
             start_row = rect_info['start_row']
             start_col = rect_info['start_col']
-            
+
             if orientation == 'vertical':
-                # Calculate the range [j - (width-1), j + (width-1)]
                 range_start = max(0, single_row - (width - 1))
                 range_end = min(grid.shape[0] - 1, single_row + (width - 1))
-                
+
                 if single_side == 'left':
-                    # Fill columns to the left of rectangle
                     for r in range(range_start, range_end + 1):
                         for c in range(0, start_col):
-                            if r == single_row:
-                                # Row j gets single_cell color
-                                output_grid[r, c] = single_color
-                            else:
-                                # Other rows get rectangle color
-                                output_grid[r, c] = rectangle_color
-                                
-                else:  # right side
-                    # Fill columns to the right of rectangle
+                            output_grid[r, c] = single_color if r == single_row else rectangle_color
+                else:
                     for r in range(range_start, range_end + 1):
                         for c in range(start_col + width, grid.shape[1]):
-                            if r == single_row:
-                                # Row j gets single_cell color
-                                output_grid[r, c] = single_color
-                            else:
-                                # Other rows get rectangle color
-                                output_grid[r, c] = rectangle_color
-                                
-            else:  # horizontal rectangle
-                # Calculate the range [i - (width-1), i + (width-1)]
+                            output_grid[r, c] = single_color if r == single_row else rectangle_color
+
+            else:  # horizontal
                 range_start = max(0, single_col - (width - 1))
                 range_end = min(grid.shape[1] - 1, single_col + (width - 1))
-                
+
                 if single_side == 'top':
-                    # Fill rows above rectangle
                     for c in range(range_start, range_end + 1):
                         for r in range(0, start_row):
-                            if c == single_col:
-                                # Column i gets single_cell color
-                                output_grid[r, c] = single_color
-                            else:
-                                # Other columns get rectangle color
-                                output_grid[r, c] = rectangle_color
-                                
-                else:  # bottom side
-                    # Fill rows below rectangle
+                            output_grid[r, c] = single_color if c == single_col else rectangle_color
+                else:
                     for c in range(range_start, range_end + 1):
                         for r in range(start_row + width, grid.shape[0]):
-                            if c == single_col:
-                                # Column i gets single_cell color
-                                output_grid[r, c] = single_color
-                            else:
-                                # Other columns get rectangle color
-                                output_grid[r, c] = rectangle_color
-        
+                            output_grid[r, c] = single_color if c == single_col else rectangle_color
+
         return output_grid
 
     def _analyze_rectangles(self, grid: np.ndarray, rectangle_color: int, single_color: int) -> list:

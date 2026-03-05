@@ -234,99 +234,75 @@ class Task15113be4Generator(ARCTaskGenerator):
         return retry(generator, is_different)
     
     def transform_input(self, grid, taskvars):
-        """Main transformation function that orchestrates the shape matching process"""
+       
+
+        grid_size = taskvars['grid_size']
+        object_color = taskvars['object_color']
+        ref_color = taskvars['ref_color']
+
         output_grid = grid.copy()
-        
-        # Extract reference shape pattern from the 6x6 subgrid in the current grid
-        reference_pattern = self._extract_reference_pattern_from_grid(grid, taskvars['ref_color'], taskvars['grid_size'])
-        
-        # Find all valid 3x3 subgrids and process them efficiently
-        valid_subgrids = self._find_processable_3x3_subgrids(grid, taskvars['grid_size'], taskvars['ref_color'])
-        
-        # Process each valid subgrid for shape matching and recoloring
-        for subgrid_info in valid_subgrids:
-            self._process_subgrid_for_shape_matching(output_grid, grid, subgrid_info, reference_pattern, taskvars['object_color'], taskvars['ref_color'])
-        
-        return output_grid
-    
-    def _extract_reference_pattern_from_grid(self, grid, ref_color, grid_size):
-        """Extract the reference shape pattern from the 6x6 subgrid in the current grid"""
+
         full_size = 4 * grid_size + 3
-        
-        # Find the 6x6 subgrid by looking for the ref_color
+
+        # --------------------------------------------------
+        # Step 1: locate the 6×6 reference object
+        # --------------------------------------------------
         corner_positions = [
-            (0, 0),  # top-left
-            (0, full_size - 8),  # top-right
-            (full_size - 8, 0),  # bottom-left
-            (full_size - 8, full_size - 8)  # bottom-right
+            (0, 0),
+            (0, full_size - 8),
+            (full_size - 8, 0),
+            (full_size - 8, full_size - 8)
         ]
-        
-        for frame_start_row, frame_start_col in corner_positions:
-            # Check if this position contains the 6x6 subgrid with ref_color
-            if (frame_start_row + 8 <= full_size and frame_start_col + 8 <= full_size):
-                subgrid_6x6 = grid[frame_start_row+1:frame_start_row+7, frame_start_col+1:frame_start_col+7]
-                if ref_color in subgrid_6x6:
-                    # Found the 6x6 subgrid, now extract the 3x3 pattern
-                    pattern_3x3 = self._scale_down_6x6_to_3x3(subgrid_6x6, ref_color)
-                    return set(zip(*np.where(pattern_3x3 != 0)))
-        
-        # If no 6x6 subgrid found, return empty set
-        return set()
-    
-    def _scale_down_6x6_to_3x3(self, subgrid_6x6, ref_color):
-        """Scale down a 6x6 subgrid to extract the original 3x3 pattern"""
-        pattern_3x3 = np.zeros((3, 3), dtype=int)
-        
-        for r in range(3):
-            for c in range(3):
-                # Check if the 2x2 block in the 6x6 subgrid contains the ref_color
-                block_2x2 = subgrid_6x6[2*r:2*r+2, 2*c:2*c+2]
-                if ref_color in block_2x2:
-                    pattern_3x3[r, c] = 1  # Use 1 to indicate presence
-        
-        return pattern_3x3
-    
-    def _find_processable_3x3_subgrids(self, grid, grid_size, ref_color):
-        """Find all valid 3x3 subgrids that should be processed for transformation"""
-        processable_subgrids = []
-        
-        for r in range(grid_size + 1):
-            for c in range(grid_size + 1):
-                start_row = r * 4
-                start_col = c * 4
-                
-                # Skip if subgrid would go beyond grid boundaries
+
+        reference_pattern = set()
+
+        for fr, fc in corner_positions:
+
+            if fr + 8 <= full_size and fc + 8 <= full_size:
+
+                sub6 = grid[fr+1:fr+7, fc+1:fc+7]
+
+                if ref_color in sub6:
+
+                    pattern = np.zeros((3,3), dtype=int)
+
+                    for r in range(3):
+                        for c in range(3):
+
+                            block = sub6[2*r:2*r+2, 2*c:2*c+2]
+
+                            if ref_color in block:
+                                pattern[r,c] = 1
+
+                    reference_pattern = set(zip(*np.where(pattern != 0)))
+                    break
+
+        # --------------------------------------------------
+        # Step 2: scan all 3×3 subgrids
+        # --------------------------------------------------
+        for gr in range(grid_size + 1):
+            for gc in range(grid_size + 1):
+
+                start_row = gr * 4
+                start_col = gc * 4
+
                 if start_row + 3 > grid.shape[0] or start_col + 3 > grid.shape[1]:
                     continue
-                
-                # Extract and validate subgrid in one step
-                subgrid = grid[start_row:start_row+3, start_col:start_col+3]
-                
-                # Check if subgrid is valid for processing
-                if subgrid.shape == (3, 3) and ref_color not in subgrid:
-                    subgrid_info = {
-                        'grid_row': r,
-                        'grid_col': c,
-                        'start_row': start_row,
-                        'start_col': start_col,
-                        'subgrid': subgrid  # Store the subgrid to avoid re-extraction
-                    }
-                    processable_subgrids.append(subgrid_info)
-        
-        return processable_subgrids
-    
-    def _process_subgrid_for_shape_matching(self, output_grid, input_grid, subgrid_info, reference_pattern, object_color, ref_color):
-        """Process a single subgrid: check for shape matching and recolor if needed"""
-        # Extract object cells from the stored subgrid
-        subgrid = subgrid_info['subgrid']
-        object_cells_in_subgrid = set(zip(*np.where(subgrid == object_color)))
-        
-        # Check if object contains all reference pattern cells (shape matching)
-        if reference_pattern.issubset(object_cells_in_subgrid):
-            # Recolor the matching reference shape cells
-            start_row = subgrid_info['start_row']
-            start_col = subgrid_info['start_col']
-            
-            for pattern_r, pattern_c in reference_pattern:
-                output_grid[start_row + pattern_r, start_col + pattern_c] = ref_color
 
+                subgrid = grid[start_row:start_row+3, start_col:start_col+3]
+
+                if ref_color in subgrid:
+                    continue
+
+                object_cells = set(zip(*np.where(subgrid == object_color)))
+
+                # --------------------------------------------------
+                # Step 3: shape matching
+                # --------------------------------------------------
+                if reference_pattern.issubset(object_cells):
+
+                    for r, c in reference_pattern:
+                        output_grid[start_row + r, start_col + c] = ref_color
+
+        return output_grid
+    

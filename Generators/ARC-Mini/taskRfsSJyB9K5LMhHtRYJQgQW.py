@@ -133,26 +133,18 @@ class TaskRfsSJyB9K5LMhHtRYJQgQWGenerator(ARCTaskGenerator):
         
         return grid
 
-    def transform_input(self, grid: np.ndarray, taskvars: Dict[str, Any]) -> np.ndarray:
-        """
-        According to the transformation reasoning chain:
-        1) Copy the input grid
-        2) Fill the empty (0) interior of each frame:
-           - If the frame is object_color1 => fill with object_color2
-           - If the frame is object_color2 => fill with object_color4
-        """
+    def transform_input(self, grid, taskvars):
+
         object_color1 = taskvars['object_color1']
         object_color2 = taskvars['object_color2']
         object_color3 = taskvars['object_color3']
         object_color4 = taskvars['object_color4']
-        
+
         out_grid = grid.copy()
-        
-        # Detect frame color by looking at any non-zero cell (all frames in this example are same color).
-        # Because we only create a single frame, we can detect it from the first non-zero cell found.
-        # If you wanted multiple frames, you'd detect them more carefully.
-        frame_color = None
         rows, cols = out_grid.shape
+
+        # Detect frame color
+        frame_color = None
         for r in range(rows):
             for c in range(cols):
                 if out_grid[r, c] != 0:
@@ -160,29 +152,44 @@ class TaskRfsSJyB9K5LMhHtRYJQgQWGenerator(ARCTaskGenerator):
                     break
             if frame_color is not None:
                 break
-        
+
         if frame_color is None:
-            # No frame found => nothing to do
             return out_grid
-        
+
+        # Determine fill color
         if frame_color == object_color1:
             fill_color = object_color3
         else:
-            # If we followed the instructions strictly, we only expect frames of color1 or color2
-            # If it's not color1, treat it as color2 for fill logic
             fill_color = object_color4
 
-        # Fill the interior by bounding box approach:
-        # Find the bounding box of the frame
-        top, left, bottom, right = self._find_frame_bounding_box(out_grid, frame_color)
-        
-        # Fill the interior
-        # (Guard for the case top+1 < bottom and left+1 < right)
-        for rr in range(top+1, bottom):
-            for cc in range(left+1, right):
-                if out_grid[rr, cc] == 0:
-                    out_grid[rr, cc] = fill_color
-        
+        # --------------------------------
+        # Find bounding box of frame
+        # --------------------------------
+        top = rows
+        left = cols
+        bottom = -1
+        right = -1
+
+        for r in range(rows):
+            for c in range(cols):
+                if out_grid[r, c] == frame_color:
+                    if r < top:
+                        top = r
+                    if r > bottom:
+                        bottom = r
+                    if c < left:
+                        left = c
+                    if c > right:
+                        right = c
+
+        # --------------------------------
+        # Fill interior
+        # --------------------------------
+        for r in range(top + 1, bottom):
+            for c in range(left + 1, right):
+                if out_grid[r, c] == 0:
+                    out_grid[r, c] = fill_color
+
         return out_grid
 
     def _find_frame_bounding_box(self, grid: np.ndarray, color: int) -> Tuple[int, int, int, int]:

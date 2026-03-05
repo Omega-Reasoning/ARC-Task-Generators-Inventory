@@ -627,45 +627,119 @@ class Task0a2355a6Generator(ARCTaskGenerator):
         return grid
     
     def transform_input(self, grid, taskvars):
-        # Create a copy of the input grid
         output_grid = grid.copy()
-        
+
         object_color = taskvars['object_color']
         change_color1 = taskvars['change_color1']
         change_color2 = taskvars['change_color2']
         change_color3 = taskvars['change_color3']
         change_color4 = taskvars['change_color4']
-        
-        # Find all connected objects of object_color
-        objects = find_connected_objects(grid, diagonal_connectivity=False, background=0, monochromatic=True)
-        
-        # Filter objects of the target color
-        color_objects = objects.filter(lambda obj: object_color in obj.colors)
-        
-        # Process each object
-        for obj in color_objects:
-            # Extract object coordinates
-            obj_coords = [(r, c) for r, c, _ in obj.cells]
-            
-            # Count enclosed regions
-            num_regions = self.count_enclosed_regions(grid, obj_coords)
-            
-            # Recolor the object based on the number of enclosed regions
-            if num_regions == 1:
-                new_color = change_color1
-            elif num_regions == 2:
-                new_color = change_color2
-            elif num_regions == 3:
-                new_color = change_color3
-            elif num_regions == 4:
-                new_color = change_color4
-            else:
-                # Keep original color if more than 4 regions or 0 regions (shouldn't happen)
-                new_color = object_color
-                
-            # Apply the new color
-            for r, c, _ in obj.cells:
-                output_grid[r, c] = new_color
-                
-        return output_grid
 
+        rows, cols = grid.shape
+        visited = np.zeros_like(grid, dtype=bool)
+
+        # ---- find connected components manually (4-way) ----
+        for r in range(rows):
+            for c in range(cols):
+
+                if visited[r, c] or grid[r, c] != object_color:
+                    continue
+
+                # BFS to collect object cells
+                stack = [(r, c)]
+                obj_cells = []
+
+                while stack:
+                    cr, cc = stack.pop()
+
+                    if (cr < 0 or cr >= rows or
+                        cc < 0 or cc >= cols or
+                        visited[cr, cc] or
+                        grid[cr, cc] != object_color):
+                        continue
+
+                    visited[cr, cc] = True
+                    obj_cells.append((cr, cc))
+
+                    stack.extend([
+                        (cr+1, cc),
+                        (cr-1, cc),
+                        (cr, cc+1),
+                        (cr, cc-1)
+                    ])
+
+                # ---- count enclosed regions inline ----
+
+                # build mask of this object only
+                temp = np.zeros_like(grid)
+                for rr, cc in obj_cells:
+                    temp[rr, cc] = 1
+
+                padded = np.pad(temp, 1, constant_values=0)
+                outside = np.zeros_like(padded, dtype=bool)
+
+                # mark padded border as outside
+                outside[0, :] = True
+                outside[-1, :] = True
+                outside[:, 0] = True
+                outside[:, -1] = True
+
+                queue = [(i, j) for i in range(padded.shape[0])
+                        for j in range(padded.shape[1])
+                        if outside[i, j]]
+
+                while queue:
+                    pr, pc = queue.pop()
+                    for dr, dc in [(1,0),(-1,0),(0,1),(0,-1)]:
+                        nr, nc = pr+dr, pc+dc
+                        if (0 <= nr < padded.shape[0] and
+                            0 <= nc < padded.shape[1] and
+                            not outside[nr, nc] and
+                            padded[nr, nc] == 0):
+                            outside[nr, nc] = True
+                            queue.append((nr, nc))
+
+                outside = outside[1:-1, 1:-1]
+
+                enclosed = (grid == 0) & (~outside)
+
+                # count connected enclosed regions (4-way)
+                enclosed_visited = np.zeros_like(enclosed, dtype=bool)
+                region_count = 0
+
+                for i in range(rows):
+                    for j in range(cols):
+                        if enclosed[i, j] and not enclosed_visited[i, j]:
+                            region_count += 1
+                            stack2 = [(i, j)]
+                            while stack2:
+                                rr2, cc2 = stack2.pop()
+                                if (rr2 < 0 or rr2 >= rows or
+                                    cc2 < 0 or cc2 >= cols or
+                                    enclosed_visited[rr2, cc2] or
+                                    not enclosed[rr2, cc2]):
+                                    continue
+                                enclosed_visited[rr2, cc2] = True
+                                stack2.extend([
+                                    (rr2+1, cc2),
+                                    (rr2-1, cc2),
+                                    (rr2, cc2+1),
+                                    (rr2, cc2-1)
+                                ])
+
+                # ---- recolor based on region count ----
+                if region_count == 1:
+                    new_color = change_color1
+                elif region_count == 2:
+                    new_color = change_color2
+                elif region_count == 3:
+                    new_color = change_color3
+                elif region_count == 4:
+                    new_color = change_color4
+                else:
+                    new_color = object_color
+
+                for rr, cc in obj_cells:
+                    output_grid[rr, cc] = new_color
+
+        return output_grid

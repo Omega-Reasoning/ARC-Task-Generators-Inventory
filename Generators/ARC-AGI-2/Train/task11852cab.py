@@ -373,69 +373,100 @@ class Task11852cabGenerator(ARCTaskGenerator):
         return grid
     
     def transform_input(self, grid: np.ndarray, taskvars: Dict[str, Any]) -> np.ndarray:
-        """Transform input by completing the checkerboard pattern."""
         grid_size = taskvars['grid_size']
         subgrid_size = grid_size // 2
         output_grid = grid.copy()
-        
-        # Calculate center position for subgrid
+
         start_row = (grid_size - subgrid_size) // 2
         start_col = (grid_size - subgrid_size) // 2
-        center_row = start_row + subgrid_size // 2
-        center_col = start_col + subgrid_size // 2
+
         center = subgrid_size // 2
-        
-        # Analyze existing pattern to determine colors for each layer
-        colors_by_layer_and_position = {}
-        
+        center_row = start_row + center
+        center_col = start_col + center
+
+        colors_by_layer = {}
+
+        # --- Collect existing colors per layer ---
         for r in range(start_row, start_row + subgrid_size):
             for c in range(start_col, start_col + subgrid_size):
+
+                val = output_grid[r, c]
+                if val == 0:
+                    continue
+
+                layer = max(abs(r - center_row), abs(c - center_col))
+
+                r_local = r - start_row
+                c_local = c - start_col
+
+                # Inline corner check
+                if layer == 0:
+                    is_corner = False
+                else:
+                    min_r = center - layer
+                    max_r = center + layer
+                    min_c = center - layer
+                    max_c = center + layer
+                    is_corner = ((r_local == min_r or r_local == max_r) and
+                                (c_local == min_c or c_local == max_c))
+
+                if layer not in colors_by_layer:
+                    colors_by_layer[layer] = {'corner': set(), 'other': set()}
+
+                if is_corner:
+                    colors_by_layer[layer]['corner'].add(val)
+                else:
+                    colors_by_layer[layer]['other'].add(val)
+
+        # --- Fill missing checkerboard cells ---
+        for r in range(start_row, start_row + subgrid_size):
+            for c in range(start_col, start_col + subgrid_size):
+
                 if output_grid[r, c] != 0:
-                    layer = max(abs(r - center_row), abs(c - center_col))
-                    is_corner = self._is_corner_of_layer(r - start_row, c - start_col, center, layer)
-                    
-                    if layer not in colors_by_layer_and_position:
-                        colors_by_layer_and_position[layer] = {'corner': set(), 'other': set()}
-                    
-                    if is_corner:
-                        colors_by_layer_and_position[layer]['corner'].add(output_grid[r, c])
+                    continue
+
+                # Only fill checkerboard-valid positions
+                if (r + c - start_row - start_col) % 2 != 0:
+                    continue
+
+                layer = max(abs(r - center_row), abs(c - center_col))
+
+                r_local = r - start_row
+                c_local = c - start_col
+
+                # Inline corner check again
+                if layer == 0:
+                    is_corner = False
+                else:
+                    min_r = center - layer
+                    max_r = center + layer
+                    min_c = center - layer
+                    max_c = center + layer
+                    is_corner = ((r_local == min_r or r_local == max_r) and
+                                (c_local == min_c or c_local == max_c))
+
+                if layer in colors_by_layer:
+                    if is_corner and colors_by_layer[layer]['corner']:
+                        output_grid[r, c] = next(iter(colors_by_layer[layer]['corner']))
+                    elif not is_corner and colors_by_layer[layer]['other']:
+                        output_grid[r, c] = next(iter(colors_by_layer[layer]['other']))
                     else:
-                        colors_by_layer_and_position[layer]['other'].add(output_grid[r, c])
-        
-        # Fill missing cells based on checkerboard pattern and layer structure
-        for r in range(start_row, start_row + subgrid_size):
-            for c in range(start_col, start_col + subgrid_size):
-                if output_grid[r, c] == 0 and (r + c - start_row - start_col) % 2 == 0:  # Should be colored
-                    layer = max(abs(r - center_row), abs(c - center_col))
-                    is_corner = self._is_corner_of_layer(r - start_row, c - start_col, center, layer)
-                    
-                    if layer in colors_by_layer_and_position:
-                        if is_corner and colors_by_layer_and_position[layer]['corner']:
-                            # Use corner color
-                            color = list(colors_by_layer_and_position[layer]['corner'])[0]
-                            output_grid[r, c] = color
-                        elif not is_corner and colors_by_layer_and_position[layer]['other']:
-                            # Use other color
-                            color = list(colors_by_layer_and_position[layer]['other'])[0]
-                            output_grid[r, c] = color
-                        else:
-                            # Fallback: use any available color from this layer
-                            all_colors = colors_by_layer_and_position[layer]['corner'] | colors_by_layer_and_position[layer]['other']
-                            if all_colors:
-                                output_grid[r, c] = list(all_colors)[0]
-                    else:
-                        # No existing colors in this layer - infer from adjacent layers
-                        best_color = 1  # Default
-                        min_layer_diff = float('inf')
-                        
-                        for existing_layer, layer_info in colors_by_layer_and_position.items():
-                            layer_diff = abs(existing_layer - layer)
-                            if layer_diff < min_layer_diff:
-                                all_colors = layer_info['corner'] | layer_info['other']
-                                if all_colors:
-                                    min_layer_diff = layer_diff
-                                    best_color = list(all_colors)[0]
-                        
-                        output_grid[r, c] = best_color
-        
+                        combined = colors_by_layer[layer]['corner'] | colors_by_layer[layer]['other']
+                        if combined:
+                            output_grid[r, c] = next(iter(combined))
+                else:
+                    # Fallback: borrow color from nearest existing layer
+                    best_color = 1
+                    min_diff = float('inf')
+
+                    for existing_layer, info in colors_by_layer.items():
+                        diff = abs(existing_layer - layer)
+                        if diff < min_diff:
+                            combined = info['corner'] | info['other']
+                            if combined:
+                                min_diff = diff
+                                best_color = next(iter(combined))
+
+                    output_grid[r, c] = best_color
+
         return output_grid

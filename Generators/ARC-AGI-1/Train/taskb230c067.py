@@ -200,47 +200,57 @@ class Taskb230c067Generator(ARCTaskGenerator):
         return grid
 
     def transform_input(self, grid, taskvars):
-        """Transform input by coloring identical and different objects with different colors."""
         same_color = taskvars["same_color"]
         different_color = taskvars["different_color"]
-        output_grid = np.zeros_like(grid)  # Start with empty grid
-        
+
+        output_grid = np.zeros_like(grid)
         objects = find_connected_objects(grid, diagonal_connectivity=False)
-        
+
         if len(objects) != 3:
-            return grid.copy()  # Should have exactly 3 objects
-        
-        # Find the different object and the identical objects by comparing shapes
+            return grid.copy()
+
+        # Normalize arrays inline (NO helper function)
         object_arrays = []
         for obj in objects:
             arr = obj.to_array()
-            object_arrays.append((arr, obj))
-        
-        # Classify objects as identical or different
+
+            if arr.size == 0:
+                norm = arr
+            else:
+                non_zero_rows = np.any(arr != 0, axis=1)
+                non_zero_cols = np.any(arr != 0, axis=0)
+
+                if not np.any(non_zero_rows) or not np.any(non_zero_cols):
+                    norm = np.array([[]])
+                else:
+                    norm = arr[non_zero_rows][:, non_zero_cols]
+
+            object_arrays.append((norm, obj))
+
         identical_objects = []
         different_objects = []
-        
+
         for i, (arr1, obj1) in enumerate(object_arrays):
             matches = 0
             for j, (arr2, _) in enumerate(object_arrays):
-                if i != j and self.objects_are_identical(arr1, arr2):
+                if i == j:
+                    continue
+                if arr1.shape == arr2.shape and np.array_equal(arr1, arr2):
                     matches += 1
-            
-            if matches == 1:  # This object has exactly one match (part of identical pair)
+
+            if matches == 1:
                 identical_objects.append(obj1)
-            elif matches == 0:  # This object has no matches (unique/different)
+            elif matches == 0:
                 different_objects.append(obj1)
-        
-        # Color the identical objects with same_color
+
         for obj in identical_objects:
             for r, c, _ in obj:
                 output_grid[r, c] = same_color
-        
-        # Color the different object with different_color
+
         for obj in different_objects:
             for r, c, _ in obj:
                 output_grid[r, c] = different_color
-        
+
         return output_grid
     
     def create_grids(self) -> tuple[dict, dict]:

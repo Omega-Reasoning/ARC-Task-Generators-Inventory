@@ -416,253 +416,165 @@ class Task195c6913Generator(ARCTaskGenerator):
             grid[selected_row, 0] = cell_color
     
     def transform_input(self, grid, taskvars):
-        """Apply the path-building transformation"""
-        output_grid = grid.copy()
-        grid_size = grid.shape[0]
-        
-        # Identify colors properly
-        background_color = self._identify_background_color(grid)
-        blob_color = self._identify_blob_color(grid, background_color)
-        
-        # Get 2x2 block colors from positions and bottom-right block color
-        block_colors = self._get_block_colors(grid, grid_size)
-        bottom_right_color = self._get_bottom_right_block_color(grid, grid_size)
-        
-        # Store block positions before transformation
-        block_positions = self._get_all_block_positions(grid, grid_size)
-        
-        # Find starting cell (single colored cell in first column that matches first block color)
-        start_position = self._find_start_position(grid, block_colors[0] if block_colors else None, blob_color)
-        
-        # Build the path from the starting position
-        if start_position and block_colors:
-            self._build_path(output_grid, start_position[0], start_position[1], block_colors, blob_color, background_color, bottom_right_color)
-        
-        # FINAL STEP: Remove all 2x2 blocks and replace with background color
-        self._remove_all_blocks(output_grid, block_positions, background_color)
-        
-        return output_grid
-    
-    def _get_all_block_positions(self, grid, grid_size):
-        """Get positions of all 2x2 blocks for later removal"""
-        block_positions = []
-        
-        # Top-left blocks - always 3 blocks
-        for i in range(3):
-            start_row = 1
-            start_col = 1 + i * 3
-            if start_row + 1 < grid_size and start_col + 1 < grid_size:
-                block_positions.append((start_row, start_col, start_row + 2, start_col + 2))
-        
-        # Bottom-right block
-        bottom_right_row = grid_size - 4
-        bottom_right_col = grid_size - 4
-        if (bottom_right_row >= 0 and bottom_right_col >= 0 and
-            bottom_right_row + 1 < grid_size and bottom_right_col + 1 < grid_size):
-            block_positions.append((bottom_right_row, bottom_right_col, bottom_right_row + 2, bottom_right_col + 2))
-        
-        return block_positions
-    
-    def _remove_all_blocks(self, grid, block_positions, background_color):
-        """Remove all 2x2 blocks and replace with background color"""
-        for start_row, start_col, end_row, end_col in block_positions:
-            grid[start_row:end_row, start_col:end_col] = background_color
-    
-    def _identify_background_color(self, grid):
-        """Identify background color as the color at position (0,0)"""
-        return grid[0, 0]
-    
-    def _identify_blob_color(self, grid, background_color):
-        """Identify blob color as the most common color that's not the background"""
-        unique, counts = np.unique(grid, return_counts=True)
-        
-        # Sort by count in descending order
-        sorted_indices = np.argsort(counts)[::-1]
-        sorted_unique = unique[sorted_indices]
-        
-        # Find the most common color that's not the background
-        for color in sorted_unique:
-            if color != background_color:
-                return color
-        
-        return background_color  # Fallback
-    
-    def _get_block_colors(self, grid, grid_size):
-        """Extract colors from 2x2 blocks at fixed positions - always 3 blocks"""
+
+        import numpy as np
+
+        output = grid.copy()
+        n = grid.shape[0]
+
+        # -------------------------
+        # Identify background color
+        # -------------------------
+        background = grid[0,0]
+
+        # -------------------------
+        # Identify blob color
+        # -------------------------
+        values, counts = np.unique(grid, return_counts=True)
+        order = np.argsort(counts)[::-1]
+
+        blob_color = background
+        for idx in order:
+            if values[idx] != background:
+                blob_color = values[idx]
+                break
+
+        # -------------------------
+        # Extract block colors
+        # -------------------------
         block_colors = []
-        
-        # Get colors from top-left blocks - always 3 blocks
+
         for i in range(3):
-            start_row = 1
-            start_col = 1 + i * 3
-            
-            if start_row + 1 < grid_size and start_col + 1 < grid_size:
-                block_color = grid[start_row, start_col]
-                # Verify this is actually a 2x2 block
-                if (grid[start_row, start_col] == grid[start_row+1, start_col] == 
-                    grid[start_row, start_col+1] == grid[start_row+1, start_col+1]):
-                    block_colors.append(block_color)
-        
-        return block_colors
-    
-    def _get_bottom_right_block_color(self, grid, grid_size):
-        """Get the color of the bottom-right 2x2 block"""
-        bottom_right_row = grid_size - 4
-        bottom_right_col = grid_size - 4
-        
-        if (bottom_right_row >= 0 and bottom_right_col >= 0 and
-            bottom_right_row + 1 < grid_size and bottom_right_col + 1 < grid_size):
-            block_color = grid[bottom_right_row, bottom_right_col]
-            # Verify this is actually a 2x2 block
-            if (grid[bottom_right_row, bottom_right_col] == grid[bottom_right_row+1, bottom_right_col] == 
-                grid[bottom_right_row, bottom_right_col+1] == grid[bottom_right_row+1, bottom_right_col+1]):
-                return block_color
-        
-        return None
-    
-    def _find_start_position(self, grid, first_block_color, blob_color):
-        """Find the single starting position in first column"""
-        if first_block_color is None:
-            return None
-        
-        # Look for the single cell in first column that matches first block color
-        for r in range(grid.shape[0]):
-            if grid[r, 0] == first_block_color:
-                return (r, 0)
-        
-        return None
-    
-    def _build_path(self, grid, start_r, start_c, block_colors, blob_color, background_color, bottom_right_color):
-        """Build the colored path from starting position - always trying to go right and upward"""
-        if not block_colors or len(block_colors) != 3:
-            return
-        
-        # Always 3 blocks with pattern [A, A, B] - path uses [A, A, B] repeating
-        pattern = [block_colors[0], block_colors[0], block_colors[2]]  # [A, A, B]
-        
-        # Find starting pattern index based on current cell color
-        start_color = grid[start_r, start_c]
+
+            r = 1
+            c = 1 + i*3
+
+            if r+1 < n and c+1 < n:
+
+                if (grid[r,c] == grid[r+1,c] ==
+                    grid[r,c+1] == grid[r+1,c+1]):
+
+                    block_colors.append(grid[r,c])
+
+        # bottom-right block color
+        br_color = None
+        br_r = n-4
+        br_c = n-4
+
+        if br_r >= 0 and br_c >= 0:
+            if (grid[br_r,br_c] == grid[br_r+1,br_c] ==
+                grid[br_r,br_c+1] == grid[br_r+1,br_c+1]):
+
+                br_color = grid[br_r,br_c]
+
+        # -------------------------
+        # Find starting position
+        # -------------------------
+        start = None
+        first_block_color = block_colors[0] if block_colors else None
+
+        if first_block_color is not None:
+
+            for r in range(n):
+                if grid[r,0] == first_block_color:
+                    start = (r,0)
+                    break
+
+        if start is None:
+            return output
+
+        r,c = start
+
+        # -------------------------
+        # Path color pattern
+        # -------------------------
+        if len(block_colors) >= 3:
+            pattern = [block_colors[0], block_colors[0], block_colors[2]]
+        else:
+            pattern = [first_block_color]
+
         pattern_index = 0
-        for i, color in enumerate(pattern):
-            if color == start_color:
+        for i,v in enumerate(pattern):
+            if v == grid[r,c]:
                 pattern_index = i
                 break
-        
-        # Build path always trying to go right and upward
-        self._build_rightward_upward_path_with_final_indicator(grid, start_r, start_c, pattern, pattern_index, 
-                                                             blob_color, background_color, bottom_right_color)
-    
-    def _build_rightward_upward_path_with_final_indicator(self, grid, start_r, start_c, pattern, pattern_index, 
-                                                        blob_color, background_color, bottom_right_color):
-        """Build path that exhausts rightward movement, then upward, then right again, etc. with final indicator"""
-        current_r, current_c = start_r, start_c
-        last_direction = None  # Track the direction of the last segment
-        
+
+        last_direction = None
+
+        # -------------------------
+        # Build path
+        # -------------------------
         while True:
-            # Phase 1: Move right as much as possible
+
             moved_right = False
-            while (current_c + 1 < grid.shape[1] and 
-                   grid[current_r, current_c + 1] == blob_color):
-                current_c += 1
-                pattern_index = (pattern_index + 1) % len(pattern)
-                grid[current_r, current_c] = pattern[pattern_index]
+
+            while (c+1 < n and grid[r,c+1] == blob_color):
+
+                c += 1
+                pattern_index = (pattern_index+1) % len(pattern)
+                output[r,c] = pattern[pattern_index]
+
                 moved_right = True
-                last_direction = 'horizontal'
-            
-            # After exhausting rightward movement, add turn indicator if we're about to turn
-            if (moved_right and current_r > 0 and 
-                grid[current_r - 1, current_c] == blob_color and
-                bottom_right_color is not None):
-                # Find adjacent background cell to place turn indicator
-                self._place_turn_indicator(grid, current_r, current_c, background_color, bottom_right_color)
-            
-            # Phase 2: Move up as much as possible
+                last_direction = "horizontal"
+
+            if moved_right and r>0 and grid[r-1,c] == blob_color and br_color is not None:
+
+                for nr,nc in [(r,c+1),(r+1,c),(r-1,c),(r,c-1)]:
+
+                    if 0<=nr<n and 0<=nc<n and output[nr,nc]==background:
+                        output[nr,nc] = br_color
+                        break
+
             moved_up = False
-            while (current_r > 0 and 
-                   grid[current_r - 1, current_c] == blob_color):
-                current_r -= 1
-                pattern_index = (pattern_index + 1) % len(pattern)
-                grid[current_r, current_c] = pattern[pattern_index]
+
+            while (r>0 and grid[r-1,c] == blob_color):
+
+                r -= 1
+                pattern_index = (pattern_index+1) % len(pattern)
+                output[r,c] = pattern[pattern_index]
+
                 moved_up = True
-                last_direction = 'vertical'
-            
-            # After exhausting upward movement, add turn indicator if we're about to turn
-            if (moved_up and current_c + 1 < grid.shape[1] and 
-                grid[current_r, current_c + 1] == blob_color and
-                bottom_right_color is not None):
-                # Find adjacent background cell to place turn indicator
-                self._place_turn_indicator(grid, current_r, current_c, background_color, bottom_right_color)
-            
-            # If we couldn't move in either direction, we're done
+                last_direction = "vertical"
+
+            if moved_up and c+1<n and grid[r,c+1] == blob_color and br_color is not None:
+
+                for nr,nc in [(r,c+1),(r+1,c),(r-1,c),(r,c-1)]:
+
+                    if 0<=nr<n and 0<=nc<n and output[nr,nc]==background:
+                        output[nr,nc] = br_color
+                        break
+
             if not moved_right and not moved_up:
-                # Add final indicator based on the last direction, but only if not stopped by grid border
-                if bottom_right_color is not None:
-                    self._place_final_indicator(grid, current_r, current_c, last_direction, background_color, bottom_right_color)
                 break
+
+        # -------------------------
+        # Final indicator
+        # -------------------------
+        if br_color is not None:
+
+            if last_direction == "vertical" and r>0:
+
+                if output[r-1,c] == background:
+                    output[r-1,c] = br_color
+
+            elif last_direction == "horizontal" and c<n-1:
+
+                if output[r,c+1] == background:
+                    output[r,c+1] = br_color
+
+        # -------------------------
+        # Remove all blocks
+        # -------------------------
+        for i in range(3):
+
+            rr = 1
+            cc = 1 + i*3
+
+            if rr+1 < n and cc+1 < n:
+                output[rr:rr+2,cc:cc+2] = background
+
+        if br_r >= 0 and br_c >= 0:
+            output[br_r:br_r+2,br_c:br_c+2] = background
+
+        return output
     
-    def _place_turn_indicator(self, grid, r, c, background_color, bottom_right_color):
-        """Place turn indicator in adjacent background cell"""
-        # Try adjacent positions in order of preference
-        candidates = [(r, c+1), (r+1, c), (r-1, c), (r, c-1)]
-        
-        for nr, nc in candidates:
-            if (0 <= nr < grid.shape[0] and 0 <= nc < grid.shape[1] and 
-                grid[nr, nc] == background_color):
-                grid[nr, nc] = bottom_right_color
-                return
-    
-    def _place_final_indicator(self, grid, r, c, last_direction, background_color, bottom_right_color):
-        """Place final indicator at the end of the path based on last direction"""
-        # First, check if the path stopped due to hitting a grid border
-        grid_size = grid.shape[0]
-        
-        if last_direction == 'vertical':
-            # Check if we stopped because we hit the top border
-            if r == 0:
-                return
-            target_r, target_c = r - 1, c
-        elif last_direction == 'horizontal':
-            # Check if we stopped because we hit the right border
-            if c == grid_size - 1:
-                return
-            target_r, target_c = r, c + 1
-        else:
-            # Fallback: try both directions, but check for borders
-            candidates = []
-            if r > 0:  # Not at top border
-                candidates.append((r - 1, c))
-            if c < grid_size - 1:  # Not at right border
-                candidates.append((r, c + 1))
-            if r < grid_size - 1:  # Not at bottom border
-                candidates.append((r + 1, c))
-            if c > 0:  # Not at left border
-                candidates.append((r, c - 1))
-            
-            for target_r, target_c in candidates:
-                if (0 <= target_r < grid.shape[0] and 0 <= target_c < grid.shape[1] and 
-                    grid[target_r, target_c] == background_color):
-                    grid[target_r, target_c] = bottom_right_color
-                    return
-            return
-        
-        # Check if the target position is valid and is background
-        if (0 <= target_r < grid.shape[0] and 0 <= target_c < grid.shape[1] and 
-            grid[target_r, target_c] == background_color):
-            grid[target_r, target_c] = bottom_right_color
-        else:
-            # Fallback: try adjacent positions, but avoid border positions
-            candidates = []
-            if r > 0:  # Not at top border
-                candidates.append((r - 1, c))
-            if c < grid_size - 1:  # Not at right border
-                candidates.append((r, c + 1))
-            if r < grid_size - 1:  # Not at bottom border
-                candidates.append((r + 1, c))
-            if c > 0:  # Not at left border
-                candidates.append((r, c - 1))
-            
-            for nr, nc in candidates:
-                if (0 <= nr < grid.shape[0] and 0 <= nc < grid.shape[1] and 
-                    grid[nr, nc] == background_color):
-                    grid[nr, nc] = bottom_right_color
-                    return

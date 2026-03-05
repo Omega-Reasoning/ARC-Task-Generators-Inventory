@@ -156,44 +156,84 @@ class Taskf1cefba8Generator(ARCTaskGenerator):
         return grid
     
     def transform_input(self, grid: np.ndarray, taskvars: Dict[str, Any]) -> np.ndarray:
-        if self.structure_info is None:
-            return grid.copy()
-            
         output = grid.copy()
         rows, columns = grid.shape
-        
-        inner_color = self.structure_info['inner_color']
-        border_color = self.structure_info['border_color']
-        struct_min_row, struct_max_row, struct_min_col, struct_max_col = self.structure_info['struct_bounds']
-        adjacent_cells = self.structure_info['adjacent_cells']
-        
-        # Process each adjacent cell according to the transformation rules
+
+        # --- Find all non-zero cells ---
+        nonzero = [(r, c) for r in range(rows) for c in range(columns) if grid[r, c] != 0]
+        if not nonzero:
+            return output
+
+        # Determine inner color as the most frequent nonzero color inside structure
+        values = [grid[r, c] for r, c in nonzero]
+        unique, counts = np.unique(values, return_counts=True)
+        sorted_colors = sorted(zip(unique, counts), key=lambda x: x[1], reverse=True)
+
+        # Largest area color is border (since border is thick)
+        border_color = sorted_colors[0][0]
+
+        # Inner color is the other color
+        inner_color = None
+        for color, _ in sorted_colors:
+            if color != border_color:
+                inner_color = color
+                break
+
+        if inner_color is None:
+            return output
+
+        # --- Find bounding box of entire structure ---
+        struct_rows = [r for r, c in nonzero]
+        struct_cols = [c for r, c in nonzero]
+
+        struct_min_row = min(struct_rows)
+        struct_max_row = max(struct_rows) + 1
+        struct_min_col = min(struct_cols)
+        struct_max_col = max(struct_cols) + 1
+
+        # --- Find inner rectangle bounds ---
+        inner_cells = [(r, c) for r, c in nonzero if grid[r, c] == inner_color]
+
+        inner_rows = [r for r, c in inner_cells]
+        inner_cols = [c for r, c in inner_cells]
+
+        inner_min_row = min(inner_rows)
+        inner_max_row = max(inner_rows) + 1
+        inner_min_col = min(inner_cols)
+        inner_max_col = max(inner_cols) + 1
+
+        # --- Detect adjacent irregular cells ---
+        adjacent_cells = []
+
+        for r, c in inner_cells:
+            if r == inner_min_row - 1:
+                adjacent_cells.append((r, c, 'top'))
+            elif r == inner_max_row:
+                adjacent_cells.append((r, c, 'bottom'))
+            elif c == inner_min_col - 1:
+                adjacent_cells.append((r, c, 'left'))
+            elif c == inner_max_col:
+                adjacent_cells.append((r, c, 'right'))
+
+        # --- Apply transformation ---
         for r, c, direction in adjacent_cells:
+
             if direction in ['left', 'right']:
-                # Fill entire row with border color
                 output[r, :] = border_color
-                
-                # Fill horizontal distances outside the structure with inner color
-                # Left side: from column 0 to struct_min_col-1
+
                 if struct_min_col > 0:
                     output[r, :struct_min_col] = inner_color
-                
-                # Right side: from struct_max_col to end
+
                 if struct_max_col < columns:
                     output[r, struct_max_col:] = inner_color
-                
+
             elif direction in ['top', 'bottom']:
-                # Fill entire column with border color
                 output[:, c] = border_color
-                
-                # Fill vertical distances outside the structure with inner color
-                # Top side: from row 0 to struct_min_row-1
+
                 if struct_min_row > 0:
                     output[:struct_min_row, c] = inner_color
-                
-                # Bottom side: from struct_max_row to end
+
                 if struct_max_row < rows:
                     output[struct_max_row:, c] = inner_color
-        
-        return output
 
+        return output

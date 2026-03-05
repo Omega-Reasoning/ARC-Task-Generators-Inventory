@@ -73,88 +73,112 @@ class TaskNhQ2VK7K9bmD9sQ6LsBe7W_1Generator(ARCTaskGenerator):
         return grid
 
     def transform_input(self, grid, taskvars):
-        """
-        Apply transformations as per the reasoning chain:
-        1. Expand the two colored cells.
-        2. Fill the enclosed area with the third color.
-        """
-        color1, color2, fill_color = taskvars['cell_color1'], taskvars['cell_color2'], taskvars['fill_color']
-        output_grid = grid.copy()
 
-        # Expand both colors
-        self._expand_color(output_grid, color1)
-        self._expand_color(output_grid, color2)
+        import numpy as np
+        from collections import deque
 
-        # Fill enclosed area
-        self._fill_enclosed_area(output_grid, color1, color2, fill_color)
+        color1 = taskvars['cell_color1']
+        color2 = taskvars['cell_color2']
+        fill_color = taskvars['fill_color']
 
-        return output_grid
+        output = grid.copy()
+        rows, cols = output.shape
 
-    def _expand_color(self, grid, color):
-        """
-        Expand a colored cell horizontally and vertically until it meets another color or a boundary.
-        """
-        positions = np.argwhere(grid == color)
-        if len(positions) == 0:
-            return  # No cell of this color found
-        
-        r, c = positions[0]
+        # -------------------------
+        # Expand color1
+        # -------------------------
+        pos = np.argwhere(output == color1)
+        if len(pos) > 0:
+            r, c = pos[0]
 
-        # Expand left
-        for cc in range(c - 1, -1, -1):
-            if grid[r, cc] != 0:
-                break
-            grid[r, cc] = color
+            cc = c - 1
+            while cc >= 0 and output[r, cc] == 0:
+                output[r, cc] = color1
+                cc -= 1
 
-        # Expand right
-        for cc in range(c + 1, grid.shape[1]):
-            if grid[r, cc] != 0:
-                break
-            grid[r, cc] = color
+            cc = c + 1
+            while cc < cols and output[r, cc] == 0:
+                output[r, cc] = color1
+                cc += 1
 
-        # Expand up
-        for rr in range(r - 1, -1, -1):
-            if grid[rr, c] != 0:
-                break
-            grid[rr, c] = color
+            rr = r - 1
+            while rr >= 0 and output[rr, c] == 0:
+                output[rr, c] = color1
+                rr -= 1
 
-        # Expand down
-        for rr in range(r + 1, grid.shape[0]):
-            if grid[rr, c] != 0:
-                break
-            grid[rr, c] = color
+            rr = r + 1
+            while rr < rows and output[rr, c] == 0:
+                output[rr, c] = color1
+                rr += 1
 
-    def _fill_enclosed_area(self, grid, color1, color2, fill_color):
-        """
-        Identify and fill only the subgrid that is fully enclosed by `color1` and `color2`.
-        Uses a flood-fill approach to ensure correctness.
-        """
-        rows, cols = grid.shape
-        visited = np.zeros_like(grid, dtype=bool)
+        # -------------------------
+        # Expand color2
+        # -------------------------
+        pos = np.argwhere(output == color2)
+        if len(pos) > 0:
+            r, c = pos[0]
 
-        # Step 1: Identify non-enclosed (open) regions using a BFS/DFS flood-fill from the edges
+            cc = c - 1
+            while cc >= 0 and output[r, cc] == 0:
+                output[r, cc] = color2
+                cc -= 1
+
+            cc = c + 1
+            while cc < cols and output[r, cc] == 0:
+                output[r, cc] = color2
+                cc += 1
+
+            rr = r - 1
+            while rr >= 0 and output[rr, c] == 0:
+                output[rr, c] = color2
+                rr -= 1
+
+            rr = r + 1
+            while rr < rows and output[rr, c] == 0:
+                output[rr, c] = color2
+                rr += 1
+
+        # -------------------------
+        # Flood fill from edges
+        # -------------------------
+        visited = np.zeros_like(output, dtype=bool)
         queue = deque()
-        
-        # Start from all edge positions
+
         for r in range(rows):
-            if grid[r, 0] == 0: queue.append((r, 0))
-            if grid[r, cols - 1] == 0: queue.append((r, cols - 1))
+            if output[r,0] == 0:
+                queue.append((r,0))
+            if output[r,cols-1] == 0:
+                queue.append((r,cols-1))
+
         for c in range(cols):
-            if grid[0, c] == 0: queue.append((0, c))
-            if grid[rows - 1, c] == 0: queue.append((rows - 1, c))
+            if output[0,c] == 0:
+                queue.append((0,c))
+            if output[rows-1,c] == 0:
+                queue.append((rows-1,c))
 
         while queue:
-            r, c = queue.popleft()
-            if visited[r, c] or grid[r, c] != 0:
-                continue
-            visited[r, c] = True  # Mark as visited (open area)
-            for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:  # 4-directional movement
-                nr, nc = r + dr, c + dc
-                if 0 <= nr < rows and 0 <= nc < cols and not visited[nr, nc]:
-                    queue.append((nr, nc))
+            r,c = queue.popleft()
 
-        # Step 2: Fill only the enclosed areas (cells not marked as open)
+            if visited[r,c] or output[r,c] != 0:
+                continue
+
+            visited[r,c] = True
+
+            for dr,dc in [(-1,0),(1,0),(0,-1),(0,1)]:
+                nr = r + dr
+                nc = c + dc
+
+                if 0 <= nr < rows and 0 <= nc < cols and not visited[nr,nc]:
+                    queue.append((nr,nc))
+
+        # -------------------------
+        # Fill enclosed cells
+        # -------------------------
         for r in range(rows):
             for c in range(cols):
-                if grid[r, c] == 0 and not visited[r, c]:  # Enclosed region found
-                    grid[r, c] = fill_color
+                if output[r,c] == 0 and not visited[r,c]:
+                    output[r,c] = fill_color
+
+        return output
+
+   

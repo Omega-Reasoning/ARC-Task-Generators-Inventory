@@ -347,178 +347,120 @@ class Task0e206a2eGenerator(ARCTaskGenerator):
         
         return grid
     
-    def simple_cluster(self, cells: List[Tuple[int, int, int]], num_clusters: int) -> List[List[Tuple[int, int, int]]]:
-        """Simple clustering algorithm to group cells based on spatial proximity."""
-        if len(cells) < num_clusters * 3:
-            return []
-        
-        clusters = []
-        remaining = cells.copy()
-        
-        # Start first cluster with a random cell
-        if remaining:
-            first_cell = remaining.pop(random.randint(0, len(remaining) - 1))
-            clusters.append([first_cell])
-        
-        # Seed other clusters with farthest points
-        for _ in range(1, num_clusters):
-            if not remaining:
-                break
-                
-            max_dist = -1
-            farthest_idx = 0
-            
-            for i, cell in enumerate(remaining):
-                min_dist_to_clusters = float('inf')
-                for cluster in clusters:
-                    for cluster_cell in cluster:
-                        dist = abs(cell[0] - cluster_cell[0]) + abs(cell[1] - cluster_cell[1])
-                        min_dist_to_clusters = min(min_dist_to_clusters, dist)
-                if min_dist_to_clusters > max_dist:
-                    max_dist = min_dist_to_clusters
-                    farthest_idx = i
-            
-            clusters.append([remaining.pop(farthest_idx)])
-        
-        # Assign remaining cells to nearest cluster
-        for cell in remaining:
-            min_dist = float('inf')
-            best_cluster = 0
-            for i, cluster in enumerate(clusters):
-                for cluster_cell in cluster:
-                    dist = abs(cell[0] - cluster_cell[0]) + abs(cell[1] - cluster_cell[1])
-                    if dist < min_dist:
-                        min_dist = dist
-                        best_cluster = i
-            clusters[best_cluster].append(cell)
-        
-        # Keep clusters that have exactly 3 cells
-        return [cluster for cluster in clusters if len(cluster) == 3]
-    
-    def find_partial_object_groups(self, grid: np.ndarray, color1: int, color2: int, num_objects: int) -> List[Tuple[List[Tuple[int, int, int]], int]]:
-        """Find groups of single colored cells that form partial objects and their base color."""
-        all_cells = [(r, c, grid[r, c]) for r in range(grid.shape[0]) for c in range(grid.shape[1]) if grid[r, c] != 0]
-        
-        # Complete objects (>=4 colors)
-        complete_objects = []
-        all_objects = find_connected_objects(grid, diagonal_connectivity=False, background=0, monochromatic=False)
-        for obj in all_objects:
-            if len(obj.colors) >= 4:
-                complete_objects.append(obj)
-        
-        # Base colors from complete objects: pick the most frequent color
-        base_colors = set()
-        for complete in complete_objects:
-            color_counts = {}
-            for _, _, color in complete.cells:
-                color_counts[color] = color_counts.get(color, 0) + 1
-            base_color = max(color_counts, key=color_counts.get)
-            base_colors.add(base_color)
-        
-        # Cells not in complete objects
-        complete_cells = set()
-        for obj in complete_objects:
-            complete_cells.update([(r, c) for r, c, _ in obj.cells])
-        single_cells = [cell for cell in all_cells if (cell[0], cell[1]) not in complete_cells]
-        
-        groups = []
-        if num_objects == 1:
-            if len(single_cells) == 3:
-                colors = {cell[2] for cell in single_cells}
-                if color1 in colors and color2 in colors:
-                    for base in base_colors:
-                        groups.append((single_cells, base))
-                        break
-        else:
-            clusters = self.simple_cluster(single_cells, num_objects)
-            for i, cluster_cells in enumerate(clusters):
-                colors = {cell[2] for cell in cluster_cells}
-                if color1 in colors and color2 in colors:
-                    base_color = list(base_colors)[i % len(base_colors)] if base_colors else 1
-                    groups.append((cluster_cells, base_color))
-        
-        return groups
-    
     def transform_input(self, grid: np.ndarray, taskvars: Dict[str, Any]) -> np.ndarray:
-        """Transform the input grid according to the transformation chain."""
         output = grid.copy()
-        
-        # Count complete objects
-        all_objects = find_connected_objects(output, diagonal_connectivity=False, background=0, monochromatic=False)
-        num_complete_objects = sum(1 for obj in all_objects if len(obj.colors) >= 4)
-        
-        # Collect complete objects that contain color1 and color2
+
+        color1 = taskvars['color1']
+        color2 = taskvars['color2']
+
+        # --- find all connected objects ---
+        all_objects = find_connected_objects(
+            output,
+            diagonal_connectivity=False,
+            background=0,
+            monochromatic=False
+        )
+
+        # --- detect complete objects (>=4 colors & containing color1 and color2) ---
         complete_objects = []
         for obj in all_objects:
             colors = obj.colors
-            if len(colors) >= 4 and taskvars['color1'] in colors and taskvars['color2'] in colors:
+            if len(colors) >= 4 and color1 in colors and color2 in colors:
                 complete_objects.append(obj)
-        
-        # Find partial groups with base colors
-        partial_groups = self.find_partial_object_groups(output, taskvars['color1'], taskvars['color2'], num_complete_objects)
-        
-        # Reconstruct around partial groups
-        for partial_cells, base_color in partial_groups:
-            matched = False
-            for complete in complete_objects:
-                if matched:
-                    break
-                if base_color not in complete.colors:
-                    continue
-                complete_array = complete.to_array()
-                
-                for flip_h in [False, True]:
-                    for flip_v in [False, True]:
-                        for rot in range(4):
-                            if matched:
-                                break
-                            transformed = complete_array.copy()
-                            if flip_h:
-                                transformed = np.fliplr(transformed)
-                            if flip_v:
-                                transformed = np.flipud(transformed)
-                            transformed = np.rot90(transformed, rot)
-                            
-                            # Special (non-base, non-zero) positions
-                            special_positions = {}
-                            for r in range(transformed.shape[0]):
-                                for c in range(transformed.shape[1]):
-                                    if transformed[r, c] != base_color and transformed[r, c] != 0:
-                                        special_positions[transformed[r, c]] = (r, c)
-                            
-                            partial_positions = {cell[2]: (cell[0], cell[1]) for cell in partial_cells}
-                            
-                            can_match = True
-                            offset_r, offset_c = None, None
-                            for color, (pr, pc) in partial_positions.items():
-                                if color not in special_positions:
-                                    can_match = False
-                                    break
-                                sr, sc = special_positions[color]
-                                if offset_r is None:
-                                    offset_r = pr - sr
-                                    offset_c = pc - sc
-                                else:
-                                    if pr - sr != offset_r or pc - sc != offset_c:
-                                        can_match = False
-                                        break
-                            
-                            if can_match and offset_r is not None:
-                                for r in range(transformed.shape[0]):
-                                    for c in range(transformed.shape[1]):
-                                        if transformed[r, c] == base_color:
-                                            gr = r + offset_r
-                                            gc = c + offset_c
-                                            if 0 <= gr < output.shape[0] and 0 <= gc < output.shape[1]:
-                                                if output[gr, gc] == 0:
-                                                    output[gr, gc] = base_color
-                                matched = True
-                                break
-        
-        # Remove original complete objects
+
+        # --- collect cells belonging to complete objects ---
+        complete_cells = set()
         for obj in complete_objects:
-            obj.cut(output)
-        
+            for r, c, _ in obj.cells:
+                complete_cells.add((r, c))
+
+        # --- find remaining colored cells (these are sparse partial copies) ---
+        sparse_cells = []
+        for r in range(output.shape[0]):
+            for c in range(output.shape[1]):
+                if output[r, c] != 0 and (r, c) not in complete_cells:
+                    sparse_cells.append((r, c, output[r, c]))
+
+        # --- cluster sparse cells into groups of 3 ---
+        # simple deterministic grouping by proximity
+        groups = []
+        used = set()
+
+        for cell in sparse_cells:
+            if (cell[0], cell[1]) in used:
+                continue
+
+            cluster = [cell]
+            used.add((cell[0], cell[1]))
+
+            for other in sparse_cells:
+                if (other[0], other[1]) in used:
+                    continue
+
+                dist = abs(cell[0] - other[0]) + abs(cell[1] - other[1])
+                if dist <= 6:  # proximity threshold
+                    cluster.append(other)
+                    used.add((other[0], other[1]))
+
+                if len(cluster) == 3:
+                    break
+
+            if len(cluster) == 3:
+                colors = {c[2] for c in cluster}
+                if color1 in colors and color2 in colors:
+                    groups.append(cluster)
+
+        # --- reconstruct around partial groups ---
+        for group in groups:
+            partial_positions = {cell[2]: (cell[0], cell[1]) for cell in group}
+
+            for complete in complete_objects:
+                complete_array = complete.to_array()
+
+                # detect base color = most frequent color
+                color_counts = {}
+                for _, _, col in complete.cells:
+                    color_counts[col] = color_counts.get(col, 0) + 1
+                base_color = max(color_counts, key=color_counts.get)
+
+                # try rotations
+                for rot in range(4):
+                    transformed = np.rot90(complete_array, rot)
+
+                    special_positions = {}
+                    for r in range(transformed.shape[0]):
+                        for c in range(transformed.shape[1]):
+                            val = transformed[r, c]
+                            if val != 0 and val != base_color:
+                                special_positions[val] = (r, c)
+
+                    if not all(col in special_positions for col in partial_positions):
+                        continue
+
+                    # compute offset
+                    ref_color = next(iter(partial_positions))
+                    pr, pc = partial_positions[ref_color]
+                    sr, sc = special_positions[ref_color]
+                    offset_r = pr - sr
+                    offset_c = pc - sc
+
+                    # place base color cells
+                    for r in range(transformed.shape[0]):
+                        for c in range(transformed.shape[1]):
+                            if transformed[r, c] == base_color:
+                                gr = r + offset_r
+                                gc = c + offset_c
+                                if 0 <= gr < output.shape[0] and 0 <= gc < output.shape[1]:
+                                    if output[gr, gc] == 0:
+                                        output[gr, gc] = base_color
+
+                    break
+
+        # --- remove original complete objects ---
+        for obj in complete_objects:
+            for r, c, _ in obj.cells:
+                output[r, c] = 0
+
         return output
     
     def create_grids(self) -> Tuple[Dict[str, Any], TrainTestData]:

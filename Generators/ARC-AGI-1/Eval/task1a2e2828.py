@@ -64,39 +64,40 @@ class Task1a2e2828Generator(ARCTaskGenerator):
 
     def transform_input(self, grid, taskvars):
         rows, cols = grid.shape
-        draw_order = self.draw_order
-        color_index_map = {color: i for i, (_, _, _, color) in enumerate(draw_order)}
 
-        intersections = {}
-
+        # --- Detect horizontal bar rows ---
+        horizontal_rows = set()
         for r in range(rows):
-            for c in range(cols):
-                current_color = grid[r, c]
-                if current_color == 0:
-                    continue
+            if len(set(grid[r, :]) - {0}) == 1 and np.any(grid[r, :] != 0):
+                horizontal_rows.add(r)
 
-                # determine if this is an intersection
-                horiz = any((d == 'horizontal' and s <= r < s + t) for d, s, t, _ in draw_order)
-                vert = any((d == 'vertical' and s <= c < s + t) for d, s, t, _ in draw_order)
+        # --- Detect vertical bar columns ---
+        vertical_cols = set()
+        for c in range(cols):
+            if len(set(grid[:, c]) - {0}) == 1 and np.any(grid[:, c] != 0):
+                vertical_cols.add(c)
 
-                if horiz and vert:
-                    if (r, c) not in intersections:
-                        intersections[(r, c)] = grid[r, c]
+        # --- Collect intersection colors ---
+        intersection_colors = []
 
-        # for each color, track how many intersections it owns
-        top_count = {}
-        for color in np.unique(list(intersections.values())):
-            top_count[color] = sum(1 for v in intersections.values() if v == color)
+        for r in horizontal_rows:
+            for c in vertical_cols:
+                if grid[r, c] != 0:
+                    intersection_colors.append(grid[r, c])
 
-        if top_count:
-            # pick the color with the most top-appearances, break ties by draw order
-            dominant = sorted(top_count.items(), key=lambda x: (-x[1], color_index_map.get(x[0], 999)))[0][0]
-            return np.array([[dominant]], dtype=int)
+        if not intersection_colors:
+            colors = np.unique(grid)
+            colors = colors[colors != 0]
+            return np.array([[colors[0]]] if len(colors) > 0 else [[0]], dtype=int)
 
-        # fallback
-        colors = np.unique(grid)
-        colors = colors[colors != 0]
-        return np.array([[colors[0]]] if len(colors) > 0 else [[0]], dtype=int)
+        # --- Count dominance ---
+        color_counts = {}
+        for color in intersection_colors:
+            color_counts[color] = color_counts.get(color, 0) + 1
+
+        dominant_color = max(color_counts.items(), key=lambda x: x[1])[0]
+
+        return np.array([[dominant_color]], dtype=int)
 
     def create_grids(self):
         grid_rows = random.randint(10, 18)

@@ -137,11 +137,46 @@ class Task681b3aebGenerator(ARCTaskGenerator):
                     for j1 in range(-a1.shape[1] + 1, block_size):
                         for i2 in range(-a2.shape[0] + 1, block_size):
                             for j2 in range(-a2.shape[1] + 1, block_size):
+
                                 test = np.zeros_like(output)
-                                if not self._place(test, a1, c1, i1, j1):
+                                valid = True
+
+                                # place a1
+                                for r in range(a1.shape[0]):
+                                    for c in range(a1.shape[1]):
+                                        if a1[r, c] > 0:
+                                            rr, cc = i1 + r, j1 + c
+                                            if not (0 <= rr < block_size and 0 <= cc < block_size):
+                                                valid = False
+                                                break
+                                            if test[rr, cc] != 0:
+                                                valid = False
+                                                break
+                                            test[rr, cc] = c1
+                                    if not valid:
+                                        break
+
+                                if not valid:
                                     continue
-                                if not self._place(test, a2, c2, i2, j2):
+
+                                # place a2
+                                for r in range(a2.shape[0]):
+                                    for c in range(a2.shape[1]):
+                                        if a2[r, c] > 0:
+                                            rr, cc = i2 + r, j2 + c
+                                            if not (0 <= rr < block_size and 0 <= cc < block_size):
+                                                valid = False
+                                                break
+                                            if test[rr, cc] != 0:
+                                                valid = False
+                                                break
+                                            test[rr, cc] = c2
+                                    if not valid:
+                                        break
+
+                                if not valid:
                                     continue
+
                                 if np.all(test > 0):
                                     return test
 

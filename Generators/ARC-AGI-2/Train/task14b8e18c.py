@@ -195,16 +195,89 @@ class Task14b8e18cGenerator(ARCTaskGenerator):
         return grid
 
     def transform_input(self, grid: np.ndarray, taskvars: Dict[str, Any]) -> np.ndarray:
+    
+
         background = taskvars['background']
         fill = taskvars['fill']
+
         output = grid.copy()
 
-        # Keep default 4-connectivity to avoid diagonal pairs being misclassified
         objects = find_connected_objects(grid, diagonal_connectivity=False, background=background)
 
         for obj in objects:
-            if self._looks_like_square(obj, grid, background):
-                self._outline_square(output, obj, fill, background)
+
+            bbox = obj.bounding_box
+            r0, r1 = bbox[0].start, bbox[0].stop
+            c0, c1 = bbox[1].start, bbox[1].stop
+
+            h = r1 - r0
+            w = c1 - c0
+
+            # Only consider square bounding boxes
+            if h != w or h < 2:
+                continue
+
+            region = grid[r0:r1, c0:c1]
+
+            # Determine dominant non-background color
+            vals, counts = np.unique(region[region != background], return_counts=True)
+            if len(vals) == 0:
+                continue
+
+            color = vals[np.argmax(counts)]
+
+            is_square = False
+
+            # ---- solid square ----
+            if np.all(region == color):
+                is_square = True
+
+            # ---- hollow square ----
+            else:
+                top = region[0, :]
+                bottom = region[-1, :]
+                left = region[:, 0]
+                right = region[:, -1]
+
+                if (
+                    np.all(top == color)
+                    and np.all(bottom == color)
+                    and np.all(left == color)
+                    and np.all(right == color)
+                ):
+                    if h > 2:
+                        interior = region[1:-1, 1:-1]
+                        if np.all(interior == background):
+                            is_square = True
+                    else:
+                        if np.all(region == color):
+                            is_square = True
+
+            if not is_square:
+                continue
+
+            # ---- outline around square ----
+            top_row = r0
+            bottom_row = r1 - 1
+            left_col = c0
+            right_col = c1 - 1
+
+            H, W = grid.shape
+
+            outline_positions = [
+                (top_row - 1, left_col),
+                (top_row, left_col - 1),
+                (top_row - 1, right_col),
+                (top_row, right_col + 1),
+                (bottom_row, left_col - 1),
+                (bottom_row + 1, left_col),
+                (bottom_row, right_col + 1),
+                (bottom_row + 1, right_col),
+            ]
+
+            for r, c in outline_positions:
+                if 0 <= r < H and 0 <= c < W and output[r, c] == background:
+                    output[r, c] = fill
 
         return output
 
@@ -220,9 +293,7 @@ class Task14b8e18cGenerator(ARCTaskGenerator):
                 return True
         return False
 
-    def _looks_like_square(self, obj: GridObject, grid: np.ndarray, background: int) -> bool:
-        """Accept solid or hollow squares; reject diagonal pairs in a 2x2 box."""
-        return self._square_kind(obj, grid, background) in ("solid", "hollow")
+    
 
     def _square_kind(self, obj: GridObject, grid: np.ndarray, background: int) -> Optional[str]:
         """
@@ -274,63 +345,9 @@ class Task14b8e18cGenerator(ARCTaskGenerator):
 
         return None
 
-    def _outline_square(self, grid: np.ndarray, square: GridObject, fill: int, background: int):
-        """Add outline around a square by coloring 8 exterior cells around corners."""
-        bbox = square.bounding_box
-        top_row = bbox[0].start
-        bottom_row = bbox[0].stop - 1
-        left_col = bbox[1].start
-        right_col = bbox[1].stop - 1
+    
 
-        H, W = grid.shape
-        outline_positions = [
-            (top_row - 1, left_col),     # above TL
-            (top_row, left_col - 1),     # left TL
-            (top_row - 1, right_col),    # above TR
-            (top_row, right_col + 1),    # right TR
-            (bottom_row, left_col - 1),  # left BL
-            (bottom_row + 1, left_col),  # below BL
-            (bottom_row, right_col + 1), # right BR
-            (bottom_row + 1, right_col), # below BR
-        ]
-        for r, c in outline_positions:
-            if 0 <= r < H and 0 <= c < W and grid[r, c] == background:
-                grid[r, c] = fill
-
-    # -------------------- Helpers: placement --------------------
-
-    def _place_unfilled_square_first(
-        self,
-        grid: np.ndarray,
-        color: int,
-        background: int,
-        placed_objects: List[Dict[str, int]],
-        buffer: int,
-        max_side: int,
-    ) -> bool:
-        """Try to place a single unfilled square before anything else, to guarantee the requirement."""
-        H, W = grid.shape
-        side_candidates = list(range(min(4, max_side), max(2, max_side + 1)))  # prefer modest sizes
-        if not side_candidates:
-            side_candidates = [2, 3]
-        random.shuffle(side_candidates)
-
-        for side in side_candidates:
-            h = w = side
-            if not self._can_fit_anywhere(grid.shape, placed_objects, h, w, buffer):
-                continue
-            # scan positions deterministically to avoid long rejection storms
-            rmin, rmax = buffer, H - h - buffer
-            cmin, cmax = buffer, W - w - buffer
-            for r in range(rmin, rmax + 1):
-                for c in range(cmin, cmax + 1):
-                    if self._has_sufficient_separation(r, c, h, w, placed_objects, buffer):
-                        # place unfilled (hollow) border
-                        self._place_object(grid, r, c, h, w, color, filled=False, background=background)
-                        placed_objects.append({'row': r, 'col': c, 'height': h, 'width': w})
-                        return True
-        return False
-
+   
     def _can_fit_anywhere(
         self,
         grid_shape: Tuple[int, int],
@@ -449,13 +466,4 @@ class Task14b8e18cGenerator(ARCTaskGenerator):
                 placed_objects.append({'row': row, 'col': col, 'height': 2, 'width': 2})
                 return
 
-    # -------------------- Misc helpers --------------------
 
-    def _count_squares_by_scan(self, grid: np.ndarray, background: int) -> int:
-        """Lightweight scan via connected components to count squares (solid or hollow)."""
-        objects = find_connected_objects(grid, diagonal_connectivity=False, background=background)
-        cnt = 0
-        for obj in objects:
-            if self._looks_like_square(obj, grid, background):
-                cnt += 1
-        return cnt

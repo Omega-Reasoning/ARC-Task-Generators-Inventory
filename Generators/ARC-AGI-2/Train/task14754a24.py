@@ -297,55 +297,99 @@ class Task14754a24Generator(ARCTaskGenerator):
         return possible_completions == 1
 
     def transform_input(self, grid, taskvars):
+        
+
         object_color = taskvars['object_color']
         fill_color = taskvars['fill_color']
         background = taskvars['background']
-        
-        output_grid = grid.copy()
-        
-        # Find all object_color objects
-        objects = find_connected_objects(output_grid, diagonal_connectivity=False, background=0)
-        object_color_objects = objects.with_color(object_color)
-        
-        # For each object, complete it to a plus shape
-        for obj in object_color_objects:
-            self._complete_plus_shape(output_grid, obj, object_color, fill_color, background)
-        
-        return output_grid
 
-    def _complete_plus_shape(self, grid, obj, object_color, fill_color, background):
-        """Complete an incomplete plus shape by adding fill_color cells."""
-        coords = list(obj.coords)
-        
-        # Try each cell as potential center
-        for r, c in coords:
-            # Check if this could be the center of a plus
-            plus_pattern = [(0, 0), (-1, 0), (1, 0), (0, -1), (0, 1)]
-            plus_cells = [(r + dr, c + dc) for dr, dc in plus_pattern]
-            
-            # Check if all plus cells are within grid bounds
-            if not all(0 <= pr < grid.shape[0] and 0 <= pc < grid.shape[1] 
-                      for pr, pc in plus_cells):
-                continue
-            
-            # Check if this forms a valid plus completion
-            can_complete = True
-            missing_cells = []
-            
-            for pr, pc in plus_cells:
-                if (pr, pc) in coords:
-                    # This cell is already part of the object - should stay object_color
+        grid = np.array(grid)
+        output = grid.copy()
+
+        rows, cols = grid.shape
+
+        visited = set()
+        objects = []
+
+        # -------------------------------------------------
+        # Step 1: find connected components of object_color
+        # -------------------------------------------------
+        for r in range(rows):
+            for c in range(cols):
+
+                if grid[r, c] != object_color:
                     continue
-                elif grid[pr, pc] == background:
-                    # This cell can be filled with fill_color
-                    missing_cells.append((pr, pc))
-                else:
-                    # This cell is blocked
-                    can_complete = False
+
+                if (r, c) in visited:
+                    continue
+
+                stack = [(r, c)]
+                component = []
+
+                while stack:
+                    cr, cc = stack.pop()
+
+                    if (cr, cc) in visited:
+                        continue
+
+                    if cr < 0 or cr >= rows or cc < 0 or cc >= cols:
+                        continue
+
+                    if grid[cr, cc] != object_color:
+                        continue
+
+                    visited.add((cr, cc))
+                    component.append((cr, cc))
+
+                    stack.append((cr + 1, cc))
+                    stack.append((cr - 1, cc))
+                    stack.append((cr, cc + 1))
+                    stack.append((cr, cc - 1))
+
+                objects.append(component)
+
+        # -------------------------------------------------
+        # Step 2: complete each object into plus shape
+        # -------------------------------------------------
+        plus_pattern = [(0,0),(-1,0),(1,0),(0,-1),(0,1)]
+
+        for obj in objects:
+
+            coords = set(obj)
+
+            for r, c in obj:
+
+                plus_cells = [(r+dr, c+dc) for dr,dc in plus_pattern]
+
+                # check bounds
+                valid = True
+                for pr, pc in plus_cells:
+                    if pr < 0 or pr >= rows or pc < 0 or pc >= cols:
+                        valid = False
+                        break
+
+                if not valid:
+                    continue
+
+                missing = []
+
+                for pr, pc in plus_cells:
+
+                    if (pr, pc) in coords:
+                        continue
+
+                    if output[pr, pc] == background:
+                        missing.append((pr, pc))
+                    else:
+                        valid = False
+                        break
+
+                if valid and missing:
+                    for pr, pc in missing:
+                        output[pr, pc] = fill_color
+
                     break
-            
-            if can_complete and missing_cells:
-                # Fill the missing cells with fill_color
-                for pr, pc in missing_cells:
-                    grid[pr, pc] = fill_color
-                return  # Successfully completed this object
+
+        return output
+
+    

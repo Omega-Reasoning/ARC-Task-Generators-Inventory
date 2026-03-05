@@ -151,90 +151,119 @@ class Task1190bc91Generator(ARCTaskGenerator):
         self._place_additional_lines(grid, spine_info, used)
         return grid
 
-    def _find_multi_coloured_line(self, grid: np.ndarray) -> List[Tuple[int, int]]:
-        n = grid.shape[0]
+    
+    def transform_input(self, grid: np.ndarray, taskvars: Dict[str, Any]) -> np.ndarray:
+        out = grid.copy()
+        n = out.shape[0]
+
+        # -------------------------------------------------
+        # 1️⃣ Find multi-coloured spine
+        # -------------------------------------------------
+        spine_cells = None
+
+        # Horizontal scan
         for r in range(n):
             c = 0
             while c < n:
-                if grid[r, c] == 0:
+                if out[r, c] == 0:
                     c += 1
                     continue
+
                 start = c
                 colours = set()
-                while c < n and grid[r, c] != 0:
-                    colours.add(grid[r, c])
+                while c < n and out[r, c] != 0:
+                    colours.add(out[r, c])
                     c += 1
+
                 length = c - start
                 if length >= 3 and len(colours) == length:
-                    return [(r, cc) for cc in range(start, c)]
+                    spine_cells = [(r, cc) for cc in range(start, c)]
+                    break
+            if spine_cells:
+                break
 
-        for c in range(n):
-            r = 0
-            while r < n:
-                if grid[r, c] == 0:
-                    r += 1
-                    continue
-                start = r
-                colours = set()
-                while r < n and grid[r, c] != 0:
-                    colours.add(grid[r, c])
-                    r += 1
-                length = r - start
-                if length >= 3 and len(colours) == length:
-                    return [(rr, c) for rr in range(start, r)]
-        raise ValueError("Malformed input: multi‑coloured line not found")
+        # Vertical scan
+        if spine_cells is None:
+            for c in range(n):
+                r = 0
+                while r < n:
+                    if out[r, c] == 0:
+                        r += 1
+                        continue
 
-    @staticmethod
-    def _extend_diagonally(grid: np.ndarray, positions: List[Tuple[int, int]]):
-        n = grid.shape[0]
-        for r, c in positions:
-            colour = grid[r, c]
+                    start = r
+                    colours = set()
+                    while r < n and out[r, c] != 0:
+                        colours.add(out[r, c])
+                        r += 1
+
+                    length = r - start
+                    if length >= 3 and len(colours) == length:
+                        spine_cells = [(rr, c) for rr in range(start, r)]
+                        break
+                if spine_cells:
+                    break
+
+        if spine_cells is None:
+            return out
+
+        # -------------------------------------------------
+        # 2️⃣ Extend diagonally
+        # -------------------------------------------------
+        for r, c in spine_cells:
+            colour = out[r, c]
             for dr, dc in ((-1, -1), (-1, 1), (1, -1), (1, 1)):
                 nr, nc = r + dr, c + dc
-                while 0 <= nr < n and 0 <= nc < n and grid[nr, nc] == 0:
-                    grid[nr, nc] = colour
+                while 0 <= nr < n and 0 <= nc < n and out[nr, nc] == 0:
+                    out[nr, nc] = colour
                     nr += dr
                     nc += dc
 
-    @staticmethod
-    def _flood_fill(grid: np.ndarray, seeds: List[Tuple[int, int]], fill_colour: int):
-        n = grid.shape[0]
-        stack = seeds[:]
-        while stack:
-            r, c = stack.pop()
-            for dr, dc in ((1, 0), (-1, 0), (0, 1), (0, -1)):
-                nr, nc = r + dr, c + dc
-                if 0 <= nr < n and 0 <= nc < n and grid[nr, nc] == 0:
-                    grid[nr, nc] = fill_colour
-                    stack.append((nr, nc))
-
-    def _fill_regions_with_border_colours(self, grid: np.ndarray):
-        n = grid.shape[0]
+        # -------------------------------------------------
+        # 3️⃣ Flood fill regions from border 2-cell lines
+        # -------------------------------------------------
         visited = set()
+
+        # Horizontal borders
         for row in (0, n - 1):
             for c in range(1, n - 1):
-                if (row, c) in visited or grid[row, c] == 0:
+                if (row, c) in visited:
                     continue
-                if grid[row, c] == grid[row, c + 1]:
-                    colour = grid[row, c]
+                if out[row, c] != 0 and out[row, c] == out[row, c + 1]:
+
+                    colour = out[row, c]
                     seeds = [(row, c), (row, c + 1)]
                     visited.update(seeds)
-                    self._flood_fill(grid, seeds, colour)
+
+                    stack = seeds[:]
+                    while stack:
+                        rr, cc = stack.pop()
+                        for dr, dc in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                            nr, nc = rr + dr, cc + dc
+                            if 0 <= nr < n and 0 <= nc < n and out[nr, nc] == 0:
+                                out[nr, nc] = colour
+                                stack.append((nr, nc))
+
+        # Vertical borders
         for col in (0, n - 1):
             for r in range(1, n - 1):
-                if (r, col) in visited or grid[r, col] == 0:
+                if (r, col) in visited:
                     continue
-                if grid[r, col] == grid[r + 1, col]:
-                    colour = grid[r, col]
+                if out[r, col] != 0 and out[r, col] == out[r + 1, col]:
+
+                    colour = out[r, col]
                     seeds = [(r, col), (r + 1, col)]
                     visited.update(seeds)
-                    self._flood_fill(grid, seeds, colour)
 
-    def transform_input(self, grid: np.ndarray, taskvars: Dict[str, Any]) -> np.ndarray:
-        out = grid.copy()
-        spine_cells = self._find_multi_coloured_line(out)
-        self._extend_diagonally(out, spine_cells)
-        self._fill_regions_with_border_colours(out)
+                    stack = seeds[:]
+                    while stack:
+                        rr, cc = stack.pop()
+                        for dr, dc in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                            nr, nc = rr + dr, cc + dc
+                            if 0 <= nr < n and 0 <= nc < n and out[nr, nc] == 0:
+                                out[nr, nc] = colour
+                                stack.append((nr, nc))
+
         return out
 
     def create_grids(self) -> Tuple[Dict[str, Any], TrainTestData]:

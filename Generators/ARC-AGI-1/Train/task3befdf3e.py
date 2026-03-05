@@ -228,178 +228,151 @@ class Task3befdf3eGenerator(ARCTaskGenerator):
     
     def transform_input(self, grid, taskvars):
         output_grid = grid.copy()
-        
-        # Find all distinct blocks in the grid
-        blocks = self._find_blocks(grid)
-        
-        # Process each block
+        rows, cols = grid.shape
+
+        # ----------------------------
+        # INLINE BLOCK DETECTION
+        # ----------------------------
+        blocks = []
+        processed = set()
+
+        for sr in range(rows):
+            for sc in range(cols):
+                if grid[sr, sc] == 0 or (sr, sc) in processed:
+                    continue
+
+                color = grid[sr, sc]
+                r, c = sr, sc
+
+                # find top-left
+                while r > 0 and grid[r - 1, c] == color:
+                    r -= 1
+                while c > 0 and grid[r, c - 1] == color:
+                    c -= 1
+
+                top_r, left_c = r, c
+
+                # find bottom-right
+                rr, cc = sr, sc
+                while rr + 1 < rows and grid[rr + 1, cc] == color:
+                    rr += 1
+                while cc + 1 < cols and grid[rr, cc + 1] == color:
+                    cc += 1
+
+                bottom_r, right_c = rr, cc
+
+                height = bottom_r - top_r + 1
+                width = right_c - left_c + 1
+
+                if height != width or height not in [3, 4]:
+                    continue
+
+                frame_coords = set()
+                interior_coords = set()
+                frame_color = None
+                interior_color = None
+
+                # detect frame
+                for r2 in range(top_r, bottom_r + 1):
+                    for c2 in range(left_c, right_c + 1):
+                        if r2 in (top_r, bottom_r) or c2 in (left_c, right_c):
+                            frame_coords.add((r2, c2))
+                            if frame_color is None:
+                                frame_color = grid[r2, c2]
+                            elif grid[r2, c2] != frame_color:
+                                frame_coords = None
+                                break
+                    if frame_coords is None:
+                        break
+
+                if frame_coords is None:
+                    continue
+
+                # detect interior
+                interior_size = 1 if height == 3 else 2
+                start_r = top_r + (height - interior_size) // 2
+                start_c = left_c + (width - interior_size) // 2
+
+                for r2 in range(start_r, start_r + interior_size):
+                    for c2 in range(start_c, start_c + interior_size):
+                        interior_coords.add((r2, c2))
+                        if interior_color is None:
+                            interior_color = grid[r2, c2]
+                        elif grid[r2, c2] != interior_color:
+                            interior_coords = None
+                            break
+                    if interior_coords is None:
+                        break
+
+                if interior_coords is None or interior_color == frame_color:
+                    continue
+
+                blocks.append({
+                    "frame_coords": frame_coords,
+                    "interior_coords": interior_coords,
+                    "frame_color": frame_color,
+                    "interior_color": interior_color,
+                    "size": height
+                })
+
+                processed.update(frame_coords)
+                processed.update(interior_coords)
+
+        # ----------------------------
+        # APPLY TRANSFORMATION
+        # ----------------------------
         for block in blocks:
-            frame_coords = block['frame_coords']
-            interior_coords = block['interior_coords']
-            frame_color = block['frame_color']
-            interior_color = block['interior_color']
-            block_size = block['size']
-            
-            # 1. Swap colors
+            frame_coords = block["frame_coords"]
+            interior_coords = block["interior_coords"]
+            frame_color = block["frame_color"]
+            interior_color = block["interior_color"]
+            block_size = block["size"]
+
+            # swap colors
             for r, c in frame_coords:
                 output_grid[r, c] = interior_color
-                
             for r, c in interior_coords:
                 output_grid[r, c] = frame_color
-            
-            # 2. Determine extension size based on interior size
-            if block_size == 3:  # 3x3 block with 1x1 interior
+
+            # extension size
+            if block_size == 3:
                 extension_width = 3
                 extension_height = 1
-            else:  # 4x4 block with 2x2 interior
+            else:
                 extension_width = 4
                 extension_height = 2
-            
-            # 3. Get the frame's bounding box
+
             min_r = min(r for r, c in frame_coords)
             min_c = min(c for r, c in frame_coords)
             max_r = max(r for r, c in frame_coords)
             max_c = max(c for r, c in frame_coords)
-            
-            # 4. Add extensions with the color of the new interior (which was the frame color)
+
             extension_color = frame_color
-            
-            # Top extension
+
+            # top
             for r in range(min_r - extension_height, min_r):
                 for c in range(min_c, min_c + extension_width):
-                    if 0 <= r < output_grid.shape[0] and 0 <= c < output_grid.shape[1]:
+                    if 0 <= r < rows and 0 <= c < cols:
                         output_grid[r, c] = extension_color
-            
-            # Bottom extension
+
+            # bottom
             for r in range(max_r + 1, max_r + 1 + extension_height):
                 for c in range(min_c, min_c + extension_width):
-                    if 0 <= r < output_grid.shape[0] and 0 <= c < output_grid.shape[1]:
+                    if 0 <= r < rows and 0 <= c < cols:
                         output_grid[r, c] = extension_color
-            
-            # Left extension
+
+            # left
             for r in range(min_r, min_r + extension_width):
                 for c in range(min_c - extension_height, min_c):
-                    if 0 <= r < output_grid.shape[0] and 0 <= c < output_grid.shape[1]:
+                    if 0 <= r < rows and 0 <= c < cols:
                         output_grid[r, c] = extension_color
-            
-            # Right extension
+
+            # right
             for r in range(min_r, min_r + extension_width):
                 for c in range(max_c + 1, max_c + 1 + extension_height):
-                    if 0 <= r < output_grid.shape[0] and 0 <= c < output_grid.shape[1]:
+                    if 0 <= r < rows and 0 <= c < cols:
                         output_grid[r, c] = extension_color
-        
+
         return output_grid
+        
     
-    def _find_blocks(self, grid):
-        """
-        Find all rectangular blocks in the grid, each with a frame and interior.
-        Returns a list of dicts with information about each block.
-        """
-        blocks = []
-        processed_cells = set()
-        
-        # Find all non-background cells that haven't been processed
-        rows, cols = grid.shape
-        for r in range(rows):
-            for c in range(cols):
-                if grid[r, c] != 0 and (r, c) not in processed_cells:
-                    # Check if this cell is part of a valid rectangular block
-                    block_info = self._identify_block(grid, r, c)
-                    
-                    if block_info:
-                        blocks.append(block_info)
-                        # Mark all cells in this block as processed
-                        for cell in block_info['frame_coords']:
-                            processed_cells.add(cell)
-                        for cell in block_info['interior_coords']:
-                            processed_cells.add(cell)
-        
-        return blocks
-    
-    def _identify_block(self, grid, start_r, start_c):
-        """
-        Identify a rectangular block starting at the given position.
-        Returns frame_coords, interior_coords, frame_color, interior_color,
-        and size (3 or 4) if a valid block is found.
-        """
-        # Find boundaries of potential rectangular block
-        color = grid[start_r, start_c]
-        r, c = start_r, start_c
-        
-        # Find top-left corner of block
-        while r > 0 and grid[r-1, c] == color:
-            r -= 1
-        while c > 0 and grid[r, c-1] == color:
-            c -= 1
-        
-        top_left_r, top_left_c = r, c
-        
-        # Find bottom-right corner of block
-        rows, cols = grid.shape
-        while r+1 < rows and grid[r+1, c] == color:
-            r += 1
-        while c+1 < cols and grid[r, c+1] == color:
-            c += 1
-        
-        bottom_right_r, bottom_right_c = r, c
-        
-        # Check if this is a potential rectangular block
-        height = bottom_right_r - top_left_r + 1
-        width = bottom_right_c - top_left_c + 1
-        
-        if height != width:
-            return None  # Not a square block
-        
-        if height not in [3, 4]:
-            return None  # Not a 3x3 or 4x4 block
-        
-        # Check if it has a frame structure
-        frame_coords = set()
-        interior_coords = set()
-        frame_color = None
-        interior_color = None
-        
-        # First, identify the frame
-        for r in range(top_left_r, bottom_right_r + 1):
-            for c in range(top_left_c, bottom_right_c + 1):
-                if (r == top_left_r or r == bottom_right_r or 
-                    c == top_left_c or c == bottom_right_c):
-                    frame_coords.add((r, c))
-                    if frame_color is None:
-                        frame_color = grid[r, c]
-                    elif grid[r, c] != frame_color:
-                        return None  # Not a consistent frame color
-        
-        # Now, check if there's an interior with a different color
-        interior_size = 1 if height == 3 else 2
-        interior_start_r = top_left_r + (height - interior_size) // 2
-        interior_start_c = top_left_c + (width - interior_size) // 2
-        
-        for r in range(interior_start_r, interior_start_r + interior_size):
-            for c in range(interior_start_c, interior_start_c + interior_size):
-                interior_coords.add((r, c))
-                if interior_color is None:
-                    interior_color = grid[r, c]
-                elif grid[r, c] != interior_color:
-                    return None  # Not a consistent interior color
-        
-        # Check that interior and frame have different colors
-        if interior_color == frame_color:
-            return None
-        
-        # Make sure all other cells in the block are empty
-        for r in range(top_left_r, bottom_right_r + 1):
-            for c in range(top_left_c, bottom_right_c + 1):
-                if (r, c) not in frame_coords and (r, c) not in interior_coords:
-                    if grid[r, c] != 0:
-                        return None  # Unexpected value in block
-        
-        return {
-            'frame_coords': frame_coords,
-            'interior_coords': interior_coords,
-            'frame_color': frame_color,
-            'interior_color': interior_color,
-            'size': height
-        }
-
-

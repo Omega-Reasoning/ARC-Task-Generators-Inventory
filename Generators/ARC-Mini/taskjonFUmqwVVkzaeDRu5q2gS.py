@@ -54,13 +54,20 @@ class TaskjonFUmqwVVkzaeDRu5q2gSGenerator(ARCTaskGenerator):
         return matrix
 
     def transform_input(self, grid: np.ndarray, taskvars: Dict[str, Any]) -> np.ndarray:
+
         output_matrix = grid.copy()
         rows, cols = grid.shape
 
         for x in range(rows - 1):
             for y in range(cols - 3):
-                if self._is_connected_pair(grid, x, y):
-                    output_matrix[x:x+2, y:y+4] = 3  # Place green rectangle
+
+                # Inline version of _is_connected_pair
+                red_block = np.all(grid[x:x+2, y:y+2] == 2)
+                blue_block = np.all(grid[x:x+2, y+2:y+4] == 1)
+
+                if red_block and blue_block:
+                    output_matrix[x:x+2, y:y+4] = 3
+
         return output_matrix
 
     def create_grids(self) -> Tuple[Dict[str, Any], TrainTestData]:

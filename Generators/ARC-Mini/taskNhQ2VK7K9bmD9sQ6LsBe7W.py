@@ -91,62 +91,68 @@ class TaskNhQ2VK7K9bmD9sQ6LsBe7WGenerator(ARCTaskGenerator):
         return grid
 
     def transform_input(self, grid, taskvars):
-        """
-        Transform the input grid by expanding each colored cell (in order):
-        
-        1) First expand the cell of color1 in all four directions (left/right/up/down)
-           until encountering grid boundary or another non-zero cell.
-        2) Then do the same expansion for color2.
 
-        The expansions overwrite only empty (0) cells.
-        """
+        import numpy as np
+
         color1 = taskvars['cell_color1']
         color2 = taskvars['cell_color2']
-        
-        output_grid = grid.copy()
-        
-        # Expand color1 first
-        self._expand_color(output_grid, color1)
-        # Then expand color2
-        self._expand_color(output_grid, color2)
-        
-        return output_grid
 
-    def _expand_color(self, grid, color):
-        """
-        For the single cell with 'color', expand horizontally (left and right) and 
-        vertically (up and down) until hitting a non-empty cell or the grid boundary.
-        """
-        positions = np.argwhere(grid == color)
-        if len(positions) == 0:
-            return  # No cell of this color found
-        
-        # We assume there's exactly one cell of the color in the input
-        r, c = positions[0]
-        
-        # Expand left
-        cc = c - 1
-        while cc >= 0 and grid[r, cc] == 0:
-            grid[r, cc] = color
-            cc -= 1
-        
-        # Expand right
-        cc = c + 1
-        while cc < grid.shape[1] and grid[r, cc] == 0:
-            grid[r, cc] = color
-            cc += 1
-        
-        # Expand up
-        rr = r - 1
-        while rr >= 0 and grid[rr, c] == 0:
-            grid[rr, c] = color
-            rr -= 1
-        
-        # Expand down
-        rr = r + 1
-        while rr < grid.shape[0] and grid[rr, c] == 0:
-            grid[rr, c] = color
-            rr += 1
+        output = grid.copy()
+        rows, cols = output.shape
 
+        # -----------------------------
+        # Expand color1
+        # -----------------------------
+        pos = np.argwhere(output == color1)
+        if len(pos) > 0:
+            r, c = pos[0]
 
+            cc = c - 1
+            while cc >= 0 and output[r, cc] == 0:
+                output[r, cc] = color1
+                cc -= 1
+
+            cc = c + 1
+            while cc < cols and output[r, cc] == 0:
+                output[r, cc] = color1
+                cc += 1
+
+            rr = r - 1
+            while rr >= 0 and output[rr, c] == 0:
+                output[rr, c] = color1
+                rr -= 1
+
+            rr = r + 1
+            while rr < rows and output[rr, c] == 0:
+                output[rr, c] = color1
+                rr += 1
+
+        # -----------------------------
+        # Expand color2
+        # -----------------------------
+        pos = np.argwhere(output == color2)
+        if len(pos) > 0:
+            r, c = pos[0]
+
+            cc = c - 1
+            while cc >= 0 and output[r, cc] == 0:
+                output[r, cc] = color2
+                cc -= 1
+
+            cc = c + 1
+            while cc < cols and output[r, cc] == 0:
+                output[r, cc] = color2
+                cc += 1
+
+            rr = r - 1
+            while rr >= 0 and output[rr, c] == 0:
+                output[rr, c] = color2
+                rr -= 1
+
+            rr = r + 1
+            while rr < rows and output[rr, c] == 0:
+                output[rr, c] = color2
+                rr += 1
+
+        return output
 

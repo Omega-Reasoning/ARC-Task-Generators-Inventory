@@ -297,71 +297,53 @@ class Taskaedd82e4Generator(ARCTaskGenerator):
         
         return grid
     
-    def is_individual_cell_group(self, obj: GridObject, grid: np.ndarray) -> bool:
-        """Check if an object is an individual cell group."""
-        if len(obj) == 1:
-            return True
-        
-        if len(obj) > 2:
-            return False
-            
-        # Check if cells are only connected diagonally
-        cells = list(obj.cells)
-        for i, (r1, c1, _) in enumerate(cells):
-            for j, (r2, c2, _) in enumerate(cells):
-                if i >= j:
-                    continue
-                if abs(r1 - r2) + abs(c1 - c2) == 1:
-                    return False
-        
-        return True
-    
-    def find_diagonal_attachments_in_object(self, obj: GridObject, grid: np.ndarray) -> set:
-        """Find cells within an object that are only diagonally connected."""
-        if len(obj) <= 3:
-            return set()
-        
-        diagonal_attachments = set()
-        cells = list(obj.cells)
-        
-        for r, c, color in cells:
-            orthogonal_connections = 0
-            diagonal_connections = 0
-            
-            for dr in [-1, 0, 1]:
-                for dc in [-1, 0, 1]:
-                    if dr == 0 and dc == 0:
-                        continue
-                    nr, nc = r + dr, c + dc
-                    
-                    if (nr, nc, color) in obj.cells:
-                        if abs(dr) + abs(dc) == 1:
-                            orthogonal_connections += 1
-                        else:
-                            diagonal_connections += 1
-            
-            if orthogonal_connections == 0 and diagonal_connections > 0:
-                diagonal_attachments.add((r, c))
-        
-        return diagonal_attachments
-    
     def transform_input(self, grid: np.ndarray, taskvars: dict) -> np.ndarray:
-        """Transform input grid."""
         pattern_color = taskvars['pattern_color']
         cell_color = taskvars['cell_color']
         
         output_grid = grid.copy()
         all_objects = find_connected_objects(grid, diagonal_connectivity=True, background=0)
-        
+
         for obj in all_objects:
-            if self.is_individual_cell_group(obj, grid):
-                for r, c, _ in obj.cells:
-                    output_grid[r, c] = cell_color
+            cells = list(obj.cells)
+
+            # ---- INLINE is_individual_cell_group ----
+            is_individual = False
+            if len(cells) == 1:
+                is_individual = True
+            elif len(cells) == 2:
+                # check if only diagonally connected
+                (r1, c1, _), (r2, c2, _) = cells
+                if abs(r1 - r2) == 1 and abs(c1 - c2) == 1:
+                    is_individual = True
             else:
-                diagonal_attachments = self.find_diagonal_attachments_in_object(obj, grid)
-                for r, c in diagonal_attachments:
+                is_individual = False
+
+            if is_individual:
+                for r, c, _ in cells:
                     output_grid[r, c] = cell_color
-        
+                continue
+
+            # ---- INLINE find_diagonal_attachments_in_object ----
+            if len(cells) > 3:
+                for r, c, color in cells:
+                    orthogonal = 0
+                    diagonal = 0
+
+                    for dr in [-1, 0, 1]:
+                        for dc in [-1, 0, 1]:
+                            if dr == 0 and dc == 0:
+                                continue
+                            nr, nc = r + dr, c + dc
+                            if (nr, nc, color) in obj.cells:
+                                if abs(dr) + abs(dc) == 1:
+                                    orthogonal += 1
+                                else:
+                                    diagonal += 1
+
+                    if orthogonal == 0 and diagonal > 0:
+                        output_grid[r, c] = cell_color
+
         return output_grid
     
     def create_grids(self) -> tuple[dict, dict]:

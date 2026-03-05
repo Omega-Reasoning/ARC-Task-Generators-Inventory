@@ -198,51 +198,66 @@ class Task1a07d186Generator(ARCTaskGenerator):
         rows, cols = grid.shape
         output_grid = grid.copy()
 
-        def is_filled_row(g, r):
-            return np.all(g[r, :] != 0) and len(set(g[r, :])) == 1
+        # Detect filled rows
+        colored_rows = {}
+        for r in range(rows):
+            row_vals = grid[r, :]
+            if np.all(row_vals != 0) and len(set(row_vals)) == 1:
+                colored_rows[r] = row_vals[0]
 
-        def is_filled_col(g, c):
-            return np.all(g[:, c] != 0) and len(set(g[:, c])) == 1
+        # Detect filled columns
+        colored_cols = {}
+        for c in range(cols):
+            col_vals = grid[:, c]
+            if np.all(col_vals != 0) and len(set(col_vals)) == 1:
+                colored_cols[c] = col_vals[0]
 
-        colored_rows = {r: grid[r, 0] for r in range(rows) if is_filled_row(grid, r)}
-        colored_cols = {c: grid[0, c] for c in range(cols) if is_filled_col(grid, c)}
-
+        # Translate cells
         for r in range(rows):
             for c in range(cols):
-                if grid[r, c] != 0:
-                    self._translate_item([(r, c, grid[r, c])], {grid[r, c]}, colored_rows, colored_cols, output_grid)
+                color = grid[r, c]
+                if color == 0:
+                    continue
 
-        new_colored_rows = {r: output_grid[r, 0] for r in range(rows) if is_filled_row(output_grid, r)}
-        new_colored_cols = {c: output_grid[0, c] for c in range(cols) if is_filled_col(output_grid, c)}
+                # Move toward matching filled row
+                for row_idx, row_color in colored_rows.items():
+                    if color == row_color and r != row_idx:
+                        output_grid[r, c] = 0
+                        new_r = row_idx - 1 if r < row_idx else row_idx + 1
+                        if 0 <= new_r < rows:
+                            output_grid[new_r, c] = color
+
+                # Move toward matching filled column
+                for col_idx, col_color in colored_cols.items():
+                    if color == col_color and c != col_idx:
+                        output_grid[r, c] = 0
+                        new_c = col_idx - 1 if c < col_idx else col_idx + 1
+                        if 0 <= new_c < cols:
+                            output_grid[r, new_c] = color
+
+        # Recompute filled lines after movement
+        new_colored_rows = {}
+        for r in range(rows):
+            row_vals = output_grid[r, :]
+            if np.all(row_vals != 0) and len(set(row_vals)) == 1:
+                new_colored_rows[r] = row_vals[0]
+
+        new_colored_cols = {}
+        for c in range(cols):
+            col_vals = output_grid[:, c]
+            if np.all(col_vals != 0) and len(set(col_vals)) == 1:
+                new_colored_cols[c] = col_vals[0]
+
         allowed_colors = set(new_colored_rows.values()) | set(new_colored_cols.values())
 
+        # Remove non-matching colors
         for r in range(rows):
             for c in range(cols):
                 if output_grid[r, c] != 0 and output_grid[r, c] not in allowed_colors:
                     output_grid[r, c] = 0
 
         return output_grid
-
-    def _translate_item(self, cells, colors, colored_rows, colored_cols, output_grid):
-        r, c, color = cells[0]
-
-        if color in colored_rows.values():
-            row_idx = next(r_idx for r_idx, col in colored_rows.items() if col == color)
-            if r == row_idx:
-                return
-            output_grid[r, c] = 0
-            new_r = row_idx - 1 if r < row_idx else row_idx + 1
-            if 0 <= new_r < output_grid.shape[0]:
-                output_grid[new_r, c] = color
-
-        elif color in colored_cols.values():
-            col_idx = next(c_idx for c_idx, col in colored_cols.items() if col == color)
-            if c == col_idx:
-                return
-            output_grid[r, c] = 0
-            new_c = col_idx - 1 if c < col_idx else col_idx + 1
-            if 0 <= new_c < output_grid.shape[1]:
-                output_grid[r, new_c] = color
+    
 
     def create_grids(self):
         taskvars = {

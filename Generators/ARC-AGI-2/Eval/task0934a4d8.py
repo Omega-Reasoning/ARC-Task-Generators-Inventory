@@ -233,99 +233,120 @@ class Task0934a4d8Generator(ARCTaskGenerator):
                     quadrant[r, c] = random.choice(available_colors)
 
     def transform_input(self, grid, taskvars):
-        grid_size = taskvars['grid_size']
-        block_color = taskvars['block']
-        
-        # Find the block object
-        block_objects = find_connected_objects(grid, diagonal_connectivity=True, monochromatic=True).with_color(block_color)
-        
-        if len(block_objects) == 0:
+        import numpy as np
+
+        grid = np.array(grid)
+        grid_size = int(taskvars["grid_size"])
+        block_color = int(taskvars["block"])
+
+        # ---- find the block bounding box (largest connected component of block_color, 8-way) ----
+        H, W = grid.shape
+        visited = np.zeros((H, W), dtype=bool)
+        best_cells = None
+
+        # 8-neighborhood
+        neigh8 = [(-1,-1), (-1,0), (-1,1),
+                ( 0,-1),         ( 0,1),
+                ( 1,-1), ( 1,0), ( 1,1)]
+
+        for sr in range(H):
+            for sc in range(W):
+                if visited[sr, sc] or grid[sr, sc] != block_color:
+                    continue
+
+                stack = [(sr, sc)]
+                visited[sr, sc] = True
+                cells = []
+
+                while stack:
+                    r, c = stack.pop()
+                    cells.append((r, c))
+                    for dr, dc in neigh8:
+                        nr, nc = r + dr, c + dc
+                        if 0 <= nr < H and 0 <= nc < W and (not visited[nr, nc]) and grid[nr, nc] == block_color:
+                            visited[nr, nc] = True
+                            stack.append((nr, nc))
+
+                if best_cells is None or len(cells) > len(best_cells):
+                    best_cells = cells
+
+        if not best_cells:
             return np.zeros((3, 3), dtype=int)
-        
-        # Get the largest block (should be our rectangular block)
-        block = max(block_objects.objects, key=len)
-        
-        # Get block bounding box
-        bbox = block.bounding_box
-        block_height = bbox[0].stop - bbox[0].start
-        block_width = bbox[1].stop - bbox[1].start
-        block_r = bbox[0].start
-        block_c = bbox[1].start
-        
-        # Create output grid of block size
-        output = np.zeros((block_height, block_width), dtype=int)
-        
-        # Reconstruct the original pattern that would be underneath the block
+
+        rs = [p[0] for p in best_cells]
+        cs = [p[1] for p in best_cells]
+        block_r0, block_r1 = min(rs), max(rs)
+        block_c0, block_c1 = min(cs), max(cs)
+
+        block_h = block_r1 - block_r0 + 1
+        block_w = block_c1 - block_c0 + 1
+
+        output = np.zeros((block_h, block_w), dtype=int)
+
+        # Quadrant size used by your generator
         quad_size = grid_size // 2 + 1
-        
-        # For each cell in the block area, determine what the original pattern would be
-        for r in range(block_height):
-            for c in range(block_width):
-                grid_r = block_r + r
-                grid_c = block_c + c
-                
-                # Reconstruct what should be at this position based on the reflection pattern
-                reconstructed_value = self._reconstruct_original_value(grid, grid_r, grid_c, grid_size, quad_size, block_color)
-                output[r, c] = reconstructed_value
-        
+        half = grid_size // 2  # reflection anchor used in create_input
+
+        # ---- fill output by reconstructing underlying value via reflection mapping ----
+        for rr in range(block_h):
+            for cc in range(block_w):
+                r = block_r0 + rr
+                c = block_c0 + cc
+
+                # Map (r,c) back to a source coordinate in the top-left quadrant.
+                # This matches your construction:
+                # - TL is original
+                # - TR is horizontal reflection of TL placed starting at col=half
+                # - BL is vertical reflection of TL placed starting at row=half
+                # - BR is horizontal reflection of BL (so also maps back to TL)
+                if r < quad_size and c < quad_size:
+                    src_r, src_c = r, c
+                elif r < quad_size and c >= half:
+                    src_r = r
+                    src_c = quad_size - 1 - (c - half)
+                elif r >= half and c < quad_size:
+                    src_r = quad_size - 1 - (r - half)
+                    src_c = c
+                else:
+                    # bottom-right: your code reflects bottom-left horizontally.
+                    # bottom-left itself corresponds to TL via vertical reflection.
+                    # So: map row through BL->TL, and col through horizontal reflection.
+                    src_r = quad_size - 1 - (r - half)
+                    src_c = quad_size - 1 - (c - half)
+
+                # Clamp to valid TL quadrant bounds (in case of partial fits)
+                if src_r < 0: src_r = 0
+                if src_c < 0: src_c = 0
+                if src_r >= quad_size: src_r = quad_size - 1
+                if src_c >= quad_size: src_c = quad_size - 1
+
+                val = grid[src_r, src_c]
+
+                # If that cell is block_color (occluded or coincident), search nearby around source for a non-block value
+                if val == block_color:
+                    found = False
+                    max_rad = min(max(H, W), 12)
+                    for rad in range(1, max_rad + 1):
+                        for dr in range(-rad, rad + 1):
+                            for dc in range(-rad, rad + 1):
+                                nr, nc = src_r + dr, src_c + dc
+                                if 0 <= nr < H and 0 <= nc < W and grid[nr, nc] != block_color:
+                                    val = grid[nr, nc]
+                                    found = True
+                                    break
+                            if found:
+                                break
+                        if found:
+                            break
+
+                    # Ultimate fallback (should basically never happen)
+                    if val == block_color:
+                        val = 1 if block_color != 1 else 2
+
+                output[rr, cc] = val
+
         return output
     
-    def _reconstruct_original_value(self, grid, r, c, grid_size, quad_size, block_color):
-        """Reconstruct the original value at position (r,c) based on reflection pattern"""
-        
-        # Determine which quadrant this position belongs to and find the corresponding source
-        if r < quad_size and c < quad_size:
-            # Top-left quadrant - this is the original, look at nearby non-block cells
-            return self._find_nearby_non_block_value(grid, r, c, block_color)
-        
-        elif r < quad_size and c >= grid_size // 2:
-            # Top-right quadrant - horizontally reflected from top-left
-            source_r = r
-            source_c = quad_size - 1 - (c - grid_size // 2)
-            if 0 <= source_c < quad_size:
-                return self._find_nearby_non_block_value(grid, source_r, source_c, block_color)
-        
-        elif r >= grid_size // 2 and c < quad_size:
-            # Bottom-left quadrant - vertically reflected from top-left
-            source_r = quad_size - 1 - (r - grid_size // 2)
-            source_c = c
-            if 0 <= source_r < quad_size:
-                return self._find_nearby_non_block_value(grid, source_r, source_c, block_color)
-        
-        elif r >= grid_size // 2 and c >= grid_size // 2:
-            # Bottom-right quadrant - reflected from bottom-left
-            source_r = r
-            source_c = quad_size - 1 - (c - grid_size // 2)
-            if 0 <= source_c < quad_size:
-                return self._find_nearby_non_block_value(grid, source_r, source_c, block_color)
-        
-        # Fallback: find any nearby non-block value
-        return self._find_nearby_non_block_value(grid, r, c, block_color)
-    
-    def _find_nearby_non_block_value(self, grid, r, c, block_color):
-        """Find a nearby non-block value to use as the reconstructed value"""
-        grid_size = grid.shape[0]
-        
-        # First try the exact position if it's not a block
-        if 0 <= r < grid_size and 0 <= c < grid_size and grid[r, c] != block_color:
-            return grid[r, c]
-        
-        # Search in expanding radius for non-block cells
-        for radius in range(1, min(grid_size, 10)):
-            for dr in range(-radius, radius + 1):
-                for dc in range(-radius, radius + 1):
-                    nr, nc = r + dr, c + dc
-                    if (0 <= nr < grid_size and 0 <= nc < grid_size and 
-                        grid[nr, nc] != block_color):
-                        return grid[nr, nc]
-        
-        # Fallback to a non-block color
-        for color in range(1, 10):
-            if color != block_color:
-                return color
-        
-        return 2  # Ultimate fallback
-
     def create_grids(self):
         # Create task variables
         taskvars = {

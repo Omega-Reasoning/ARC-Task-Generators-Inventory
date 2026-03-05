@@ -394,58 +394,85 @@ class task15663ba9Generator(ARCTaskGenerator):
         return True
 
     def transform_input(self, grid: np.ndarray, taskvars: Dict[str, Any]) -> np.ndarray:
-        """Transform input by recoloring corner cells."""
+        import numpy as np
+
         output_grid = grid.copy()
+
         objects = find_connected_objects(grid, diagonal_connectivity=False, background=0)
-        
-        for boundary_obj in objects:
-            coords = boundary_obj.coords
+
+        for obj in objects:
+            coords = set(obj.coords)
+
             corner_cells = []
-            
+
+            # ---- find corner cells ----
             for r, c in coords:
+
                 neighbors = []
-                for dr, dc in [(0, 1), (0, -1), (1, 0), (-1, 0)]:
-                    nr, nc = r + dr, c + dc
+
+                for dr, dc in [(0,1),(0,-1),(1,0),(-1,0)]:
+                    nr, nc = r+dr, c+dc
                     if (nr, nc) in coords:
-                        neighbors.append((dr, dc))
-                
+                        neighbors.append((dr,dc))
+
                 if len(neighbors) == 2:
-                    (dr1, dc1), (dr2, dc2) = neighbors
-                    if dr1 * dr2 + dc1 * dc2 == 0:
-                        corner_cells.append((r, c))
-            
-            for r, c in corner_cells:
-                if self._is_exterior_corner(grid, r, c):
-                    output_grid[r, c] = taskvars['exterior_border']
+                    (dr1,dc1),(dr2,dc2) = neighbors
+
+                    # orthogonal directions -> corner
+                    if dr1*dr2 + dc1*dc2 == 0:
+                        corner_cells.append((r,c,dr1,dc1,dr2,dc2))
+
+            # ---- classify corner cells ----
+            for r,c,dr1,dc1,dr2,dc2 in corner_cells:
+
+                diag_r = r - dr1 - dr2
+                diag_c = c - dc1 - dc2
+
+                is_exterior = True
+
+                if 0 <= diag_r < grid.shape[0] and 0 <= diag_c < grid.shape[1]:
+
+                    if grid[diag_r, diag_c] == 0:
+
+                        # flood fill to detect if region touches border
+                        visited = set()
+                        stack = [(diag_r,diag_c)]
+
+                        touches_border = False
+
+                        while stack:
+                            cr,cc = stack.pop()
+
+                            if (cr,cc) in visited:
+                                continue
+
+                            visited.add((cr,cc))
+
+                            if cr == 0 or cr == grid.shape[0]-1 or cc == 0 or cc == grid.shape[1]-1:
+                                touches_border = True
+                                break
+
+                            for dr,dc in [(0,1),(0,-1),(1,0),(-1,0)]:
+                                nr,nc = cr+dr, cc+dc
+
+                                if (0 <= nr < grid.shape[0] and
+                                    0 <= nc < grid.shape[1] and
+                                    grid[nr,nc] == 0 and
+                                    (nr,nc) not in visited):
+
+                                    stack.append((nr,nc))
+
+                        # interior regions do NOT touch border
+                        is_exterior = touches_border
+
+                if is_exterior:
+                    output_grid[r,c] = taskvars['exterior_border']
                 else:
-                    output_grid[r, c] = taskvars['interior_border']
-        
+                    output_grid[r,c] = taskvars['interior_border']
+
         return output_grid
 
-    def _is_exterior_corner(self, grid, r, c):
-        """Determine if a corner is on the exterior side."""
-        boundary_color = grid[r, c]
-        neighbors = []
-        
-        for dr, dc in [(0, 1), (0, -1), (1, 0), (-1, 0)]:
-            nr, nc = r + dr, c + dc
-            if (0 <= nr < grid.shape[0] and 0 <= nc < grid.shape[1] and 
-                grid[nr, nc] == boundary_color):
-                neighbors.append((dr, dc))
-        
-        if len(neighbors) != 2:
-            return True
-        
-        (dr1, dc1), (dr2, dc2) = neighbors
-        diag_r, diag_c = r - dr1 - dr2, c - dc1 - dc2
-        
-        if not (0 <= diag_r < grid.shape[0] and 0 <= diag_c < grid.shape[1]):
-            return True
-        
-        if grid[diag_r, diag_c] == 0:
-            return not self._is_interior_cell(grid, diag_r, diag_c, grid[r, c])
-        
-        return True
+    
 
     def create_grids(self) -> Tuple[Dict[str, Any], TrainTestData]:
         """Create task variables and generate train/test grids."""

@@ -866,30 +866,162 @@ class Task135a2760Generator(ARCTaskGenerator):
             grid = np.full((rows, cols), 1, dtype=int)
             return grid
     
-    def transform_input(self, grid: np.ndarray, taskvars: Dict[str, Any]) -> np.ndarray:
-        """Required implementation of transform_input, uses advanced pattern detection and fixing"""
-        try:
-            output_grid = grid.copy()
-            
-            # Detect background, frame, and pattern colors
-            background_color = self._detect_background_color(grid)
-            frame_colors = self._detect_frame_colors(grid, background_color)
-            
-            # Determine if this is a horizontal or vertical frame layout
-            horizontal_frames = self._detect_orientation(grid, frame_colors, background_color)
-            
-            # Process and fix patterns in all frames
-            if horizontal_frames:
-                self._fix_horizontal_frames(output_grid, frame_colors, background_color)
-            else:
-                self._fix_vertical_frames(output_grid, frame_colors, background_color)
-                
-            return output_grid
-            
-        except Exception as e:
-            # In case of error, return input grid unchanged
-            print(f"Error in transform_input: {e}")
-            return grid.copy()
+    def transform_input(self, grid, taskvars):
+
+        import numpy as np
+
+        rows, cols = grid.shape
+        output = grid.copy()
+
+        # -----------------------------
+        # Detect background color
+        # -----------------------------
+        corners = [grid[0,0], grid[0,-1], grid[-1,0], grid[-1,-1]]
+        background = max(set(corners), key=corners.count)
+
+        # -----------------------------
+        # Detect frame colors
+        # -----------------------------
+        frame_colors = set()
+
+        for r in range(1, rows-1):
+            for c in range(1, cols-1):
+
+                color = grid[r,c]
+
+                if color == background:
+                    continue
+
+                horizontal = (
+                    c > 1 and c < cols-2 and
+                    grid[r,c-1] == color and
+                    grid[r,c+1] == color
+                )
+
+                vertical = (
+                    r > 1 and r < rows-2 and
+                    grid[r-1,c] == color and
+                    grid[r+1,c] == color
+                )
+
+                if horizontal or vertical:
+                    frame_colors.add(color)
+
+        if not frame_colors:
+            frame_colors.add((background % 9) + 1)
+
+        # -----------------------------
+        # Detect orientation
+        # -----------------------------
+        horizontal_score = 0
+        vertical_score = 0
+
+        for r in range(1, rows-1):
+            for c in range(1, cols-1):
+
+                if grid[r,c] in frame_colors:
+
+                    if grid[r,c-1] in frame_colors and grid[r,c+1] in frame_colors:
+                        horizontal_score += 1
+
+                    if grid[r-1,c] in frame_colors and grid[r+1,c] in frame_colors:
+                        vertical_score += 1
+
+        horizontal_frames = horizontal_score >= vertical_score
+
+        # -----------------------------
+        # Fix horizontal frames
+        # -----------------------------
+        if horizontal_frames:
+
+            r = 1
+
+            while r < rows-1:
+
+                if grid[r,1] in frame_colors:
+
+                    start = r
+
+                    while r < rows-1 and grid[r,1] in frame_colors:
+                        r += 1
+
+                    end = r - 1
+
+                    if end - start >= 2:
+
+                        interior = grid[start+1:end, 2:cols-2]
+
+                        color_counts = {}
+
+                        for rr in range(interior.shape[0]):
+                            for cc in range(interior.shape[1]):
+
+                                val = interior[rr,cc]
+
+                                if val != background and val not in frame_colors:
+                                    color_counts[val] = color_counts.get(val,0) + 1
+
+                        if color_counts:
+                            pattern_color = max(color_counts, key=color_counts.get)
+
+                            for rr in range(start+1, end):
+
+                                for cc in range(2, cols-2):
+
+                                    if ((rr-(start+1)) + (cc-2)) % 2 == 0:
+                                        output[rr,cc] = pattern_color
+                                    else:
+                                        output[rr,cc] = background
+
+                r += 1
+
+        # -----------------------------
+        # Fix vertical frames
+        # -----------------------------
+        else:
+
+            c = 1
+
+            while c < cols-1:
+
+                if grid[1,c] in frame_colors:
+
+                    start = c
+
+                    while c < cols-1 and grid[1,c] in frame_colors:
+                        c += 1
+
+                    end = c - 1
+
+                    if end - start >= 2:
+
+                        interior = grid[2:rows-2, start+1:end]
+
+                        color_counts = {}
+
+                        for rr in range(interior.shape[0]):
+                            for cc in range(interior.shape[1]):
+
+                                val = interior[rr,cc]
+
+                                if val != background and val not in frame_colors:
+                                    color_counts[val] = color_counts.get(val,0) + 1
+
+                        if color_counts:
+                            pattern_color = max(color_counts, key=color_counts.get)
+
+                            for rr in range(2, rows-2):
+
+                                for cc in range(start+1, end):
+
+                                    if ((rr-2) + (cc-(start+1))) % 2 == 0:
+                                        output[rr,cc] = pattern_color
+                                    else:
+                                        output[rr,cc] = background
+
+                c += 1
+
+        return output
     
     def _detect_background_color(self, grid):
         """Detect the background color of the grid (most common corner color)"""

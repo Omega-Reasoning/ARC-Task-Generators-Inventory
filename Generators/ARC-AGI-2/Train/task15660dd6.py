@@ -101,105 +101,7 @@ class Task15660dd6Generator(ARCTaskGenerator):
         gridvars['fill_colors'] = random.sample(available_colors, gridvars['num_col_groups'])
             
         return gridvars
-    
-    def _infer_frame_size(self, grid: np.ndarray, object_color: int) -> int:
-        """Infer frame size by finding the first frame."""
-        for size in [5, 6]:
-            try:
-                frame_region = grid[1:1+size, 1:1+size]
-                # Check if it's a proper frame (border is object_color)
-                if (np.all(frame_region[0, :] == object_color) and  # top
-                    np.all(frame_region[-1, :] == object_color) and  # bottom
-                    np.all(frame_region[:, 0] == object_color) and  # left
-                    np.all(frame_region[:, -1] == object_color)):  # right
-                    return size
-            except IndexError:
-                continue
-        raise ValueError("Could not infer frame size from grid")
-    
-    def _infer_num_col_groups(self, grid: np.ndarray, frame_size: int) -> int:
-        """Calculate number of column groups based on grid width."""
-        grid_height, grid_width = grid.shape
-        return (grid_width - 1) // (frame_size + 1)
-    
-    def _find_fill_colors(self, grid: np.ndarray, frame_size: int, num_col_groups: int, 
-                         background_color: int, object_color: int, object_color2: int) -> List[int]:
-        """Find all unique fill colors by examining frame interiors."""
-        fill_colors = []
-        used_base_colors = {background_color, object_color, object_color2}
-        
-        for col in range(num_col_groups):
-            for row in range(3):
-                frame_row = 1 + row * (frame_size + 1)
-                frame_col = 1 + col * (frame_size + 1)
-                
-                # Extract frame interior
-                interior = grid[frame_row+1:frame_row+frame_size-1, frame_col+1:frame_col+frame_size-1]
-                unique_colors = np.unique(interior)
-                
-                # If it's a single color that's not a base color, it's a fill color
-                if (len(unique_colors) == 1 and 
-                    unique_colors[0] not in used_base_colors and
-                    unique_colors[0] not in fill_colors):
-                    fill_colors.append(unique_colors[0])
-        
-        return fill_colors
-    
-    def _infer_grid_config(self, grid: np.ndarray, background_color: int, object_color: int, object_color2: int) -> Dict[str, Any]:
-        """Infer grid configuration from the input grid."""
-        frame_size = self._infer_frame_size(grid, object_color)
-        num_col_groups = self._infer_num_col_groups(grid, frame_size)
-        fill_colors = self._find_fill_colors(grid, frame_size, num_col_groups, background_color, object_color, object_color2)
-        
-        return {
-            'frame_size': frame_size,
-            'num_col_groups': num_col_groups,
-            'fill_colors': fill_colors
-        }
-    
-    def _extract_frame_info(self, grid: np.ndarray, col: int, frame_size: int, 
-                           fill_colors: List[int], object_color2: int) -> Tuple[Optional[int], Optional[np.ndarray], Optional[int]]:
-        """Extract the filled frame color, object shape, and filled frame row for a column group."""
-        filled_frame_color = None
-        object_shape = None
-        filled_frame_row = None
-        
-        # Check each frame in this column group
-        for row in range(3):
-            frame_row = 1 + row * (frame_size + 1)
-            frame_col = 1 + col * (frame_size + 1)
-            
-            # Extract frame interior
-            interior = grid[frame_row+1:frame_row+frame_size-1, frame_col+1:frame_col+frame_size-1]
-            
-            # Check if this is a filled frame (single color, not background or object_color2)
-            unique_colors = np.unique(interior)
-            if len(unique_colors) == 1 and unique_colors[0] in fill_colors:
-                filled_frame_color = unique_colors[0]
-                filled_frame_row = row
-            elif np.any(interior == object_color2):
-                # This frame contains the object shape
-                object_shape = interior.copy()
-        
-        return filled_frame_color, object_shape, filled_frame_row
-    
-    def _draw_output_frame_border(self, output_grid: np.ndarray, output_col: int, frame_size: int, frame_strip_color: int):
-        """Draw the border of an output frame."""
-        for i in range(frame_size):
-            for j in range(frame_size):
-                if i == 0 or i == frame_size-1 or j == 0 or j == frame_size-1:
-                    output_grid[i, output_col + j] = frame_strip_color
-    
-    def _fill_output_frame_interior(self, output_grid: np.ndarray, output_col: int, frame_size: int,
-                                   object_shape: np.ndarray, object_color2: int, 
-                                   filled_frame_color: int, background_color: int):
-        """Fill the interior of an output frame with the object shape."""
-        for i in range(1, frame_size-1):
-            for j in range(1, frame_size-1):
-                if object_shape[i-1, j-1] == object_color2:
-                    output_grid[i, output_col + j] = filled_frame_color
-                else:
-                    output_grid[i, output_col + j] = background_color
+
     
     def create_input(self, taskvars: Dict[str, Any], gridvars: Dict[str, Any]) -> np.ndarray:
         # Get grid-specific configuration
@@ -275,44 +177,108 @@ class Task15660dd6Generator(ARCTaskGenerator):
         
         return grid
     
-    def transform_input(self, grid: np.ndarray, taskvars: Dict[str, Any]) -> np.ndarray:
-        # Get shared colors
+    def transform_input(self, grid, taskvars):
         background_color = taskvars['background_color']
         object_color = taskvars['object_color']
         object_color2 = taskvars['object_color2']
-        strip_color1 = taskvars['strip_color1']
-        strip_color2 = taskvars['strip_color2']
-        strip_color3 = taskvars['strip_color3']
-        
-        # Infer grid configuration from the input grid
-        config = self._infer_grid_config(grid, background_color, object_color, object_color2)
-        frame_size = config['frame_size']
-        num_col_groups = config['num_col_groups']
-        fill_colors = config['fill_colors']
-        
-        strip_colors = [strip_color1, strip_color2, strip_color3]
-        
-        # Create output grid
-        output_width = num_col_groups * (frame_size + 1) - 1
-        output_height = frame_size
-        output_grid = np.full((output_height, output_width), background_color, dtype=int)
-        
-        # Process each column group
+
+        strip_colors = [
+            taskvars['strip_color1'],
+            taskvars['strip_color2'],
+            taskvars['strip_color3']
+        ]
+
+        H, W = grid.shape
+
+        # -------------------------------------------------
+        # Infer frame size
+        # -------------------------------------------------
+        frame_size = None
+        for size in [5, 6]:
+            try:
+                region = grid[1:1+size, 1:1+size]
+                if (
+                    np.all(region[0, :] == object_color) and
+                    np.all(region[-1, :] == object_color) and
+                    np.all(region[:, 0] == object_color) and
+                    np.all(region[:, -1] == object_color)
+                ):
+                    frame_size = size
+                    break
+            except:
+                pass
+
+        if frame_size is None:
+            return grid.copy()
+
+        num_col_groups = (W - 1) // (frame_size + 1)
+
+        # -------------------------------------------------
+        # Detect fill colors
+        # -------------------------------------------------
+        fill_colors = []
+        used_base = {background_color, object_color, object_color2}
+
         for col in range(num_col_groups):
-            # Extract information from this column group
-            filled_frame_color, object_shape, filled_frame_row = self._extract_frame_info(
-                grid, col, frame_size, fill_colors, object_color2)
-            
-            # Calculate output column position
-            output_col = col * (frame_size + 1)
-            
-            # Draw frame border using the strip color corresponding to the filled frame's row
-            frame_strip_color = strip_colors[filled_frame_row]
-            self._draw_output_frame_border(output_grid, output_col, frame_size, frame_strip_color)
-            
-            # Fill interior with object shape using filled frame color
-            if object_shape is not None and filled_frame_color is not None:
-                self._fill_output_frame_interior(output_grid, output_col, frame_size, 
-                                               object_shape, object_color2, filled_frame_color, background_color)
-        
-        return output_grid
+            for row in range(3):
+
+                fr = 1 + row * (frame_size + 1)
+                fc = 1 + col * (frame_size + 1)
+
+                interior = grid[fr+1:fr+frame_size-1, fc+1:fc+frame_size-1]
+                colors = np.unique(interior)
+
+                if len(colors) == 1 and colors[0] not in used_base and colors[0] not in fill_colors:
+                    fill_colors.append(colors[0])
+
+        # -------------------------------------------------
+        # Create output grid
+        # -------------------------------------------------
+        out_h = frame_size
+        out_w = num_col_groups * (frame_size + 1) - 1
+        out = np.full((out_h, out_w), background_color, dtype=int)
+
+        # -------------------------------------------------
+        # Process each column group
+        # -------------------------------------------------
+        for col in range(num_col_groups):
+
+            filled_color = None
+            object_shape = None
+            filled_row = None
+
+            for row in range(3):
+
+                fr = 1 + row * (frame_size + 1)
+                fc = 1 + col * (frame_size + 1)
+
+                interior = grid[fr+1:fr+frame_size-1, fc+1:fc+frame_size-1]
+                colors = np.unique(interior)
+
+                if len(colors) == 1 and colors[0] in fill_colors:
+                    filled_color = colors[0]
+                    filled_row = row
+                elif np.any(interior == object_color2):
+                    object_shape = interior.copy()
+
+            if filled_color is None or object_shape is None:
+                continue
+
+            out_col = col * (frame_size + 1)
+            border_color = strip_colors[filled_row]
+
+            # draw frame border
+            for r in range(frame_size):
+                for c in range(frame_size):
+                    if r == 0 or r == frame_size-1 or c == 0 or c == frame_size-1:
+                        out[r, out_col + c] = border_color
+
+            # draw interior
+            for r in range(1, frame_size-1):
+                for c in range(1, frame_size-1):
+                    if object_shape[r-1, c-1] == object_color2:
+                        out[r, out_col + c] = filled_color
+                    else:
+                        out[r, out_col + c] = background_color
+
+        return out

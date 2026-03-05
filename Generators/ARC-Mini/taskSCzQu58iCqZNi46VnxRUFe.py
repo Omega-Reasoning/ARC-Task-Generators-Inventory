@@ -74,63 +74,48 @@ class TaskSCzQu58iCqZNi46VnxRUFeGenerator(ARCTaskGenerator):
         return grid
     
     def transform_input(self, grid: np.ndarray, taskvars=None) -> np.ndarray:
-        """
-        Transform the input grid according to the transformation reasoning chain, producing an output grid.
-        """
-        # Copy the input grid to avoid modifying it directly
+
         output_grid = grid.copy()
-        
-        # Extract task variables
+
         object_color = taskvars['object_color']
         checker_color1 = taskvars['checker_color1']
         checker_color2 = taskvars['checker_color2']
-        
-        # Find all connected objects excluding the single cell
-        objects = find_connected_objects(grid, diagonal_connectivity=False, background=0, monochromatic=True)
-        
-        # Identify the rectangular object by color
-        rectangular_object = None
-        for obj in objects.objects:
-            colors = obj.colors
-            if len(colors) == 1 and list(colors)[0] == object_color:
-                # Further check if it's rectangular
-                obj_array = obj.to_array()
-                if self._is_rectangle(obj_array):
-                    rectangular_object = obj
-                    break
-        
-        if rectangular_object is None:
-            raise ValueError("No valid rectangular object found in the input grid.")
-        
-        # Get the bounding box of the rectangular object
-        row_slice, col_slice = rectangular_object.bounding_box
-        obj_rows = row_slice.stop - row_slice.start
-        obj_cols = col_slice.stop - col_slice.start
-        
+
+        rows, cols = grid.shape
+
+        # Find bounding box of the rectangle
+        top = rows
+        left = cols
+        bottom = -1
+        right = -1
+
+        for r in range(rows):
+            for c in range(cols):
+                if grid[r, c] == object_color:
+                    if r < top:
+                        top = r
+                    if r > bottom:
+                        bottom = r
+                    if c < left:
+                        left = c
+                    if c > right:
+                        right = c
+
+        # Dimensions of the rectangle
+        obj_rows = bottom - top + 1
+        obj_cols = right - left + 1
+
         # Create checkerboard pattern
-        checkerboard = np.zeros((obj_rows, obj_cols), dtype=int)
         for r in range(obj_rows):
             for c in range(obj_cols):
+
                 if (r + c) % 2 == 0:
-                    checkerboard[r, c] = checker_color1
+                    output_grid[top + r, left + c] = checker_color1
                 else:
-                    checkerboard[r, c] = checker_color2
-        
-        # Replace the rectangular object area with the checkerboard pattern
-        output_grid[row_slice, col_slice] = checkerboard
-        
+                    output_grid[top + r, left + c] = checker_color2
+
         return output_grid
     
-    def _is_rectangle(self, obj_array: np.ndarray) -> bool:
-        """
-        Check if the given array represents a rectangle (all rows have the same number of filled cells without gaps).
-        """
-        for row in obj_array:
-            if not (np.all(row == row[0]) or
-                    (row[0] == 0 and np.all(row[1:] == row[0])) or
-                    (row[-1] == 0 and np.all(row[:-1] == row[-1]))):
-                return False
-        return True
     
     def create_grids(self) -> Tuple[Dict[str, Any], TrainTestData]:
         """

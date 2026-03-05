@@ -189,124 +189,94 @@ class Taskfcb5c309Generator(ARCTaskGenerator):
     
     def transform_input(self, grid: np.ndarray, taskvars: Dict[str, Any]) -> np.ndarray:
         n, m = grid.shape
-        
-        # Detect colors from the grid itself
-        unique_colors = set(grid.flatten()) - {0}  # All non-background colors
-        
+
+        unique_colors = list(set(grid.flatten()) - {0})
         if len(unique_colors) < 2:
-            return np.zeros((5, 5), dtype=int)  # Fallback if not enough colors
-        
-        # Find the border color by looking for rectangular patterns
-        border_color = None
-        fill_color = None
-        
-        # Try each color as potential border color
-        for potential_border in unique_colors:
-            rectangles_found = []
-            
-            # Scan for potential rectangle top-left corners with this color
-            for r in range(n-4):  # Need at least 5x5 for our minimum rectangle
-                for c in range(m-4):
-                    if grid[r, c] == potential_border:
-                        # Try to find a complete rectangle starting here
-                        for height in range(5, n-r+1):  # Minimum 5x5
-                            for width in range(5, m-c+1):
-                                if (r + height <= n and c + width <= m and
-                                    self._is_valid_rectangle(grid, r, c, height, width, potential_border)):
-                                    rectangles_found.append((r, c, height, width))
-            
-            # If we found rectangles with this color, it's likely the border color
-            if len(rectangles_found) >= 2:  # At least 2 rectangles
-                border_color = potential_border
-                # The other color must be the fill color
-                remaining_colors = unique_colors - {border_color}
-                if remaining_colors:
-                    fill_color = list(remaining_colors)[0]  # Take the first remaining color
-                break
-        
-        if border_color is None or fill_color is None:
-            return np.zeros((5, 5), dtype=int)  # Fallback
-        
-        # Find all rectangles with the detected border color
+            return np.zeros((5, 5), dtype=int)
+
         rectangles = []
-        for r in range(n-4):  # Need at least 5x5 for our minimum rectangle
-            for c in range(m-4):
-                if grid[r, c] == border_color:
-                    # Try to find a complete rectangle starting here
-                    for height in range(5, n-r+1):  # Minimum 5x5
-                        for width in range(5, m-c+1):
-                            if (r + height <= n and c + width <= m and
-                                self._is_valid_rectangle(grid, r, c, height, width, border_color)):
-                                rectangles.append((r, c, height, width))
-        
-        # Remove duplicate rectangles (keep unique ones)
-        unique_rectangles = []
+
+        # ---- INLINE rectangle detection ----
+        for color in unique_colors:
+            for r in range(n - 4):
+                for c in range(m - 4):
+                    if grid[r, c] != color:
+                        continue
+
+                    for height in range(5, n - r + 1):
+                        for width in range(5, m - c + 1):
+
+                            if r + height > n or c + width > m:
+                                continue
+
+                            valid = True
+
+                            # top and bottom
+                            for cc in range(c, c + width):
+                                if grid[r, cc] != color or grid[r + height - 1, cc] != color:
+                                    valid = False
+                                    break
+                            if not valid:
+                                continue
+
+                            # left and right
+                            for rr in range(r, r + height):
+                                if grid[rr, c] != color or grid[rr, c + width - 1] != color:
+                                    valid = False
+                                    break
+
+                            if valid:
+                                rectangles.append((r, c, height, width, color))
+
+        if not rectangles:
+            return np.zeros((5, 5), dtype=int)
+
+        # ---- Deduplicate rectangles ----
+        unique_rects = []
         for rect in rectangles:
-            if not any(self._rectangles_equal(rect, existing) for existing in unique_rectangles):
-                unique_rectangles.append(rect)
-        
-        # Count fill cells inside each rectangle
-        best_rectangle = None
-        max_fill_count = -1
-        
-        for rect in unique_rectangles:
-            top, left, height, width = rect
-            interior = self._get_rectangle_interior(top, left, height, width)
-            
-            fill_count = 0
-            for r, c in interior:
-                if r < n and c < m and grid[r, c] == fill_color:
-                    fill_count += 1
-            
-            if fill_count > max_fill_count:
-                max_fill_count = fill_count
-                best_rectangle = rect
-        
-        # Create output with just the best rectangle
-        if best_rectangle is None:
-            return np.zeros((5, 5), dtype=int)  # Fallback
-        
-        top, left, height, width = best_rectangle
+            if rect not in unique_rects:
+                unique_rects.append(rect)
+
+        # ---- Count interior fill cells ----
+        best_rect = None
+        max_fill = -1
+        fill_color = None
+
+        for top, left, height, width, border_color in unique_rects:
+            interior_count = {}
+            for rr in range(top + 1, top + height - 1):
+                for cc in range(left + 1, left + width - 1):
+                    val = grid[rr, cc]
+                    if val != 0 and val != border_color:
+                        interior_count[val] = interior_count.get(val, 0) + 1
+
+            if interior_count:
+                candidate_color = max(interior_count, key=interior_count.get)
+                count = interior_count[candidate_color]
+
+                if count > max_fill:
+                    max_fill = count
+                    best_rect = (top, left, height, width, border_color)
+                    fill_color = candidate_color
+
+        if best_rect is None:
+            return np.zeros((5, 5), dtype=int)
+
+        top, left, height, width, border_color = best_rect
+
+        # ---- Build output ----
         output = np.zeros((height, width), dtype=int)
-        
-        # Copy the rectangle and its interior
+
         for r in range(height):
             for c in range(width):
-                grid_r, grid_c = top + r, left + c
-                if grid_r < n and grid_c < m:
-                    cell_value = grid[grid_r, grid_c]
-                    if cell_value == border_color:
-                        # Recolor border to fill color
-                        output[r, c] = fill_color
-                    elif cell_value == fill_color:
-                        # Keep fill cells as they are
-                        output[r, c] = fill_color
-                    # Interior empty cells remain 0
-        
+                val = grid[top + r, left + c]
+                if val == border_color:
+                    output[r, c] = fill_color
+                elif val == fill_color:
+                    output[r, c] = fill_color
+
         return output
     
-    def _is_valid_rectangle(self, grid: np.ndarray, top: int, left: int, height: int, width: int, color: int) -> bool:
-        """Check if there's a valid rectangle border at the given position."""
-        n, m = grid.shape
-        
-        if top + height > n or left + width > m:
-            return False
-        
-        # Check top and bottom borders
-        for c in range(left, left + width):
-            if grid[top, c] != color or grid[top + height - 1, c] != color:
-                return False
-        
-        # Check left and right borders
-        for r in range(top, top + height):
-            if grid[r, left] != color or grid[r, left + width - 1] != color:
-                return False
-        
-        return True
-    
-    def _rectangles_equal(self, rect1: Tuple[int, int, int, int], rect2: Tuple[int, int, int, int]) -> bool:
-        """Check if two rectangles are the same."""
-        return rect1 == rect2
     
     def create_grids(self) -> Tuple[Dict[str, Any], TrainTestData]:
         # Generate task variables - only grid size, no colors

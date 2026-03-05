@@ -1,16 +1,9 @@
-# my_arc_generator.py
-
-# 1) Required imports
 from Framework.arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
 import numpy as np
 import random
 from typing import Dict, Any, Tuple, List
-# We may optionally use functions from Framework.input_library, but only in create_input():
 from Framework.input_library import retry  # as an example, not strictly needed here
-
-# We may also optionally use transformation_library in either create_input or transform_input:
 from Framework.transformation_library import find_connected_objects, GridObject, GridObjects
-
 
 class TaskULXmq8k24GG7tNvmdgfKFvGenerator(ARCTaskGenerator):
     def __init__(self):
@@ -95,39 +88,50 @@ class TaskULXmq8k24GG7tNvmdgfKFvGenerator(ARCTaskGenerator):
         
         return grid
 
-    def fill_columns_if_needed(self, out_grid, start, end, color):
-        length = end - start
-        if length > 1:
-            for col_index in range(start, end):
-                out_grid[:, col_index] = color
 
     def transform_input(self, grid: np.ndarray, taskvars: Dict[str, Any]) -> np.ndarray:
+
         out_grid = grid.copy()
         first_row = out_grid[0]
-        start_idx = None
-        current_color = 0
-        
-        for i in range(len(first_row)):
-            if first_row[i] != 0:
-                if first_row[i] == current_color:
-                    continue
-                else:
-                    if current_color != 0 and start_idx is not None:
-                        self.fill_columns_if_needed(out_grid, start_idx, i, current_color)
-                    start_idx = i
-                    current_color = first_row[i]
-            else:
-                if current_color != 0 and start_idx is not None:
-                    self.fill_columns_if_needed(out_grid, start_idx, i, current_color)
-                start_idx = None
-                current_color = 0
-        
-        if current_color != 0 and start_idx is not None:
-            self.fill_columns_if_needed(out_grid, start_idx, len(first_row), current_color)
-        
-        return out_grid
+        width = len(first_row)
 
-    def create_grids(self) -> (dict, TrainTestData):
+        start = None
+        current_color = 0
+
+        for i in range(width):
+
+            if first_row[i] != 0:
+
+                if current_color == 0:
+                    start = i
+                    current_color = first_row[i]
+
+                elif first_row[i] != current_color:
+                    length = i - start
+                    if length > 1:
+                        for c in range(start, i):
+                            out_grid[:, c] = current_color
+                    start = i
+                    current_color = first_row[i]
+
+            else:
+                if current_color != 0:
+                    length = i - start
+                    if length > 1:
+                        for c in range(start, i):
+                            out_grid[:, c] = current_color
+                start = None
+                current_color = 0
+
+        # handle run reaching end of row
+        if current_color != 0:
+            length = width - start
+            if length > 1:
+                for c in range(start, width):
+                    out_grid[:, c] = current_color
+
+        return out_grid
+    def create_grids(self) -> Tuple[Dict[str, Any], TrainTestData]:
         """
         1. Randomly set the task variables: 'cell_color' (1..9) and 'number_of_cells' (3..8).
         2. Generate 3-6 training pairs and 1 test pair using the create_input() and transform_input() methods.

@@ -442,201 +442,180 @@ class Task13f06aa5Generator(ARCTaskGenerator):
         
         return True
 
-    def transform_input(self, grid: np.ndarray, taskvars: Dict[str, Any]) -> np.ndarray:
-        """Transform input grid by detecting hat objects and drawing lines with border filling."""
+    def transform_input(self, grid, taskvars=None):
+        
+
+        # --- Normalize input ---
+        grid = np.array(grid, dtype=int)
         output = grid.copy()
         rows, cols = grid.shape
-        
-        # Get background color
-        background = self.get_background_color(grid)
-        
-        # Detect hat objects in the grid
-        hat_objects = self.detect_hat_objects(grid, background, rows, cols)
-        
-        # Keep track of border assignments
-        border_assignments = {}
-        
-        # First pass: draw dotted lines
-        for obj_info in hat_objects:
-            border = obj_info['border']
-            b_pos = obj_info['b_pos']
-            b_color = obj_info['b_color']
-            line_cells = obj_info['line_cells']
-            
-            # Store border assignment
+
+        # --- Background color = most frequent ---
+        vals, cnts = np.unique(grid, return_counts=True)
+        background = int(vals[int(np.argmax(cnts))])
+
+        # --- Find connected components of non-background (4-neighborhood) ---
+        visited = np.zeros((rows, cols), dtype=bool)
+        hat_objects = []  # each: dict(border, b_pos, b_color, line_cells)
+
+        for sr in range(rows):
+            for sc in range(cols):
+                if visited[sr, sc]:
+                    continue
+                if grid[sr, sc] == background:
+                    continue
+
+                # BFS/DFS to get component cells
+                stack = [(sr, sc)]
+                visited[sr, sc] = True
+                comp = []
+
+                while stack:
+                    r, c = stack.pop()
+                    comp.append((r, c))
+
+                    # 4-neighbors
+                    nr = r - 1
+                    if nr >= 0 and (not visited[nr, c]) and grid[nr, c] != background:
+                        visited[nr, c] = True
+                        stack.append((nr, c))
+                    nr = r + 1
+                    if nr < rows and (not visited[nr, c]) and grid[nr, c] != background:
+                        visited[nr, c] = True
+                        stack.append((nr, c))
+                    nc = c - 1
+                    if nc >= 0 and (not visited[r, nc]) and grid[r, nc] != background:
+                        visited[r, nc] = True
+                        stack.append((r, nc))
+                    nc = c + 1
+                    if nc < cols and (not visited[r, nc]) and grid[r, nc] != background:
+                        visited[r, nc] = True
+                        stack.append((r, nc))
+
+                # --- Analyze component as "hat object" ---
+                # Must contain exactly 2 non-background colors
+                # and the rarer color (b) must appear exactly once.
+                colors = {}
+                for (r, c) in comp:
+                    v = int(grid[r, c])
+                    colors[v] = colors.get(v, 0) + 1
+
+                if len(colors) != 2:
+                    continue
+
+                items = sorted(colors.items(), key=lambda x: x[1])  # (color,count) ascending
+                b_color, b_count = items[0]
+                # c_color = items[1][0]  # not needed for transform
+                if b_count != 1:
+                    continue
+
+                # Find b position (unique)
+                b_pos = None
+                for (r, c) in comp:
+                    if int(grid[r, c]) == int(b_color):
+                        b_pos = (r, c)
+                        break
+                if b_pos is None:
+                    continue
+
+                # Bounding box of component
+                min_r = min(r for r, c in comp)
+                max_r = max(r for r, c in comp)
+                min_c = min(c for r, c in comp)
+                max_c = max(c for r, c in comp)
+
+                br, bc = b_pos
+
+                # Determine border direction like your determine_border_direction
+                border = None
+                if br == min_r:
+                    border = "top"
+                elif br == max_r:
+                    border = "bottom"
+                elif bc == min_c:
+                    border = "left"
+                elif bc == max_c:
+                    border = "right"
+                else:
+                    continue
+
+                # Compute line cells from b to the associated border (excluding b itself)
+                line_cells = []
+                if border == "top":
+                    for r in range(br - 1, -1, -1):
+                        line_cells.append((r, bc))
+                elif border == "bottom":
+                    for r in range(br + 1, rows):
+                        line_cells.append((r, bc))
+                elif border == "left":
+                    for c in range(bc - 1, -1, -1):
+                        line_cells.append((br, c))
+                else:  # "right"
+                    for c in range(bc + 1, cols):
+                        line_cells.append((br, c))
+
+                hat_objects.append(
+                    {"border": border, "b_pos": b_pos, "b_color": int(b_color), "line_cells": line_cells}
+                )
+
+        # --- Draw dotted lines & record border assignments ---
+        border_assignments = {}  # border -> b_color (last wins if multiple; but your generator intends 1 per border)
+        for obj in hat_objects:
+            border = obj["border"]
+            b_color = int(obj["b_color"])
             border_assignments[border] = b_color
-            
-            # Draw alternating line
-            for i, (r, c) in enumerate(line_cells):
-                if i % 2 == 0:
-                    color = background
-                else:
-                    color = b_color
-                
-                output[r, c] = color
-        
-        # Second pass: fill borders
+
+            # Alternate starting with background on the first cell after b
+            for i, (r, c) in enumerate(obj["line_cells"]):
+                output[r, c] = background if (i % 2 == 0) else b_color
+
+        # --- Fill borders with b_color, handling corner conflicts ---
+        # Helper: list border cells (inline, no nested funcs)
         for border, b_color in border_assignments.items():
-            border_cells = self.get_border_cells(border, rows, cols)
-            
-            for r, c in border_cells:
-                # Check if this is a corner cell
+            if border == "top":
+                cells = [(0, c) for c in range(cols)]
+            elif border == "bottom":
+                cells = [(rows - 1, c) for c in range(cols)]
+            elif border == "left":
+                cells = [(r, 0) for r in range(rows)]
+            else:  # "right"
+                cells = [(r, cols - 1) for r in range(rows)]
+
+            for (r, c) in cells:
                 is_corner = ((r == 0 or r == rows - 1) and (c == 0 or c == cols - 1))
-                
-                if is_corner:
-                    # Check for conflicts with adjacent borders
-                    conflicting_colors = set()
-                    
-                    # Check all borders that share this corner
-                    if r == 0 and c == 0:  # Top-left corner
-                        if 'top' in border_assignments:
-                            conflicting_colors.add(border_assignments['top'])
-                        if 'left' in border_assignments:
-                            conflicting_colors.add(border_assignments['left'])
-                    elif r == 0 and c == cols - 1:  # Top-right corner
-                        if 'top' in border_assignments:
-                            conflicting_colors.add(border_assignments['top'])
-                        if 'right' in border_assignments:
-                            conflicting_colors.add(border_assignments['right'])
-                    elif r == rows - 1 and c == 0:  # Bottom-left corner
-                        if 'bottom' in border_assignments:
-                            conflicting_colors.add(border_assignments['bottom'])
-                        if 'left' in border_assignments:
-                            conflicting_colors.add(border_assignments['left'])
-                    elif r == rows - 1 and c == cols - 1:  # Bottom-right corner
-                        if 'bottom' in border_assignments:
-                            conflicting_colors.add(border_assignments['bottom'])
-                        if 'right' in border_assignments:
-                            conflicting_colors.add(border_assignments['right'])
-                    
-                    # If there are multiple different colors, set to 0
-                    if len(conflicting_colors) > 1:
-                        output[r, c] = 0
-                    else:
-                        output[r, c] = b_color
-                else:
-                    # Non-corner border cell
+                if not is_corner:
                     output[r, c] = b_color
-        
+                    continue
+
+                # Corner cell: check adjacent border colors that share this corner
+                conflicting = set()
+                if r == 0 and c == 0:  # top-left
+                    if "top" in border_assignments:
+                        conflicting.add(int(border_assignments["top"]))
+                    if "left" in border_assignments:
+                        conflicting.add(int(border_assignments["left"]))
+                elif r == 0 and c == cols - 1:  # top-right
+                    if "top" in border_assignments:
+                        conflicting.add(int(border_assignments["top"]))
+                    if "right" in border_assignments:
+                        conflicting.add(int(border_assignments["right"]))
+                elif r == rows - 1 and c == 0:  # bottom-left
+                    if "bottom" in border_assignments:
+                        conflicting.add(int(border_assignments["bottom"]))
+                    if "left" in border_assignments:
+                        conflicting.add(int(border_assignments["left"]))
+                else:  # bottom-right
+                    if "bottom" in border_assignments:
+                        conflicting.add(int(border_assignments["bottom"]))
+                    if "right" in border_assignments:
+                        conflicting.add(int(border_assignments["right"]))
+
+                output[r, c] = 0 if (len(conflicting) > 1) else b_color
+
         return output
 
-    def get_background_color(self, grid: np.ndarray) -> int:
-        """Get the background color from the grid."""
-        # Background color is the most frequent color
-        unique, counts = np.unique(grid, return_counts=True)
-        return unique[np.argmax(counts)]
-
-    def detect_hat_objects(self, grid: np.ndarray, background: int, rows: int, cols: int) -> List[Dict[str, Any]]:
-        """Detect hat objects in the grid and return their information."""
-        hat_objects = []
-        
-        # Find all non-background connected components
-        visited = set()
-        
-        for r in range(rows):
-            for c in range(cols):
-                if grid[r, c] != background and (r, c) not in visited:
-                    # Found a new object, explore it
-                    obj_cells = self.get_connected_component(grid, (r, c), background, visited)
-                    
-                    # Check if this is a hat object
-                    hat_info = self.analyze_hat_object(grid, obj_cells, background, rows, cols)
-                    if hat_info:
-                        hat_objects.append(hat_info)
-        
-        return hat_objects
-
-    def get_connected_component(self, grid: np.ndarray, start: Tuple[int, int], background: int, visited: Set[Tuple[int, int]]) -> Set[Tuple[int, int]]:
-        """Get all cells in the connected component starting from start."""
-        rows, cols = grid.shape
-        component = set()
-        stack = [start]
-        
-        while stack:
-            r, c = stack.pop()
-            if (r, c) in visited or r < 0 or r >= rows or c < 0 or c >= cols:
-                continue
-            if grid[r, c] == background:
-                continue
-            
-            visited.add((r, c))
-            component.add((r, c))
-            
-            # Add neighbors
-            for dr, dc in [(0, 1), (0, -1), (1, 0), (-1, 0)]:
-                stack.append((r + dr, c + dc))
-        
-        return component
-
-    def analyze_hat_object(self, grid: np.ndarray, obj_cells: Set[Tuple[int, int]], background: int, rows: int, cols: int) -> Dict[str, Any]:
-        """Analyze if the object is a hat and return its information."""
-        # Get colors in the object
-        colors = set()
-        for r, c in obj_cells:
-            colors.add(grid[r, c])
-        
-        # Hat should have exactly 2 colors (b and c)
-        if len(colors) != 2:
-            return None
-        
-        # Find b_color (appears less frequently) and c_color
-        color_counts = {}
-        for r, c in obj_cells:
-            color = grid[r, c]
-            color_counts[color] = color_counts.get(color, 0) + 1
-        
-        sorted_colors = sorted(color_counts.items(), key=lambda x: x[1])
-        b_color = sorted_colors[0][0]
-        c_color = sorted_colors[1][0]
-        
-        # Find b cell position (should be unique)
-        b_positions = [(r, c) for r, c in obj_cells if grid[r, c] == b_color]
-        if len(b_positions) != 1:
-            return None
-        
-        b_pos = b_positions[0]
-        
-        # Determine which border this object faces
-        border = self.determine_border_direction(obj_cells, b_pos, rows, cols)
-        if not border:
-            return None
-        
-        # Get line cells to border
-        line_cells = self.get_line_to_border(b_pos, border, rows, cols)
-        
-        return {
-            'border': border,
-            'b_pos': b_pos,
-            'b_color': b_color,
-            'c_color': c_color,
-            'object_cells': obj_cells,
-            'line_cells': line_cells
-        }
-
-    def determine_border_direction(self, obj_cells: Set[Tuple[int, int]], b_pos: Tuple[int, int], rows: int, cols: int) -> str:
-        """Determine which border the hat object faces based on its shape."""
-        b_r, b_c = b_pos
-        
-        # Check the relative position of b cell within the object
-        min_r = min(r for r, c in obj_cells)
-        max_r = max(r for r, c in obj_cells)
-        min_c = min(c for r, c in obj_cells)
-        max_c = max(c for r, c in obj_cells)
-        
-        # Determine direction based on b cell position within the object bounds
-        if b_r == min_r:  # b is at the top of the object
-            return 'top'
-        elif b_r == max_r:  # b is at the bottom of the object
-            return 'bottom'
-        elif b_c == min_c:  # b is at the left of the object
-            return 'left'
-        elif b_c == max_c:  # b is at the right of the object
-            return 'right'
-        
-        return None
-
     def transform_input_with_info(self, grid: np.ndarray, taskvars: Dict[str, Any], objects_info: List) -> np.ndarray:
-        """Transform input using provided objects info."""
+      
         output = grid.copy()
         rows, cols = grid.shape
         

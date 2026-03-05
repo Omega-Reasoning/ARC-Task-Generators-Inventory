@@ -145,78 +145,51 @@ class Task15696249Generator(ARCTaskGenerator):
         
         return grid
     
-    def _find_fully_colored_line(self, grid: np.ndarray) -> Tuple[Optional[int], Optional[int]]:
-        """Find the fully colored row or column in the input grid.
-        
-        Returns:
-            Tuple of (fully_colored_row, fully_colored_col) where one is None and the other contains the index
-        """
+    
+    def transform_input(self, grid: np.ndarray, taskvars: Dict[str, Any]) -> np.ndarray:
+        import numpy as np
+
         size = grid.shape[0]
+
         fully_colored_row = None
         fully_colored_col = None
-        
-        # Check for fully colored rows
+
+        # ---- find fully colored row ----
         for i in range(size):
-            row = grid[i, :]
-            if len(np.unique(row)) == 1:  # All cells in row have same color
+            if len(np.unique(grid[i, :])) == 1:
                 fully_colored_row = i
                 break
-        
-        # Check for fully colored columns
+
+        # ---- find fully colored column ----
         for j in range(size):
-            col = grid[:, j]
-            if len(np.unique(col)) == 1:  # All cells in column have same color
+            if len(np.unique(grid[:, j])) == 1:
                 fully_colored_col = j
                 break
-        
-        return fully_colored_row, fully_colored_col
-    
-    def _create_tiled_output(self, grid: np.ndarray, fully_colored_row: Optional[int], 
-                            fully_colored_col: Optional[int], size: int) -> np.ndarray:
-        """Create output grid by tiling the input grid based on the fully colored line.
-        
-        Args:
-            grid: Input grid to tile
-            fully_colored_row: Index of fully colored row (None if no such row)
-            fully_colored_col: Index of fully colored column (None if no such column)
-            size: Size of the input grid
-            
-        Returns:
-            Output grid with tiled pattern
-        """
+
+        # ---- create output grid ----
         output_size = size * size
         output = np.zeros((output_size, output_size), dtype=int)
-        
+
+        # ---- tile horizontally if row found ----
         if fully_colored_row is not None:
-            # Tile horizontally - copy input grid 'size' times horizontally
-            # starting at the corresponding row position
+
             start_row = fully_colored_row * size
+
             for i in range(size):
                 start_col = i * size
                 output[start_row:start_row + size, start_col:start_col + size] = grid
-        
+
+        # ---- tile vertically if column found ----
         elif fully_colored_col is not None:
-            # Tile vertically - copy input grid 'size' times vertically
-            # starting at the corresponding column position
+
             start_col = fully_colored_col * size
+
             for i in range(size):
                 start_row = i * size
                 output[start_row:start_row + size, start_col:start_col + size] = grid
-        
+
         return output
-    
-    def transform_input(self, grid: np.ndarray, taskvars: Dict[str, Any]) -> np.ndarray:
-        """Transform input by tiling based on fully colored row/column."""
-        size = taskvars['grid_size']
         
-        # Function 1: Find the fully colored row or column
-        fully_colored_row, fully_colored_col = self._find_fully_colored_line(grid)
-        
-        # Function 2: Create output grid by copying input grid and pasting to respective position in output
-        output = self._create_tiled_output(grid, fully_colored_row, fully_colored_col, size)
-        
-        return output
-    
     def create_grids(self) -> Tuple[Dict[str, Any], TrainTestData]:
         """Create task variables and generate train/test grids."""
         

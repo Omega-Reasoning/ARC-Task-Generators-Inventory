@@ -3,6 +3,7 @@ from Framework.input_library import create_object, retry, random_cell_coloring
 from Framework.transformation_library import find_connected_objects
 import numpy as np
 import random
+import math
 
 
 class Task17cae0c1(ARCTaskGenerator):
@@ -50,14 +51,14 @@ class Task17cae0c1(ARCTaskGenerator):
         """Create an input grid with 3 x cols dimensions containing 3x3 subgrids with shapes."""
         cols = taskvars['cols']
         object_color = taskvars['object_color']
+        assert cols % 3 == 0, f"cols must be multiple of 3, got {cols}"
 
-        # Number of 3x3 subgrids horizontally
         num_subgrids = cols // 3
 
-        # Generate shapes for this grid (can be specified in gridvars or random)
+        # Decide shapes to place
         if 'shapes' in gridvars:
             shapes = list(gridvars['shapes'])
-            # Safety: ensure shapes list length matches available 3x3 slots
+            # normalize length
             if len(shapes) > num_subgrids:
                 shapes = shapes[:num_subgrids]
             elif len(shapes) < num_subgrids:
@@ -65,14 +66,11 @@ class Task17cae0c1(ARCTaskGenerator):
         else:
             shapes = [random.randint(1, 5) for _ in range(num_subgrids)]
 
-        # Create empty grid
+        # Build grid
         grid = np.zeros((3, cols), dtype=int)
-
-        # Fill each 3x3 subgrid
         for i, shape_type in enumerate(shapes):
             start_col = i * 3
             end_col = start_col + 3
-            # Extra safety: if slicing would go past the end, stop
             if end_col > cols:
                 break
             shape = self._create_shape(shape_type, object_color)
@@ -81,30 +79,57 @@ class Task17cae0c1(ARCTaskGenerator):
         return grid
 
     def transform_input(self, grid: np.ndarray, taskvars) -> np.ndarray:
-        """Transform input grid by mapping shapes to their corresponding colors."""
+        import numpy as np
+
+        # shape -> fill color mapping
         fill_colors = [
-            taskvars['fill_color1'],  # Shape 1
-            taskvars['fill_color2'],  # Shape 2
-            taskvars['fill_color3'],  # Shape 3
-            taskvars['fill_color4'],  # Shape 4
-            taskvars['fill_color5']   # Shape 5
+            taskvars["fill_color1"],  # shape 1
+            taskvars["fill_color2"],  # shape 2
+            taskvars["fill_color3"],  # shape 3
+            taskvars["fill_color4"],  # shape 4
+            taskvars["fill_color5"],  # shape 5
         ]
 
-        # Create output grid
         output_grid = np.zeros_like(grid)
-        cols = grid.shape[1]  # Use the actual grid width for robustness
+        cols = grid.shape[1]
         num_subgrids = cols // 3
 
-        # Process each 3x3 subgrid
+        # Predefine expected non-zero position sets for each shape (3x3 coordinates)
+        shape1_positions = {
+            (0, 0), (0, 1), (0, 2),
+            (1, 0),         (1, 2),
+            (2, 0), (2, 1), (2, 2)
+        }
+        shape2_positions = {(1, 1)}
+        shape3_positions = {(0, 0), (0, 1), (0, 2)}
+        shape4_positions = {(2, 0), (2, 1), (2, 2)}
+        shape5_positions = {(0, 0), (1, 1), (2, 2)}
+
         for i in range(num_subgrids):
             start_col = i * 3
             end_col = start_col + 3
             subgrid = grid[:, start_col:end_col]
 
-            # Identify the shape type
-            shape_type = self._identify_shape(subgrid)
+            # Identify shape by its non-zero pattern
+            non_zero_positions = set()
+            for r in range(3):
+                for c in range(3):
+                    if subgrid[r, c] != 0:
+                        non_zero_positions.add((r, c))
 
-            # Fill the entire 3x3 subgrid with the corresponding color
+            shape_type = 0
+            if non_zero_positions:
+                if non_zero_positions == shape1_positions:
+                    shape_type = 1
+                elif non_zero_positions == shape2_positions:
+                    shape_type = 2
+                elif non_zero_positions == shape3_positions:
+                    shape_type = 3
+                elif non_zero_positions == shape4_positions:
+                    shape_type = 4
+                elif non_zero_positions == shape5_positions:
+                    shape_type = 5
+
             if shape_type > 0:
                 output_grid[:, start_col:end_col] = fill_colors[shape_type - 1]
 
@@ -114,42 +139,45 @@ class Task17cae0c1(ARCTaskGenerator):
         """Identify which of the 5 shapes a 3x3 subgrid represents."""
         non_zero_positions = {(r, c) for r in range(3) for c in range(3) if subgrid[r, c] != 0}
         if not non_zero_positions:
-            return 0  # Empty subgrid
+            return 0
 
-        # Shape 1: 3x3 block with center empty
         shape1_positions = {(0, 0), (0, 1), (0, 2),
                             (1, 0),           (1, 2),
                             (2, 0), (2, 1), (2, 2)}
         if non_zero_positions == shape1_positions:
             return 1
-
-        # Shape 2: Single cell at (1,1)
         if non_zero_positions == {(1, 1)}:
             return 2
-
-        # Shape 3: First row filled
         if non_zero_positions == {(0, 0), (0, 1), (0, 2)}:
             return 3
-
-        # Shape 4: Last row filled
         if non_zero_positions == {(2, 0), (2, 1), (2, 2)}:
             return 4
-
-        # Shape 5: Main diagonal filled
         if non_zero_positions == {(0, 0), (1, 1), (2, 2)}:
             return 5
 
-        return 0  # Unknown shape
+        return 0
+
+    def _batch_required_shapes(self, num_subgrids: int):
+        """
+        Partition the 5 required shapes into batches of size num_subgrids.
+        Each batch becomes one deterministic training example to ensure coverage.
+        """
+        required = [1, 2, 3, 4, 5]
+        batches = []
+        # Split list into chunks of length num_subgrids
+        for i in range(0, len(required), num_subgrids):
+            batches.append(required[i:i + num_subgrids])
+        return batches  # e.g., if num_subgrids=2 -> [[1,2],[3,4],[5]]
 
     def create_grids(self):
-        """Create training and test grids ensuring all shapes appear at least once across training."""
-        # Generate task variables
+        """Create training and test grids ensuring all 5 shapes appear at least once across training."""
         cols = random.choice([6, 9, 12, 15, 18, 21])
+        assert cols % 3 == 0, f"cols must be multiple of 3, got {cols}"
+        num_subgrids = cols // 3
 
-        # Generate unique colors
+        # Colors
         all_colors = list(range(1, 10))
         random.shuffle(all_colors)
-
         taskvars = {
             'cols': cols,
             'object_color': all_colors[0],
@@ -160,41 +188,13 @@ class Task17cae0c1(ARCTaskGenerator):
             'fill_color5': all_colors[5]
         }
 
-        # Number of 3x3 subgrids per row
-        num_subgrids = cols // 3
-
-        # Generate 3-6 training examples
-        num_train = random.randint(3, 6)
         train_pairs = []
 
-        # Track which shapes have appeared
-        shapes_used = set()
-
-        # Generate initial training examples
-        for _ in range(num_train):
-            shapes = [random.randint(1, 5) for _ in range(num_subgrids)]
-            shapes_used.update(shapes)
-
-            gridvars = {'shapes': shapes}
-            input_grid = self.create_input(taskvars, gridvars)
-            output_grid = self.transform_input(input_grid, taskvars)
-
-            train_pairs.append({
-                'input': input_grid,
-                'output': output_grid
-            })
-
-        # Ensure all shapes 1-5 appear in training
-        missing_shapes = set(range(1, 6)) - shapes_used
-
-        # If some shapes are missing, create additional training examples (up to 6 total)
-        while missing_shapes and len(train_pairs) < 6:
-            # Fit as many missing shapes as we have 3x3 slots
-            take = min(len(missing_shapes), num_subgrids)
-            need_now = random.sample(list(missing_shapes), take)
-
-            # Fill remaining slots with random shapes
-            shapes = need_now[:]
+        # 1) Deterministic coverage batches to guarantee all 5 shapes appear
+        coverage_batches = self._batch_required_shapes(num_subgrids)
+        for batch in coverage_batches:
+            # pad batch to full width with random shapes if needed
+            shapes = list(batch)
             while len(shapes) < num_subgrids:
                 shapes.append(random.randint(1, 5))
             random.shuffle(shapes)
@@ -204,21 +204,43 @@ class Task17cae0c1(ARCTaskGenerator):
             output_grid = self.transform_input(input_grid, taskvars)
             train_pairs.append({'input': input_grid, 'output': output_grid})
 
-            # Remove only the shapes we actually placed this round
-            missing_shapes -= set(need_now)
+        # 2) Add 0–3 more random training examples (so total 3–6, like before)
+        extra_needed_min = max(0, 3 - len(train_pairs))
+        extra_allowed = max(0, 6 - len(train_pairs))
+        extra_count = random.randint(extra_needed_min, extra_allowed)
 
-        # Generate test example
+        for _ in range(extra_count):
+            shapes = [random.randint(1, 5) for _ in range(num_subgrids)]
+            gridvars = {'shapes': shapes}
+            input_grid = self.create_input(taskvars, gridvars)
+            output_grid = self.transform_input(input_grid, taskvars)
+            train_pairs.append({'input': input_grid, 'output': output_grid})
+
+        # 3) Validate that training covers all 5 shapes
+        observed = set()
+        for pair in train_pairs:
+            grid = pair['input']
+            for i in range(num_subgrids):
+                sub = grid[:, i*3:(i+1)*3]
+                st = self._identify_shape(sub)
+                if st > 0:
+                    observed.add(st)
+
+        assert observed.issuperset({1, 2, 3, 4, 5}), (
+            f"Training coverage insufficient: observed {sorted(observed)}"
+        )
+
+        # Test example
         test_shapes = [random.randint(1, 5) for _ in range(num_subgrids)]
         test_gridvars = {'shapes': test_shapes}
         test_input = self.create_input(taskvars, test_gridvars)
         test_output = self.transform_input(test_input, taskvars)
+        test_pairs = [{'input': test_input, 'output': test_output}]
 
-        test_pairs = [{
-            'input': test_input,
-            'output': test_output
-        }]
+        # Final sanity checks (these help avoid vague upstream errors)
+        assert len(train_pairs) >= 3, "Need at least 3 training pairs"
+        assert len(test_pairs) == 1, "Expect exactly one test pair"
+        assert train_pairs[0]['input'].shape == train_pairs[0]['output'].shape, "Train I/O size mismatch"
+        assert test_pairs[0]['input'].shape == test_pairs[0]['output'].shape, "Test I/O size mismatch"
 
-        return taskvars, {
-            'train': train_pairs,
-            'test': test_pairs
-        }
+        return taskvars, {'train': train_pairs, 'test': test_pairs}

@@ -234,111 +234,69 @@ class Taske509e548Generator(ARCTaskGenerator):
 
     def transform_input(self, grid: np.ndarray, taskvars: Dict[str, Any]) -> np.ndarray:
         output = grid.copy()
-        
-        # Find all objects in the grid
+
         objects = find_connected_objects(grid, diagonal_connectivity=False, background=0)
-        
+
         for obj in objects:
-            shape_type = self._classify_shape(obj)
-            
+            coords = list(obj.coords)
+            coord_set = set(coords)
+
+            # Count orthogonal neighbors for each cell
+            neighbor_counts = {}
+            for r, c in coords:
+                count = 0
+                for dr, dc in [(0,1),(0,-1),(1,0),(-1,0)]:
+                    if (r+dr, c+dc) in coord_set:
+                        count += 1
+                neighbor_counts[(r,c)] = count
+
+            # Count endpoints (degree 1) and junctions (degree 3)
+            deg1 = sum(1 for v in neighbor_counts.values() if v == 1)
+            deg3 = sum(1 for v in neighbor_counts.values() if v == 3)
+
+            # ---- Classification ----
+            if deg1 == 2 and deg3 == 1:
+                shape_type = 'L'
+            else:
+                # Use bounding box structure to distinguish U vs Extended-U
+                rows = [r for r,c in coords]
+                cols = [c for r,c in coords]
+
+                min_r, max_r = min(rows), max(rows)
+                min_c, max_c = min(cols), max(cols)
+
+                height = max_r - min_r + 1
+                width = max_c - min_c + 1
+
+                # Count cells in extreme rows/cols
+                top_count = sum(1 for r,c in coords if r == min_r)
+                bottom_count = sum(1 for r,c in coords if r == max_r)
+                left_count = sum(1 for r,c in coords if c == min_c)
+                right_count = sum(1 for r,c in coords if c == max_c)
+
+                # Simple heuristic:
+                if top_count >= 2 and bottom_count >= 2:
+                    shape_type = 'U'
+                elif left_count >= 2 and right_count >= 2:
+                    shape_type = 'U'
+                else:
+                    shape_type = 'E'
+
+            # ---- Coloring ----
             if shape_type == 'L':
                 new_color = taskvars['color_1']
             elif shape_type == 'U':
                 new_color = taskvars['color_2']
-            elif shape_type == 'E':
-                new_color = taskvars['color_3']
             else:
-                continue  # Unknown shape, keep original color
-            
-            # Update the object color
-            obj.cut(output, background=0)
-            new_cells = set()
+                new_color = taskvars['color_3']
+
             for r, c, _ in obj.cells:
-                new_cells.add((r, c, new_color))
-            new_obj = GridObject(new_cells)
-            new_obj.paste(output)
-        
+                output[r, c] = new_color
+
         return output
 
-    def _classify_shape(self, obj: GridObject) -> str:
-        """Classify a shape as L, U, or Extended-U with improved L-shape detection"""
-        coords = list(obj.coords)
-        
-        if len(coords) < 3:  # Minimum size for our shapes
-            return 'unknown'
-        
-        # First check if it's an L-shape
-        if self._is_l_shape(coords):
-            return 'L'
-        
-        # Then check for U or Extended-U
-        return self._classify_u_or_extended(coords)
     
-    def _is_l_shape(self, coords: List[Tuple[int, int]]) -> bool:
-        """Check if the shape is an L-shape by finding the corner structure"""
-        if len(coords) < 3:
-            return False
-        
-        # Count neighbors for each cell
-        neighbor_counts = {}
-        for r, c in coords:
-            count = 0
-            neighbors = []
-            for dr, dc in [(0, 1), (0, -1), (1, 0), (-1, 0)]:
-                if (r + dr, c + dc) in coords:
-                    count += 1
-                    neighbors.append((dr, dc))
-            neighbor_counts[(r, c)] = (count, neighbors)
-        
-        # For an L-shape:
-        # - Exactly 2 cells should have 1 neighbor (endpoints)
-        # - Exactly 1 cell should have 2 perpendicular neighbors (corner)
-        # - All other cells should have 2 neighbors in a straight line
-        
-        endpoints = []
-        corners = []
-        middle_cells = []
-        
-        for (r, c), (count, neighbors) in neighbor_counts.items():
-            if count == 1:
-                endpoints.append((r, c))
-            elif count == 2:
-                # Check if neighbors are perpendicular (corner) or in line (middle)
-                (dr1, dc1), (dr2, dc2) = neighbors
-                dot_product = dr1 * dr2 + dc1 * dc2
-                if dot_product == 0:  # Perpendicular = corner
-                    corners.append((r, c))
-                else:  # In line = middle cell
-                    middle_cells.append((r, c))
-            else:
-                # More than 2 neighbors - not an L-shape
-                return False
-        
-        # L-shape must have exactly 2 endpoints and 1 corner
-        if len(endpoints) != 2 or len(corners) != 1:
-            return False
-        
-        # Remaining cells should be middle cells (for L-shapes longer than 3)
-        # For size 3 L-shapes, there are no middle cells
-        expected_middle = len(coords) - 3  # total - 2 endpoints - 1 corner
-        if len(middle_cells) != expected_middle:
-            return False
-        
-        # Additional validation: check that the shape forms connected straight segments
-        return self._validate_l_connectivity(coords, endpoints, corners[0])
-    
-    def _validate_l_connectivity(self, coords: List[Tuple[int, int]], 
-                                endpoints: List[Tuple[int, int]], 
-                                corner: Tuple[int, int]) -> bool:
-        """Validate that the L-shape has proper connectivity between endpoints and corner"""
-        coords_set = set(coords)
-        
-        # Check that we can trace from each endpoint to the corner
-        for endpoint in endpoints:
-            if not self._can_trace_to_corner(coords_set, endpoint, corner):
-                return False
-        
-        return True
+
     
     def _can_trace_to_corner(self, coords_set: Set[Tuple[int, int]], 
                             start: Tuple[int, int], 
@@ -364,20 +322,7 @@ class Taske509e548Generator(ARCTaskGenerator):
         
         return True
     
-    def _classify_u_or_extended(self, coords: List[Tuple[int, int]]) -> str:
-        """Classify between U and Extended-U by trying different orientations"""
-        
-        # Try horizontal base (U opens upward or downward)
-        result = self._check_horizontal_base_u(coords)
-        if result != 'unknown':
-            return result
-            
-        # Try vertical base (U opens leftward or rightward)  
-        result = self._check_vertical_base_u(coords)
-        if result != 'unknown':
-            return result
-            
-        return 'unknown'
+
     
     def _check_horizontal_base_u(self, coords: List[Tuple[int, int]]) -> str:
         """Check for U-shape with horizontal base"""
@@ -454,74 +399,3 @@ class Taske509e548Generator(ARCTaskGenerator):
                 
         return 'unknown'
     
-    def _check_vertical_base_u(self, coords: List[Tuple[int, int]]) -> str:
-        """Check for U-shape with vertical base (rotated 90 degrees)"""
-        cols = sorted(set(c for r, c in coords))
-        
-        # Try each column as potential base
-        for base_col in cols:
-            base_cells = [(r, c) for r, c in coords if c == base_col]
-            if len(base_cells) < 3:  # Base must span at least 3 cells
-                continue
-                
-            # Check if base is continuous
-            base_rows = sorted([r for r, c in base_cells])
-            if len(base_rows) != base_rows[-1] - base_rows[0] + 1:
-                continue  # Not continuous
-            
-            # Find horizontal bars at the ends of the base
-            top_row = base_rows[0]
-            bottom_row = base_rows[-1]
-            
-            top_bar = [(r, c) for r, c in coords if r == top_row]
-            bottom_bar = [(r, c) for r, c in coords if r == bottom_row]
-            
-            if len(top_bar) < 2 or len(bottom_bar) < 2:
-                continue
-                
-            # Check if bars are horizontal and connected to base
-            top_cols = sorted([c for r, c in top_bar])
-            bottom_cols = sorted([c for r, c in bottom_bar])
-            
-            # Both bars must be continuous
-            if (len(top_cols) != top_cols[-1] - top_cols[0] + 1 or
-                len(bottom_cols) != bottom_cols[-1] - bottom_cols[0] + 1):
-                continue
-                
-            # Base must be connected to both bars
-            if base_col not in top_cols or base_col not in bottom_cols:
-                continue
-                
-            # Check if this accounts for the shape
-            expected_cells = len(top_bar) + len(bottom_bar) + len(base_rows) - 2  # -2 for overlap
-            if expected_cells != len(coords):
-                continue
-                
-            # Check if either bar extends beyond the base to the opposite side
-            top_extends_beyond_base = any(c != base_col for c in top_cols)
-            bottom_extends_beyond_base = any(c != base_col for c in bottom_cols)
-            
-            if not (top_extends_beyond_base and bottom_extends_beyond_base):
-                continue
-            
-            # Check for extension to opposite side of base
-            top_has_opposite_extension = any(
-                (c < base_col and any(cc > base_col for cc in bottom_cols)) or
-                (c > base_col and any(cc < base_col for cc in bottom_cols))
-                for c in top_cols if c != base_col
-            )
-            
-            bottom_has_opposite_extension = any(
-                (c < base_col and any(cc > base_col for cc in top_cols)) or
-                (c > base_col and any(cc < base_col for cc in top_cols))
-                for c in bottom_cols if c != base_col
-            )
-            
-            # Extended-U: one bar extends to the opposite side of where the other bar extends
-            if top_has_opposite_extension or bottom_has_opposite_extension:
-                return 'E'
-            else:
-                return 'U'
-                
-        return 'unknown'
-

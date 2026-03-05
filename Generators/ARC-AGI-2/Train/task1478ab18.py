@@ -89,145 +89,104 @@ class Task1478ab18Generator(ARCTaskGenerator):
         result = retry(generate_valid_grid, lambda x: x is not None, max_attempts=100)
         return result
     
-    def _identify_corner_cells_without_opposite(self, grid, corner_color):
-        """
-        First function: Identify two corner cells that do not have a corner cell on the other end.
-        Returns the two corner cells that will be connected by the L-shape and diagonal paths.
-        """
-        # Find all corner cells
-        corner_cells = []
-        for r in range(grid.shape[0]):
-            for c in range(grid.shape[1]):
-                if grid[r, c] == corner_color:
-                    corner_cells.append((r, c))
-        
-        # Find bounding box
-        rows = [r for r, c in corner_cells]
-        cols = [c for r, c in corner_cells]
-        min_r, max_r = min(rows), max(rows)
-        min_c, max_c = min(cols), max(cols)
-        
-        # Expected corners of the complete square
-        expected_corners = [
-            (min_r, min_c),     # top-left
-            (min_r, max_c),     # top-right
-            (max_r, min_c),     # bottom-left
-            (max_r, max_c)      # bottom-right
-        ]
-        
-        # Find the missing corner
-        missing_corner = None
-        for corner in expected_corners:
-            if corner not in corner_cells:
-                missing_corner = corner
-                break
-        
-        # Find the two corner cells that will be connected
-        # These are the corners that share a row or column with the missing corner
-        if missing_corner:
-            r, c = missing_corner
-            connected_corners = []
-            for corner_pos in corner_cells:
-                cr, cc = corner_pos
-                if (cr == r and min_c <= cc <= max_c) or (cc == c and min_r <= cr <= max_r):
-                    connected_corners.append(corner_pos)
-            
-            return connected_corners, missing_corner, (min_r, max_r, min_c, max_c)
-        
-        return [], None, (min_r, max_r, min_c, max_c)
-    
-    def _make_l_shape_path(self, output_grid, connected_corners, missing_corner, bounds, corner_color, fill_color):
-        """
-        Second function: Make L-shape path between the two corner cells (horizontal and vertical).
-        """
-        if len(connected_corners) != 2 or missing_corner is None:
-            return
-        
-        min_r, max_r, min_c, max_c = bounds
-        r, c = missing_corner
-        
-        # Fill the missing corner first
-        output_grid[r, c] = fill_color
-        
-        # Create set of corner cells to avoid overwriting them
-        corner_cells_set = set()
-        for row in range(output_grid.shape[0]):
-            for col in range(output_grid.shape[1]):
-                if output_grid[row, col] == corner_color:
-                    corner_cells_set.add((row, col))
-        
-        # Fill horizontal side (from missing corner to adjacent corner)
-        corner_on_same_row = None
-        for corner_pos in connected_corners:
-            cr, cc = corner_pos
-            if cr == r:
-                corner_on_same_row = corner_pos
-                break
-        
-        if corner_on_same_row:
-            start_c = min(min_c, max_c)
-            end_c = max(min_c, max_c)
-            for col in range(start_c, end_c + 1):
-                if (r, col) not in corner_cells_set:
-                    output_grid[r, col] = fill_color
-        
-        # Fill vertical side (from missing corner to adjacent corner)
-        corner_on_same_col = None
-        for corner_pos in connected_corners:
-            cr, cc = corner_pos
-            if cc == c:
-                corner_on_same_col = corner_pos
-                break
-        
-        if corner_on_same_col:
-            start_r = min(min_r, max_r)
-            end_r = max(min_r, max_r)
-            for row in range(start_r, end_r + 1):
-                if (row, c) not in corner_cells_set:
-                    output_grid[row, c] = fill_color
-    
-    def _make_diagonal_path(self, output_grid, connected_corners, corner_color, fill_color):
-        """
-        Third function: Make diagonal path between the two corner cells.
-        """
-        if len(connected_corners) != 2:
-            return
-        
-        # Create set of corner cells to avoid overwriting them
-        corner_cells_set = set()
-        for row in range(output_grid.shape[0]):
-            for col in range(output_grid.shape[1]):
-                if output_grid[row, col] == corner_color:
-                    corner_cells_set.add((row, col))
-        
-        # Fill diagonal path between the two connected corners
-        (r1, c1), (r2, c2) = connected_corners
-        steps = max(abs(r2 - r1), abs(c2 - c1))
-        
-        if steps > 0:
-            for i in range(steps + 1):
-                dr = r1 + i * (r2 - r1) // steps
-                dc = c1 + i * (c2 - c1) // steps
-                if (dr, dc) not in corner_cells_set:
-                    output_grid[dr, dc] = fill_color
     
     def transform_input(self, grid, taskvars):
         corner_color = taskvars['corner']
         background_color = taskvars['background']
         fill_color = taskvars['fill']
-        
-        # Copy the input grid
+
+        grid = np.array(grid)
         output_grid = grid.copy()
-        
-        # Step 1: Identify two corner cells that do not have a corner cell on the other end
-        connected_corners, missing_corner, bounds = self._identify_corner_cells_without_opposite(grid, corner_color)
-        
-        # Step 2: Make L-shape path between them (horizontal and vertical)
-        self._make_l_shape_path(output_grid, connected_corners, missing_corner, bounds, corner_color, fill_color)
-        
-        # Step 3: Make diagonal path between them
-        self._make_diagonal_path(output_grid, connected_corners, corner_color, fill_color)
-        
+
+        rows, cols = grid.shape
+
+        # ------------------------------------------------
+        # Find all corner cells
+        # ------------------------------------------------
+        corner_cells = []
+        for r in range(rows):
+            for c in range(cols):
+                if grid[r, c] == corner_color:
+                    corner_cells.append((r, c))
+
+        if len(corner_cells) != 4:
+            return output_grid
+
+        # ------------------------------------------------
+        # Compute bounding box
+        # ------------------------------------------------
+        rs = [r for r, c in corner_cells]
+        cs = [c for r, c in corner_cells]
+
+        min_r = min(rs)
+        max_r = max(rs)
+        min_c = min(cs)
+        max_c = max(cs)
+
+        expected_corners = [
+            (min_r, min_c),
+            (min_r, max_c),
+            (max_r, min_c),
+            (max_r, max_c)
+        ]
+
+        # ------------------------------------------------
+        # Find missing corner
+        # ------------------------------------------------
+        missing_corner = None
+        for corner in expected_corners:
+            if corner not in corner_cells:
+                missing_corner = corner
+                break
+
+        if missing_corner is None:
+            return output_grid
+
+        r_missing, c_missing = missing_corner
+
+        # ------------------------------------------------
+        # Identify the two corners to connect
+        # ------------------------------------------------
+        connected_corners = []
+        for r, c in corner_cells:
+            if r == r_missing or c == c_missing:
+                connected_corners.append((r, c))
+
+        if len(connected_corners) != 2:
+            return output_grid
+
+        # ------------------------------------------------
+        # Step 1: Fill missing corner
+        # ------------------------------------------------
+        output_grid[r_missing, c_missing] = fill_color
+
+        # ------------------------------------------------
+        # Step 2: L-shape path
+        # ------------------------------------------------
+        for c in range(min_c, max_c + 1):
+            if output_grid[r_missing, c] != corner_color:
+                output_grid[r_missing, c] = fill_color
+
+        for r in range(min_r, max_r + 1):
+            if output_grid[r, c_missing] != corner_color:
+                output_grid[r, c_missing] = fill_color
+
+        # ------------------------------------------------
+        # Step 3: Diagonal path
+        # ------------------------------------------------
+        (r1, c1), (r2, c2) = connected_corners
+
+        steps = max(abs(r2 - r1), abs(c2 - c1))
+
+        if steps > 0:
+            for i in range(steps + 1):
+
+                dr = r1 + (r2 - r1) * i // steps
+                dc = c1 + (c2 - c1) * i // steps
+
+                if output_grid[dr, dc] != corner_color:
+                    output_grid[dr, dc] = fill_color
+
         return output_grid
     
     def create_grids(self):
