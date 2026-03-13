@@ -26,20 +26,29 @@ class TaskM74QpxuqGDkZi2JanNPRZyGenerator(ARCTaskGenerator):
     def transform_input(self, grid: np.ndarray, taskvars: Dict[str, Any]) -> np.ndarray:
         rows, cols = grid.shape
         output_matrix = np.zeros((rows, cols), dtype=int)
+        
+        # Collect all colored (non-zero) cells from the input, reading row by row, left to right
+        colored_cells = []
         for row in range(rows):
-            color_position = np.where(grid[row] != 0)[0][0]  # Find the position of the colored cell
-            output_matrix[row, 0] = grid[row, color_position]  # Move it to the first column
+            for col in range(cols):
+                if grid[row, col] != 0:
+                    colored_cells.append(grid[row, col])
+        
+        # Place collected colored cells in the first column of the output, one per row
+        for row in range(min(rows, len(colored_cells))):
+            output_matrix[row, 0] = colored_cells[row]
+        
         return output_matrix
 
     def create_grids(self) -> Tuple[Dict[str, Any], TrainTestData]:
         num_matrices = np.random.randint(3, 7)  # Create 3-6 matrices
-        matrix_size = (
-            np.random.randint(5, 31),  # Random rows (5-30)
-            np.random.randint(5, 31)   # Random columns (5-30)
-        )
+        size_rows = np.random.randint(5, 31)  # Random rows (5-30)
+        size_cols = np.random.randint(5, 31)  # Random columns (5-30)
+        matrix_size = (size_rows, size_cols)
 
         taskvars = {
-            "size": matrix_size
+            "size_rows": size_rows,
+            "size_cols": size_cols
         }
 
         train_data = []

@@ -154,10 +154,25 @@ class Task3e6067c3Generator(ARCTaskGenerator):
 
         output = grid.copy()
 
-        object_color = taskvars['object_color']
-        background_color = taskvars['background_color']
-
         h, w = grid.shape
+
+        # Detect the background_color from the grid (should be the most common corner color)
+        corners = [grid[0, 0], grid[0, -1], grid[-1, 0], grid[-1, -1]]
+        background_color = max(set(corners), key=corners.count)
+
+        # Detect the object_color (block color) from the grid
+        # It should be the most common non-background color
+        color_counts = {}
+        for r in range(h):
+            for c in range(w):
+                color = grid[r, c]
+                if color != background_color:
+                    color_counts[color] = color_counts.get(color, 0) + 1
+        
+        if not color_counts:
+            return output
+        
+        object_color = max(color_counts, key=color_counts.get)
 
         visited = np.zeros_like(grid, dtype=bool)
         blocks = []
@@ -267,22 +282,25 @@ class Task3e6067c3Generator(ARCTaskGenerator):
             b1 = color_to_block[c1]
             b2 = color_to_block[c2]
 
-            r1,c1 = get_center(b1)
-            r2,c2 = get_center(b2)
+            r1, col1 = get_center(b1)
+            r2, col2 = get_center(b2)
 
-            r,c = r1,c1
+            r = r1
+            c = col1
+            
+            path_color = c1  # Use the starting block's interior color
 
-            # horizontal move
-            while c != c2:
-                c += 1 if c2 > c else -1
-                if output[r,c] == background_color:
-                    output[r,c] = sequence[i]
+            # horizontal move first
+            while c != col2:
+                c += 1 if col2 > c else -1
+                if 0 <= r < h and 0 <= c < w and output[r,c] == background_color:
+                    output[r,c] = path_color
 
-            # vertical move
+            # then vertical move
             while r != r2:
                 r += 1 if r2 > r else -1
-                if output[r,c] == background_color:
-                    output[r,c] = sequence[i]
+                if 0 <= r < h and 0 <= c < w and output[r,c] == background_color:
+                    output[r,c] = path_color
 
         return output
     

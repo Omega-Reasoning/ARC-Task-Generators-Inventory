@@ -248,18 +248,85 @@ class Task0607ce86Generator(ARCTaskGenerator):
         
         object_color = taskvars['object']
 
-        # Use stored num_objects to control how many blocks to output
-        num_objects = getattr(self, "_num_objects", None)
-        if num_objects == 6:
-            col_groups_from_num = 2
-            objects_per_group = 3
-        elif num_objects == 9:
-            col_groups_from_num = 3
-            objects_per_group = 3
-        else:
+        # Infer number of rectangular objects from the input grid (don't rely on self._num_objects)
+        seen = np.zeros(grid.shape, dtype=bool)
+        components = []
+        for i in range(grid.shape[0]):
+            for j in range(grid.shape[1]):
+                if not seen[i, j] and grid[i, j] != 0:
+                    coords = [(i, j)]
+                    seen[i, j] = True
+                    idx = 0
+                    while idx < len(coords):
+                        r0, c0 = coords[idx]
+                        idx += 1
+                        for dr, dc in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                            rr, cc = r0 + dr, c0 + dc
+                            if 0 <= rr < grid.shape[0] and 0 <= cc < grid.shape[1] and not seen[rr, cc] and grid[rr, cc] != 0:
+                                seen[rr, cc] = True
+                                coords.append((rr, cc))
+                    rows = [p[0] for p in coords]
+                    cols = [p[1] for p in coords]
+                    h = max(rows) - min(rows) + 1
+                    w = max(cols) - min(cols) + 1
+                    components.append((len(coords), h, w, min(rows), min(cols)))
+
+        # Filter components that look like rectangular objects
+        rects = [c for c in components if c[1] >= 3 and c[2] >= 3]
+        count_objects = len(rects)
+
+        if count_objects == 0:
             # Fallback (should rarely happen)
             col_groups_from_num = 3 if grid.shape[1] >= 25 else 2
             objects_per_group = 3
+        else:
+            # Decide column groups based on detected count (6 -> 2 groups, 9 -> 3 groups)
+            if count_objects <= 6:
+                col_groups_from_num = 2
+            else:
+                col_groups_from_num = 3
+            objects_per_group = max(1, count_objects // col_groups_from_num)
+
+        # Also infer row/column grouping from density to be more robust when
+        # connected-component detection undercounts due to scattered cells.
+        row_densities = [np.count_nonzero(grid[r_i, :]) for r_i in range(grid.shape[0])]
+        col_densities = [np.count_nonzero(grid[:, c_i]) for c_i in range(grid.shape[1])]
+
+        block_rows = [i for i, d in enumerate(row_densities) if d > np.mean(row_densities)]
+        block_cols = [i for i, d in enumerate(col_densities) if d > np.mean(col_densities)]
+
+        # cluster contiguous high-density rows into row groups
+        row_groups_list = []
+        current_group = []
+        for i in sorted(block_rows):
+            if not current_group or i == current_group[-1] + 1:
+                current_group.append(i)
+            else:
+                if current_group:
+                    row_groups_list.append(current_group)
+                current_group = [i]
+        if current_group:
+            row_groups_list.append(current_group)
+
+        # cluster contiguous high-density cols into col groups
+        col_groups_list = []
+        current_group = []
+        for i in sorted(block_cols):
+            if not current_group or i == current_group[-1] + 1:
+                current_group.append(i)
+            else:
+                if current_group:
+                    col_groups_list.append(current_group)
+                current_group = [i]
+        if current_group:
+            col_groups_list.append(current_group)
+
+        # Prefer density-derived groups when they look reasonable
+        if 2 <= len(col_groups_list) <= 3:
+            col_groups_from_num = len(col_groups_list)
+        if len(row_groups_list) > 0:
+            # approximate objects per vertical group
+            objects_per_group = max(1, len(row_groups_list))
         
         # -----------------------------
         # Step 1: find a symmetrical block
@@ -517,3 +584,4 @@ class Task0607ce86Generator(ARCTaskGenerator):
                     result[row_pos:row_pos+height, col_pos:col_pos+width] = basic_block
         
         return result
+
