@@ -33,18 +33,16 @@ class Task363442eeGenerator(ARCTaskGenerator):
         block = np.random.choice(block_colors, (3, 3))
         grid[:3, :3] = block
 
-        # Place several cell_color2 cells ensuring the required spacing
-        # By default create_input builds a base grid with the block and column filled.
-        # Placement of the {cell_color2} cells is handled in create_grids so that
-        # we can control counts and ensure the test count differs from the train counts.
-        # Here we only store the generated block so other code can reuse it if needed.
         gridvars.setdefault('base_block', grid[:3, :3].copy())
         return grid
     
-    def transform_input(self, grid: np.ndarray, gridvars: dict) -> np.ndarray:
-        cell_color2_positions = gridvars['cell_color2_positions']
+    def transform_input(self, grid: np.ndarray, taskvars: dict) -> np.ndarray:
+        cell_color2 = taskvars['cell_color2']
         transformed_grid = grid.copy()
         block = grid[:3, :3]  # Extract the original block
+
+        # Derive positions from the grid directly
+        cell_color2_positions = list(zip(*np.where(grid == cell_color2)))
 
         for r, c in cell_color2_positions:
             transformed_grid[r-1:r+2, c-1:c+2] = block
@@ -64,32 +62,25 @@ class Task363442eeGenerator(ARCTaskGenerator):
             'cell_color2': cell_color2
         }
         
-        # Build a shared base grid with only the fourth column filled. The 3x3 block
-        # will be re-randomized per example so train and test do not all share the
-        # exact same block colors.
         base_grid = np.zeros((rows, cols), dtype=int)
         base_grid[:, 3] = cell_color1
         block_colors = list(set(range(1, 10)) - {cell_color1, cell_color2})
 
         def new_block(used_blocks: set):
-            # Re-roll the 3x3 block until it differs from previously used ones.
             for _ in range(10):
                 candidate = np.random.choice(block_colors, (3, 3))
                 key = tuple(candidate.flatten())
                 if key not in used_blocks:
                     used_blocks.add(key)
                     return candidate
-            # Fallback if variety is exhausted (unlikely): return last candidate.
             used_blocks.add(tuple(candidate.flatten()))
             return candidate
 
         used_blocks = set()
 
-        # Candidate positions to the right of the fourth column where a 5x5 neighborhood fits
         available_positions = [(r, c) for r in range(2, rows-2) for c in range(6, cols-2)]
 
         def place_positions_for_count(base, count):
-            # Try to place exactly `count` cells respecting the 5x5 empty neighborhood rule.
             grid = base.copy()
             positions = []
             candidates = available_positions.copy()
@@ -100,48 +91,36 @@ class Task363442eeGenerator(ARCTaskGenerator):
                     positions.append((r, c))
                     if len(positions) >= count:
                         break
-            # If we couldn't place enough, return what we have (caller may handle)
             return grid, positions
 
-        # Choose a test count that will be strictly different from all train counts.
-        allowed_counts = list(range(3, 7))  # 3..6
+        allowed_counts = list(range(3, 7))
         n_train = random.randint(3, 4)
         test_count = random.choice(allowed_counts)
 
-        # For train examples, pick counts that are NOT equal to test_count
         train_allowed = [c for c in allowed_counts if c != test_count]
         train_examples = []
-        train_counts = []
         for _ in range(n_train):
             count = random.choice(train_allowed)
-            train_counts.append(count)
-            gridvars = {}
             base_with_block = base_grid.copy()
             base_with_block[:3, :3] = new_block(used_blocks)
             inp_grid, positions = place_positions_for_count(base_with_block, count)
-            gridvars['cell_color2_positions'] = positions
-            # If placement failed to reach requested count, try again with more shuffles up to a few times
             attempts = 0
             while len(positions) < count and attempts < 3:
                 inp_grid, positions = place_positions_for_count(base_with_block, count)
-                gridvars['cell_color2_positions'] = positions
                 attempts += 1
-            # finalize example (even if positions < count it's still a valid grid)
-            out_grid = inp_grid.copy()
-            train_examples.append({'input': inp_grid, 'output': self.transform_input(inp_grid, gridvars)})
+            train_examples.append({
+                'input': inp_grid,
+                'output': self.transform_input(inp_grid, taskvars)
+            })
 
-        # Create test example with a count different from all train counts
-        gridvars = {}
         base_with_block = base_grid.copy()
         base_with_block[:3, :3] = new_block(used_blocks)
         test_grid, test_positions = place_positions_for_count(base_with_block, test_count)
-        gridvars['cell_color2_positions'] = test_positions
         attempts = 0
         while len(test_positions) < test_count and attempts < 3:
             test_grid, test_positions = place_positions_for_count(base_with_block, test_count)
-            gridvars['cell_color2_positions'] = test_positions
             attempts += 1
-        test_output = self.transform_input(test_grid, gridvars)
+        test_output = self.transform_input(test_grid, taskvars)
         
         train_test_data = {
             'train': train_examples,
@@ -149,5 +128,3 @@ class Task363442eeGenerator(ARCTaskGenerator):
         }
         
         return taskvars, train_test_data
-    
-

@@ -23,18 +23,12 @@ class Taskea32f347(ARCTaskGenerator):
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
     
     def create_grids(self) -> Tuple[Dict[str, Any], TrainTestData]:
-        # Initialize task variables
         n = random.randint(10, 30)
         
-        # Generate bars with different lengths (minimum length of 2)
-        # Scale max bar length with grid size
         max_bar_length = min(n // 2, max(4, n // 3))
         available_lengths = list(range(2, max_bar_length + 1))
-        
-        # Number of bars is limited by available distinct lengths
         max_possible_bars = len(available_lengths)
         
-        # Calculate appropriate number of bars based on grid size AND available lengths
         if n <= 12:
             num_bars = random.randint(2, min(3, max_possible_bars))
         elif n <= 18:
@@ -42,22 +36,24 @@ class Taskea32f347(ARCTaskGenerator):
         else:
             num_bars = random.randint(3, min(6, max_possible_bars))
         
+        # Always sample 6 colors regardless of num_bars
+        colors = random.sample(range(1, 10), 6)
+
         taskvars = {
             'n': n,
             'num_bars': num_bars,
-            'object_color': random.randint(1, 9)
+            'object_color': random.randint(1, 9),
+            'color_0': colors[0],
+            'color_1': colors[1],
+            'color_2': colors[2],
+            'color_3': colors[3],
+            'color_4': colors[4],
+            'color_5': colors[5],
         }
         
-        # Generate unique colors for each bar (ordered from longest to shortest)
-        colors = random.sample(range(1, 10), num_bars)
-        for i, color in enumerate(colors):
-            taskvars[f'color_{i}'] = color
-        
-        # Ensure object_color is different from all bar colors
         while taskvars['object_color'] in colors:
             taskvars['object_color'] = random.randint(1, 9)
         
-        # Create 3-6 training examples and 1 test example
         num_train = random.randint(3, 6)
         
         def generate_examples(count):
@@ -76,17 +72,14 @@ class Taskea32f347(ARCTaskGenerator):
         return taskvars, train_test_data
     
     def is_bar_isolated(self, grid: np.ndarray, bar_cells: List[Tuple[int, int]], object_color: int) -> bool:
-        """Check if a bar doesn't touch any other bar (including diagonals)."""
         n = grid.shape[0]
         for r, c in bar_cells:
-            # Check all 8 neighbors (including diagonals)
             for dr in [-1, 0, 1]:
                 for dc in [-1, 0, 1]:
                     if dr == 0 and dc == 0:
                         continue
                     nr, nc = r + dr, c + dc
                     if 0 <= nr < n and 0 <= nc < n:
-                        # If neighbor has object_color but is not part of our bar, bars are touching
                         if grid[nr, nc] == object_color and (nr, nc) not in bar_cells:
                             return False
         return True
@@ -96,24 +89,17 @@ class Taskea32f347(ARCTaskGenerator):
         num_bars = taskvars['num_bars']
         object_color = taskvars['object_color']
         
-        # Retry logic for grid generation
         for attempt in range(20):
             try:
                 grid = np.zeros((n, n), dtype=int)
                 
-                # Generate bars with different lengths (minimum length of 2)
-                # Scale max bar length with grid size
                 max_bar_length = min(n // 2, max(4, n // 3))
                 available_lengths = list(range(2, max_bar_length + 1))
                 
-                # Ensure we have enough distinct lengths for the number of bars
                 if len(available_lengths) < num_bars:
                     raise ValueError(f"Not enough distinct lengths ({len(available_lengths)}) for {num_bars} bars")
                 
-                # Select distinct lengths for each bar
                 lengths = random.sample(available_lengths, num_bars)
-                
-                # Randomly decide orientation for each bar (horizontal or vertical)
                 bars_placed = 0
                 max_attempts = 1000
                 attempts = 0
@@ -122,33 +108,27 @@ class Taskea32f347(ARCTaskGenerator):
                     attempts += 1
                     length = lengths[bars_placed]
                     is_horizontal = random.choice([True, False])
-                    
-                    # Calculate margins based on grid size
-                    margin = max(1, n // 15)  # Smaller grids get smaller margins
+                    margin = max(1, n // 15)
                     
                     if is_horizontal:
-                        # Place horizontal bar with margin
                         if n - length - 2 * margin < 0:
                             continue
                         row = random.randint(margin, n - margin - 1)
                         col = random.randint(margin, n - length - margin)
                         bar_cells = [(row, c) for c in range(col, col + length)]
                         
-                        # Check if space is free and isolated
                         if (np.all(grid[row, col:col + length] == 0) and 
                             self.is_bar_isolated(grid, bar_cells, object_color)):
                             for r, c in bar_cells:
                                 grid[r, c] = object_color
                             bars_placed += 1
                     else:
-                        # Place vertical bar with margin
                         if n - length - 2 * margin < 0:
                             continue
                         col = random.randint(margin, n - margin - 1)
                         row = random.randint(margin, n - length - margin)
                         bar_cells = [(r, col) for r in range(row, row + length)]
                         
-                        # Check if space is free and isolated
                         if (np.all(grid[row:row + length, col] == 0) and 
                             self.is_bar_isolated(grid, bar_cells, object_color)):
                             for r, c in bar_cells:
@@ -161,7 +141,7 @@ class Taskea32f347(ARCTaskGenerator):
                 return grid
                 
             except ValueError:
-                if attempt == 19:  # Last attempt
+                if attempt == 19:
                     raise
                 continue
         
@@ -170,22 +150,25 @@ class Taskea32f347(ARCTaskGenerator):
     def transform_input(self, grid: np.ndarray, taskvars: Dict[str, Any]) -> np.ndarray:
         output_grid = grid.copy()
         num_bars = taskvars['num_bars']
-        
-        # Find all connected objects (bars)
+
+        colors = [
+            taskvars['color_0'],
+            taskvars['color_1'],
+            taskvars['color_2'],
+            taskvars['color_3'],
+            taskvars['color_4'],
+            taskvars['color_5'],
+        ][:taskvars['num_bars']]
+
         objects = find_connected_objects(grid, background=0)
-        
+
         if len(objects) > 0:
-            # Sort objects by length (size) in descending order
             sorted_objects = sorted(objects.objects, key=lambda obj: len(obj), reverse=True)
-            
-            # Recolor bars based on their rank by length
+
             for rank, bar_obj in enumerate(sorted_objects[:num_bars]):
-                color_key = f'color_{rank}'
-                if color_key in taskvars:
-                    bar_color = taskvars[color_key]
-                    # Recolor all cells of this bar
-                    for cell in bar_obj.cells:
-                        r, c, _ = cell if len(cell) == 3 else (cell[0], cell[1], None)
-                        output_grid[r, c] = bar_color
-        
+                bar_color = colors[rank]
+                for cell in bar_obj.cells:
+                    r, c, _ = cell if len(cell) == 3 else (cell[0], cell[1], None)
+                    output_grid[r, c] = bar_color
+
         return output_grid

@@ -109,21 +109,28 @@ class ARCTaskGenerator(ABC):
         Perform partial evaluation on a function by substituting task variables inline.
         """
         import inspect
+        import re
         source = inspect.getsource(func)
+        source = re.sub(r'def\s+(\w+)\s*\(([^)]*)\)', 
+                lambda m: f'def {m.group(1)}({" ".join(m.group(2).split())})', 
+                source, flags=re.DOTALL)
 
-        # We assume that taskvariables keys appear as taskvars['key'] in code and replace them with their chosen values.
         for k, v in taskvars.items():
-            # Replace taskvars['k'] and taskvars["k"] with str(v)
-            source = source.replace(f"taskvars['{k}']", str(v))
-            source = source.replace(f'taskvars["{k}"]', str(v))
+            val_repr = repr(v)
+        
+            # Replace standard bracket access
+            source = source.replace(f"taskvars['{k}']", val_repr)
+            source = source.replace(f'taskvars["{k}"]', val_repr)
+        
+            # Replace .get() access using regex
+            pattern = rf"taskvars\.get\(\s*['\"]{k}['\"]\s*(?:,\s*[^)]+)?\)"
+            source = re.sub(pattern, val_repr, source)
 
         lines = source.split('\n')
-        
         # Process each line
         for i, line in enumerate(lines):
-            if line.strip().startswith("def"):
+            if line.strip().startswith("def transform_input"):
                 # Extract the function name and return type
-                import re
                 pattern = r"def\s+(\w+)\s*\([^)]*\)\s*(->\s*[^:]+)?"
                 match = re.match(pattern, line.strip())
                 if match:

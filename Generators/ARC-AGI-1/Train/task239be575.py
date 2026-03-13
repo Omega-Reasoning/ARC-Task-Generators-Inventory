@@ -185,6 +185,7 @@ class Task239be575Generator(ARCTaskGenerator):
         return grid
 
     def transform_input(self, grid, taskvars):
+        from scipy import ndimage
         cell_color = taskvars['cell_color']
         
         # Find square objects

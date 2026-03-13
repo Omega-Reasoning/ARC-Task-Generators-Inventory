@@ -24,19 +24,15 @@ class Task08ed6ac7Generator(ARCTaskGenerator):
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
 
     def create_input(self, taskvars: dict, gridvars: dict) -> np.ndarray:
-        # Prefer explicit 'grid_size' taskvar, fall back to 'n' for compatibility
-        grid_size = taskvars.get('grid_size', taskvars.get('n'))
+        grid_size = taskvars['grid_size']
         input_color = taskvars['input_color']
 
         grid = np.zeros((grid_size, grid_size), dtype=int)
         
-        # Generate unique heights for each column
         available_heights = list(range(1, grid_size + 1))
-        # Number of columns to fill (every other column). Use (grid_size - 1)//2 per spec.
         num_columns = (grid_size - 1) // 2
         selected_heights = random.sample(available_heights, num_columns)
         
-        # Alternate columns filling logic with unique heights
         for i, col in enumerate(range(1, grid_size-1, 2)):
             stack_height = selected_heights[i]
             grid[grid_size - stack_height:, col] = input_color
@@ -44,28 +40,28 @@ class Task08ed6ac7Generator(ARCTaskGenerator):
         return grid
 
     def transform_input(self, grid: np.ndarray, taskvars: dict) -> np.ndarray:
-        grid_size = taskvars.get('grid_size', taskvars.get('n'))
+        grid_size = taskvars['grid_size']
 
-        # Collect mapping colors color_1..color_7 if present
-        colors = []
-        for i in range(1, 8):
-            key = f'color_{i}'
-            if key in taskvars:
-                colors.append(taskvars[key])
+        colors = [
+            taskvars['color_1'],
+            taskvars['color_2'],
+            taskvars['color_3'],
+            taskvars['color_4'],
+            taskvars['color_5'],
+            taskvars['color_6'],
+            taskvars['color_7'],
+        ]
 
         output_grid = grid.copy()
 
-        # Count non-zero cells in each column
         column_heights = []
         for col in range(grid_size):
             height = np.sum(grid[:, col] != 0)
-            if height > 0:  # Only include columns that have cells
+            if height > 0:
                 column_heights.append((col, height))
         
-        # Sort by height (ascending)
         column_heights.sort(key=lambda x: x[1])
 
-        # Assign colors based on sorted heights (only up to available colors)
         for i, (col, _) in enumerate(column_heights[:len(colors)]):
             mask = grid[:, col] != 0
             output_grid[mask, col] = colors[i]
@@ -73,12 +69,9 @@ class Task08ed6ac7Generator(ARCTaskGenerator):
         return output_grid
 
     def create_grids(self) -> Tuple[dict, TrainTestData]:
-        # Choose grid_size from odd sizes 5,7,9,...,29
         grid_size = random.choice(list(range(5, 16, 2)))
-        # Sample more colors: input_color + 7 mapping colors (total 8)
         colors = random.sample(range(1, 10), 8)
 
-        # Include both 'grid_size' and 'n' for compatibility with other code
         taskvars = {
             'grid_size': grid_size,
             'n': grid_size,
@@ -94,5 +87,3 @@ class Task08ed6ac7Generator(ARCTaskGenerator):
 
         train_test_data = self.create_grids_default(nr_train_examples=4, nr_test_examples=1, taskvars=taskvars)
         return taskvars, train_test_data
-
-

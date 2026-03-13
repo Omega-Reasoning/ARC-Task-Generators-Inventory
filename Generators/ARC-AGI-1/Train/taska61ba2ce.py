@@ -95,12 +95,12 @@ class Taska61ba2ceGenerator(ARCTaskGenerator):
         
         return grid
 
-    def transform_input(self, input_grid, taskvars):
+    def transform_input(self, grid, taskvars):
         # Output grid is always 4x4
         output_grid = np.zeros((4, 4), dtype=int)
         
         # Find all L shapes in the input grid
-        objects = find_connected_objects(input_grid, diagonal_connectivity=False, background=0)
+        objects = find_connected_objects(grid, diagonal_connectivity=False, background=0)
         
         # Map each L shape to its position in the output grid
         # Positions are: top-left, top-right, bottom-left, bottom-right corners
