@@ -1,124 +1,147 @@
-import random
 import numpy as np
+import random
+from typing import Dict, Any, Tuple
+
 from Framework.arc_task_generator import ARCTaskGenerator, GridPair, TrainTestData
-from Framework.transformation_library import find_connected_objects, GridObject
+from Framework.transformation_library import find_connected_objects, GridObject, GridObjects
+from Framework.input_library import retry
+
 
 class Taska9f96cddGenerator(ARCTaskGenerator):
+
     def __init__(self):
         input_reasoning_chain = [
-            "Input grids are grids of size {vars['grid_rows']} x {vars['grid_cols']}.",
-            "The grid consists of only one cell randomly placed on the grid of {color('main_color')} color."
+            "Input grids are of size {vars['rows']} × {vars['cols']}.",
+            "Each grid contains a single {color('cell_color1')} cell, while all remaining cells are empty (0).",
+            "The position of the {color('cell_color1')} cell must vary across examples.",
         ]
-        
+
         transformation_reasoning_chain = [
-            "The output grid is copied from the input grid.", 
-            "The main cell is not copied from the input grid.",
-            "For the transformation in the output grid, the position of the main cell plays an important role. First we need to check if there are cells available for 8 way connection from the main cell; if it is available, then fills 4 cells that are 8-way diagonally connected to the main cells with each cell of different colors namely {color('object_color1')}, {color('object_color2')}, {color('object_color3')} and {color('object_color4')}.",
-            "Note that the requirement is to fill only the available cells around the main cell with different colors. If there are fewer than 4 cells available around the main cell due to its position (e.g., if it is near or at the grid edge), then we should simply fill whatever cells are available.",
-            "The main cell color must not change."
+            "The output grids are constructed by copying the input grids and identifying the {color('cell_color1')} cell.",
+            "Once the {color('cell_color1')} cell is identified, four new cells are added diagonally adjacent to it.",
+            "The diagonal cells have fixed colors based on their positions: top-left → {color('cell_color2')}, top-right → {color('cell_color3')}, bottom-left → {color('cell_color4')}, and bottom-right → {color('cell_color5')}.",
+            "It is possible that not all four diagonal cells can be added due to space constraints (e.g., near grid boundaries), in which case only the valid diagonal neighbors are added.",
+            "Finally, the original {color('cell_color1')} cell is removed.",
         ]
-        
+
         super().__init__(input_reasoning_chain, transformation_reasoning_chain)
-    
-    def create_grids(self) -> tuple[dict[str, any], TrainTestData]:
-        """Create train and test grids with consistent variables."""
-        # Define color mapping
-        main_color = random.randint(1, 9)
-        
-        # Choose 4 distinct colors different from main_color
-        available_colors = [i for i in range(1, 10) if i != main_color]
-        object_colors = random.sample(available_colors, 4)
-        
-        # Set task variables with grid dimensions and colors
-        taskvars = {
-            "grid_rows": 3,
-            "grid_cols": 5,
-            "main_color": main_color,
-            "object_colors": object_colors,
-            "object_color1": object_colors[0],  # Top-left diagonal
-            "object_color2": object_colors[1],  # Top-right diagonal
-            "object_color3": object_colors[2],  # Bottom-left diagonal
-            "object_color4": object_colors[3]   # Bottom-right diagonal
-        }
-        
-        # Generate 3-5 training examples
-        num_train_examples = random.randint(3, 5)
-        train_examples = []
-        
-        # Create training examples
-        for i in range(num_train_examples):
-            input_grid = self.create_input(taskvars, {})
-            output_grid = self.transform_input(input_grid, taskvars)
-            
-            train_examples.append({
-                'input': input_grid,
-                'output': output_grid
-            })
-        
-        # Create test example
-        test_input = self.create_input(taskvars, {})
-        test_output = self.transform_input(test_input, taskvars)
-        
-        test_examples = [{
-            'input': test_input,
-            'output': test_output
-        }]
-        
-        return taskvars, {
-            'train': train_examples,
-            'test': test_examples
-        }
-    
-    def create_input(self, taskvars: dict[str, any], gridvars: dict[str, any]) -> np.ndarray:
-        """Create input grid with a single main cell."""
-        # Use fixed grid size from task variables
-        rows = taskvars['grid_rows']
-        cols = taskvars['grid_cols']
-        grid = np.zeros((rows, cols), dtype=np.int32)
-        
-        # Allow the main cell to be placed anywhere in the grid
-        # This creates more diversity including edge cases
-        row = random.randint(0, rows - 1)
-        col = random.randint(0, cols - 1)
-        
-        grid[row, col] = taskvars["main_color"]
-        
+
+    def create_input(self, taskvars: Dict[str, Any], gridvars: Dict[str, Any]) -> np.ndarray:
+        rows = taskvars['rows']
+        cols = taskvars['cols']
+
+        grid = np.zeros((rows, cols), dtype=int)
+
+        # Place the single colored cell at a position specified by gridvars (if given)
+        if 'cell_row' in gridvars and 'cell_col' in gridvars:
+            r = gridvars['cell_row']
+            c = gridvars['cell_col']
+        else:
+            r = random.randint(0, rows - 1)
+            c = random.randint(0, cols - 1)
+
+        grid[r, c] = taskvars['cell_color1']
         return grid
-    
-    def transform_input(self, grid: np.ndarray, taskvars: dict[str, any]) -> np.ndarray:
-        """Transform input by placing diagonal colors around the main cell."""
-        # Find the main cell
-        main_objects = find_connected_objects(grid, background=0)
-        main_cell = None
-        
-        for obj in main_objects.objects:  # Use .objects to access the list of objects
-            if taskvars["main_color"] in obj.colors:
-                main_cell = obj
-                break
-        
-        if main_cell is None:
-            return grid  # No main cell found
-        
-        # Get the position of the main cell
-        for r, c, color in main_cell.cells:
-            main_r, main_c = r, c
-            break
-        
-        # Create output grid without the main cell
-        output_grid = np.zeros_like(grid)
-        
-        # Define the 4 diagonal positions with their consistent color mapping
-        diagonal_positions = {
-            (-1, -1): taskvars["object_color1"],  # Top-left diagonal
-            (-1, 1): taskvars["object_color2"],   # Top-right diagonal
-            (1, -1): taskvars["object_color3"],   # Bottom-left diagonal
-            (1, 1): taskvars["object_color4"]     # Bottom-right diagonal
+
+    def transform_input(self, grid: np.ndarray, taskvars: Dict[str, Any]) -> np.ndarray:
+        output = grid.copy()
+        rows, cols = grid.shape
+
+        cell_color1 = taskvars['cell_color1']
+        cell_color2 = taskvars['cell_color2']  # top-left
+        cell_color3 = taskvars['cell_color3']  # top-right
+        cell_color4 = taskvars['cell_color4']  # bottom-left
+        cell_color5 = taskvars['cell_color5']  # bottom-right
+
+        # Find the single colored cell
+        positions = np.argwhere(grid == cell_color1)
+        if len(positions) == 0:
+            return output
+
+        r, c = positions[0]
+
+        # Remove original cell
+        output[r, c] = 0
+
+        # Add diagonal neighbors if within bounds
+        diagonals = [
+            (r - 1, c - 1, cell_color2),  # top-left
+            (r - 1, c + 1, cell_color3),  # top-right
+            (r + 1, c - 1, cell_color4),  # bottom-left
+            (r + 1, c + 1, cell_color5),  # bottom-right
+        ]
+
+        for nr, nc, color in diagonals:
+            if 0 <= nr < rows and 0 <= nc < cols:
+                output[nr, nc] = color
+
+        return output
+
+    def create_grids(self) -> Tuple[Dict[str, Any], TrainTestData]:
+        rows = random.randint(5, 15)
+        cols = random.randint(5, 15)
+
+        # Pick 5 distinct non-zero colors
+        colors = random.sample(range(1, 10), 5)
+        cell_color1, cell_color2, cell_color3, cell_color4, cell_color5 = colors
+
+        taskvars = {
+            'rows': rows,
+            'cols': cols,
+            'cell_color1': cell_color1,
+            'cell_color2': cell_color2,
+            'cell_color3': cell_color3,
+            'cell_color4': cell_color4,
+            'cell_color5': cell_color5,
         }
-        
-        # Fill each diagonal position if it's within bounds
-        for (dr, dc), color in diagonal_positions.items():
-            new_r, new_c = main_r + dr, main_c + dc
-            if 0 <= new_r < grid.shape[0] and 0 <= new_c < grid.shape[1]:
-                output_grid[new_r, new_c] = color
-        
-        return output_grid
+
+        nr_train = random.randint(3, 6)
+
+        train_examples = []
+        used_positions = set()
+
+        # Ensure at least one example where the cell has a 1-cell-wide empty frame (interior cell)
+        # Interior means: row in [1, rows-2], col in [1, cols-2]
+        interior_rows = list(range(1, rows - 1))
+        interior_cols = list(range(1, cols - 1))
+
+        if interior_rows and interior_cols:
+            interior_r = random.choice(interior_rows)
+            interior_c = random.choice(interior_cols)
+            gridvars_interior = {'cell_row': interior_r, 'cell_col': interior_c}
+            input_grid = self.create_input(taskvars, gridvars_interior)
+            output_grid = self.transform_input(input_grid, taskvars)
+            train_examples.append({'input': input_grid, 'output': output_grid})
+            used_positions.add((interior_r, interior_c))
+
+        # Generate remaining training examples with varied positions
+        attempts = 0
+        while len(train_examples) < nr_train and attempts < 200:
+            attempts += 1
+            r = random.randint(0, rows - 1)
+            c = random.randint(0, cols - 1)
+            if (r, c) not in used_positions:
+                used_positions.add((r, c))
+                gridvars = {'cell_row': r, 'cell_col': c}
+                input_grid = self.create_input(taskvars, gridvars)
+                output_grid = self.transform_input(input_grid, taskvars)
+                train_examples.append({'input': input_grid, 'output': output_grid})
+
+        # Test example: pick a position not used in training
+        test_r, test_c = retry(
+            lambda: (random.randint(0, rows - 1), random.randint(0, cols - 1)),
+            lambda pos: pos not in used_positions
+        )
+        gridvars_test = {'cell_row': test_r, 'cell_col': test_c}
+        test_input = self.create_input(taskvars, gridvars_test)
+        test_output = self.transform_input(test_input, taskvars)
+
+        train_test_data: TrainTestData = {
+            'train': train_examples,
+            'test': [{'input': test_input, 'output': test_output}]
+        }
+
+        return taskvars, train_test_data
+
+
+
