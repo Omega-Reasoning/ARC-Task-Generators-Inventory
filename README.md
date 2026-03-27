@@ -34,8 +34,8 @@ The `Generators/` directory contains three main subfolders: **ARC-AGI-1**, **ARC
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/Omega-Reasoning/ARC-Task-Generators.git
-cd ARC-Task-Generators
+git clone https://github.com/Omega-Reasoning/ARC-Task-Generators-Inventory.git
+cd ARC-Task-Generators-Inventory
 ```
 
 2. Create and activate a virtual environment:
